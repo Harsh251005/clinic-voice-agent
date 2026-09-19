@@ -1,5 +1,12 @@
 [project]
-name = "backend"
+name = "clinic-voice-agent"
 version = "0.1.0"
+description = "Hindi/Hinglish voice receptionist for Indian clinics"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "livekit-agents[sarvam]>=1.8.2",
+    "python-dotenv>=1.0.0",
+]
+
+[tool.uv]
+package = false
