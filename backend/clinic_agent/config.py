@@ -88,7 +88,7 @@ def load_settings() -> Settings:
         stt_sample_rate=int(_number("STT_SAMPLE_RATE", 16000)),
         llm_model=_text("LLM_MODEL", "sarvam-105b-conversations"),
         tts_model=_text("TTS_MODEL", "bulbul:v3"),
-        tts_speaker=_text("TTS_SPEAKER", "anushka"),
+        tts_speaker=_text("TTS_SPEAKER", "suhani"),
         tts_language=_text("TTS_LANGUAGE", "en-IN"),
         tts_sample_rate=int(_number("TTS_SAMPLE_RATE", 24000)),
         tts_codec=_text("TTS_CODEC", "linear16"),
