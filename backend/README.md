@@ -76,6 +76,7 @@ main.py                 entrypoint — console | dev | start
         ├── db.py       engine + sessions from DATABASE_URL
         ├── models.py   clinics, FAQ, doctors, hours, time off, patients, appointments
         └── repo.py     every query the agent and dashboard make
+    scheduling.py       free-slot rules — pure functions, no DB, no LiveKit
 seeds/demo_clinic.py    fictional clinic for tests and a first run
 ```
 
@@ -94,6 +95,10 @@ write the same tables through `store/repo.py`.
 - **Split shifts** are several `doctor_hours` rows for one weekday (e.g.
   10–1 and 5–8). **Time off** with no doctor is a whole-clinic holiday.
 - One patient per phone number per clinic; the latest name given wins.
+- **Free slots** (`scheduling.py`): a slot must fit inside a sitting, not
+  overlap any booking (ranges, so changing slot length stays safe), and start
+  at least 30 minutes from now. Days in the past or beyond the clinic's
+  booking window (default 30 days) are refused with a reason the agent can say.
 - Times are stored naive, in the clinic's timezone (`Asia/Kolkata`).
 - Tables are created with `create_all()`. Migrations (Alembic) come before
   any real clinic's data exists.

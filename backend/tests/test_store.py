@@ -52,7 +52,7 @@ def test_cancelled_slot_can_be_rebooked(db):
     first = repo.book(s, clinic_id, doctor.id, slot, "Ravi", "9876543210")
     repo.cancel_appointment(s, first.id)
     repo.book(s, clinic_id, doctor.id, slot, "Sunita", "9123456780")
-    assert repo.booked_starts(s, doctor.id, slot.date()) == {slot}
+    assert repo.booked_intervals(s, doctor.id, slot.date()) == [(slot, datetime(2026, 9, 22, 10, 15))]
 
 
 def test_same_phone_is_one_patient_latest_name_wins(db):
@@ -72,12 +72,14 @@ def test_doctor_from_another_clinic_cannot_be_booked(db):
         repo.book(s, other.id, doctor.id, datetime(2026, 9, 22, 10), "Ravi", "9876543210")
 
 
-def test_booked_starts_is_per_day(db):
+def test_booked_intervals_are_per_day(db):
     s, clinic_id = db
     doctor = _asha(s, clinic_id)
     repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 22, 10, 0), "A", "9000000001")
     repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 23, 10, 0), "B", "9000000002")
-    assert repo.booked_starts(s, doctor.id, date(2026, 9, 22)) == {datetime(2026, 9, 22, 10, 0)}
+    assert repo.booked_intervals(s, doctor.id, date(2026, 9, 22)) == [
+        (datetime(2026, 9, 22, 10, 0), datetime(2026, 9, 22, 10, 15))
+    ]
 
 
 def test_time_off_overlap_includes_clinic_holidays(db):

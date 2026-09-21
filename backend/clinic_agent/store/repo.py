@@ -161,17 +161,18 @@ def time_off_overlapping(
 
 # ---------- appointments ----------
 
-def booked_starts(s: Session, doctor_id: int, day: date) -> set[datetime]:
-    """Start times already taken for this doctor on this day."""
+def booked_intervals(s: Session, doctor_id: int, day: date) -> list[tuple[datetime, datetime]]:
+    """(start, end) of the doctor's booked appointments on this day."""
     start = datetime.combine(day, time.min)
-    return set(s.scalars(
-        select(Appointment.starts_at).where(
+    rows = s.execute(
+        select(Appointment.starts_at, Appointment.ends_at).where(
             Appointment.doctor_id == doctor_id,
             Appointment.status == "booked",
             Appointment.starts_at >= start,
             Appointment.starts_at < start + timedelta(days=1),
         )
-    ))
+    )
+    return [(a, b) for a, b in rows]
 
 
 def appointments_on(
