@@ -55,13 +55,40 @@ def test_cancelled_slot_can_be_rebooked(db):
     assert repo.booked_intervals(s, doctor.id, slot.date()) == [(slot, datetime(2026, 9, 22, 10, 15))]
 
 
-def test_same_phone_is_one_patient_latest_name_wins(db):
+def test_family_sharing_a_phone_are_separate_patients(db):
+    # The reported bug: booking for Yash on Harsh's number renamed Harsh.
     s, clinic_id = db
     doctor = _asha(s, clinic_id)
-    a = repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 22, 10, 0), "Ravi", "9876543210")
-    b = repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 23, 10, 0), "Ravi Kumar", "9876543210")
+    harsh = repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 22, 10, 0), "Harsh", "8928803112")
+    yash = repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 22, 10, 15), "Yash", "8928803112")
+    s.expire_all()
+    assert harsh.patient_id != yash.patient_id
+    assert repo.get_appointment(s, harsh.id).patient.name == "Harsh"
+    assert repo.get_appointment(s, yash.id).patient.name == "Yash"
+
+
+def test_same_name_in_other_case_is_the_same_patient_and_keeps_its_spelling(db):
+    s, clinic_id = db
+    doctor = _asha(s, clinic_id)
+    a = repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 22, 10, 0), "Harsh", "8928803112")
+    b = repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 23, 10, 0), " harsh ", "8928803112")
     assert a.patient_id == b.patient_id
-    assert b.patient.name == "Ravi Kumar"
+    assert b.patient.name == "Harsh"
+
+
+def test_other_constraint_errors_are_not_reported_as_slot_taken(db):
+    # A 'slot taken' reply for a different failure would send callers chasing
+    # other times; anything but the slot index must surface as itself.
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    s, clinic_id = db
+    s.execute(text("CREATE UNIQUE INDEX one_patient_per_phone ON patients (clinic_id, phone)"))
+    s.commit()
+    doctor = _asha(s, clinic_id)
+    repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 22, 10, 0), "Harsh", "8928803112")
+    with pytest.raises(IntegrityError):
+        repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 22, 10, 15), "Yash", "8928803112")
 
 
 def test_doctor_from_another_clinic_cannot_be_booked(db):

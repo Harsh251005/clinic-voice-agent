@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -220,9 +220,11 @@ def book(
     s.add(appt)
     try:
         s.commit()
-    except IntegrityError:
+    except IntegrityError as err:
         s.rollback()
-        raise SlotTaken(f"doctor {doctor_id} is already booked at {starts_at}") from None
+        if _is_slot_clash(err):
+            raise SlotTaken(f"doctor {doctor_id} is already booked at {starts_at}") from None
+        raise
     return appt
 
 
@@ -262,9 +264,11 @@ def move_appointment(
     appt.ends_at = starts_at + timedelta(minutes=doctor.slot_minutes)
     try:
         s.commit()
-    except IntegrityError:
+    except IntegrityError as err:
         s.rollback()
-        raise SlotTaken(f"doctor {doctor_id} is already booked at {starts_at}") from None
+        if _is_slot_clash(err):
+            raise SlotTaken(f"doctor {doctor_id} is already booked at {starts_at}") from None
+        raise
     s.refresh(appt)
     return appt
 
@@ -279,16 +283,29 @@ def cancel_appointment(s: Session, appointment_id: int) -> Appointment:
 # ---------- helpers ----------
 
 def _patient(s: Session, clinic_id: int, name: str, phone: str) -> Patient:
-    """One patient per phone number per clinic; the latest name given wins."""
+    """The patient with this phone and name (case-insensitive), or a new one.
+
+    Never renames: a second name on the same phone is a second person, not a
+    correction, so existing appointments keep the name they were booked under.
+    """
     patient = s.scalar(
-        select(Patient).where(Patient.clinic_id == clinic_id, Patient.phone == phone)
+        select(Patient).where(
+            Patient.clinic_id == clinic_id,
+            Patient.phone == phone,
+            func.lower(Patient.name) == name.strip().lower(),
+        )
     )
     if patient is None:
-        patient = Patient(clinic_id=clinic_id, name=name, phone=phone)
+        patient = Patient(clinic_id=clinic_id, name=name.strip(), phone=phone)
         s.add(patient)
-    else:
-        patient.name = name
     return patient
+
+
+def _is_slot_clash(err: IntegrityError) -> bool:
+    """Whether the violation is the one-booking-per-slot index, and not some
+    other constraint that must not be reported to a caller as 'slot taken'."""
+    text = str(err.orig)
+    return "uq_doctor_slot_booked" in text or "appointments.doctor_id, appointments.starts_at" in text
 
 
 def _get(s: Session, model, row_id: int):

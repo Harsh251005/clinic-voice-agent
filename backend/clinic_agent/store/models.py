@@ -91,8 +91,11 @@ class TimeOff(Base):
 
 
 class Patient(Base):
+    """A person, identified by phone number *and* name: one phone is often
+    shared by a family (a parent booking for their children)."""
+
     __tablename__ = "patients"
-    __table_args__ = (UniqueConstraint("clinic_id", "phone"),)
+    __table_args__ = (UniqueConstraint("clinic_id", "phone", "name"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     clinic_id: Mapped[int] = mapped_column(ForeignKey("clinics.id", ondelete="CASCADE"))

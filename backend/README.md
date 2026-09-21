@@ -162,14 +162,18 @@ write the same tables through `store/repo.py`.
   raises `repo.SlotTaken`; a cancelled slot can be rebooked.
 - **Split shifts** are several `doctor_hours` rows for one weekday (e.g.
   10–1 and 5–8). **Time off** with no doctor is a whole-clinic holiday.
-- One patient per phone number per clinic; the latest name given wins.
+- **A patient is a phone number plus a name**, so one phone can hold a whole
+  family (a parent booking for their children). The same name in another
+  case is the same person; a new name is a new person, never a rename.
 - **Free slots** (`scheduling.py`): a slot must fit inside a sitting, not
   overlap any booking (ranges, so changing slot length stays safe), and start
   at least 30 minutes from now. Days in the past or beyond the clinic's
   booking window (default 30 days) are refused with a reason the agent can say.
 - Times are stored naive, in the clinic's timezone (`Asia/Kolkata`).
-- Tables are created with `create_all()`. Migrations (Alembic) come before
-  any real clinic's data exists.
+- Tables are created with `create_all()`, and `store/migrations.py` upgrades
+  older SQLite databases in place on start (backing the file up first as
+  `clinic.db.bak-<time>`). It is a stopgap: Alembic comes before any real
+  clinic's data exists.
 - Moving to Postgres: set `DATABASE_URL=postgresql+psycopg://…` and add the
   driver. No code changes.
 
