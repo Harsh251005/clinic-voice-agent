@@ -58,6 +58,11 @@ div[data-testid="stForm"] { padding: 1.1rem 1.2rem; }
 }
 .stButton button[kind="primary"]:hover, .stFormSubmitButton button:hover { background: #115E59; }
 .stButton button[kind="secondary"] { border-radius: 10px; border-color: var(--line); }
+div[data-testid="stMetric"] {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 0.8rem 1rem; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+div[data-testid="stMetricValue"] { color: var(--brand) !important; font-weight: 700; }
 section[data-testid="stSidebar"] { background: #FFFFFF; border-right: 1px solid var(--line); }
 .brand { font-weight: 700; font-size: 1.1rem; color: var(--ink); }
 .brand span { color: var(--brand); }

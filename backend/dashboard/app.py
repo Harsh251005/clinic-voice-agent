@@ -31,6 +31,7 @@ with st.sidebar:
         st.session_state["clinic_id"] = None
 
 page = st.navigation([
-    st.Page("pages/setup.py", title="Clinic setup", icon=":material/tune:", default=True),
+    st.Page("pages/appointments.py", title="Appointments", icon=":material/event:", default=True),
+    st.Page("pages/setup.py", title="Clinic setup", icon=":material/tune:"),
 ])
 page.run()

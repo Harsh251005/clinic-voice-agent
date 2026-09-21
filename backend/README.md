@@ -47,9 +47,16 @@ minutes per month. `console` spends none of them.
 
 ## Dashboard
 
-Clinic setup for staff: details, booking rules, doctors, weekly hours (split
-shifts), leave and holidays, and FAQ answers. Everything the agent knows about
-a clinic is entered here.
+Two pages for clinic staff:
+
+- **Appointments** (the landing page) — one day at a time, grouped by doctor,
+  each tagged *Call* (booked by the agent) or *Staff*. Counters for the day,
+  bookings from calls, and the next seven days. Cancelling takes two clicks
+  (Cancel → Yes, cancel); cancelled slots become bookable again. Lists page
+  at 25 rows.
+- **Clinic setup** — details, booking rules, doctors, weekly hours (split
+  shifts), leave and holidays, and FAQ answers. Everything the agent knows
+  about a clinic is entered here.
 
 ```bash
 uv run streamlit run dashboard/app.py   # run from backend/ — .streamlit/ lives here
@@ -126,7 +133,7 @@ write the same tables through `store/repo.py`.
     turns a lost race into "just taken — offer these instead".
   - Database work runs in a worker thread so a slow query never stalls audio.
     Tool errors reach the LLM as plain sentences it can relay.
-  - Callers cannot cancel or reschedule yet; staff can, from the dashboard (next).
+  - Callers cannot cancel or reschedule yet; staff can cancel from the dashboard.
 - **Startup refuses to run** if `CLINIC_ID` isn't in the database, naming the
   fix (create it in the dashboard, or seed the demo clinic).
 
