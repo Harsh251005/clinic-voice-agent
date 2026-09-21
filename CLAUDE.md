@@ -28,7 +28,12 @@ Prefer `console` for testing. `dev`/`start` need the three `LIVEKIT_*` values
 and spend from LiveKit Cloud's free tier (1,000 agent-session minutes/month).
 All modes spend Sarvam credits, which are shared across STT, LLM and TTS.
 
-There is no test suite, linter or formatter configured.
+```bash
+uv run pytest                    # offline tests: config, providers, session, boot
+uv run pytest -m live            # calls real Sarvam with the .env key; spends credits
+```
+
+No linter or formatter is configured.
 
 ## Architecture
 
