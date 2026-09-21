@@ -1,14 +1,23 @@
-"""The agent's persona.
+"""The agent's instructions, built per call from the clinic's own data.
 
-Stage 1 has no tools and no clinic data. The prompt may only describe what the
-agent can actually do: talk. It must never promise an action nothing performs
-(checking, holding, taking a message, a callback) - a caller who is promised a
-callback and never gets one is worse off than one told plainly "not yet".
-When a stage adds a real capability, add it here in the same change.
+The persona rules are fixed; the facts section is generated from the
+database, so the agent says only what the clinic entered in the dashboard.
+The rules may only describe what is built: never promise an action nothing
+performs (checking, holding, taking a message, a callback). When a stage adds
+a capability, add it here in the same change.
 """
 
-SYSTEM_PROMPT = """
-You are the receptionist for a family clinic in India, answering the phone.
+from __future__ import annotations
+
+from collections.abc import Iterable
+from datetime import datetime
+
+from clinic_agent.store.models import Clinic, Doctor, TimeOff
+
+DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+RULES = """
+You are the receptionist for {clinic_name}, a clinic in India, answering the phone.
 
 How you speak:
 - Speak the way the caller speaks. If they use Hindi, reply in Hindi. If they
@@ -28,14 +37,15 @@ pronunciation):
   "aap kaise hain".
 - Only when the caller speaks plain English, reply in English in Roman letters.
 
-What you can do on this call: talk with the caller, understand what they need,
-and answer honestly. Nothing else. You cannot look anything up, book, cancel,
-take a message, put anyone on hold, transfer the call, or arrange a callback.
+What you can do on this call: answer questions about the clinic from the
+CLINIC FACTS below, understand what the caller needs, and answer honestly.
+Nothing else. You cannot book, cancel, take a message, put anyone on hold,
+transfer the call, or arrange a callback.
 
 What you must not do:
-- Do not invent clinic details. You do not know the doctors' names, timings,
-  fees or address. If asked, say plainly that you cannot help with that on
-  this call yet.
+- State clinic facts only from CLINIC FACTS. If something is not there, say
+  plainly that you don't have that information. Never guess a name, time,
+  fee or address.
 - Do not promise any action you cannot do: no "I will check", no "please
   hold", no "I will note your number", no "someone will call you back".
 - Do not give medical advice, suggest medicines or interpret symptoms.
@@ -47,5 +57,75 @@ Emergencies come first:
   and not to wait for the clinic. In Hindi say "एक सौ आठ" and "एक सौ बारह".
 
 Open the call with a short, warm greeting in Hinglish, written in Devanagari,
-and ask how you can help.
+that names the clinic, and ask how you can help.
 """.strip()
+
+
+def build_instructions(clinic: Clinic, time_off: Iterable[TimeOff], now: datetime) -> str:
+    return RULES.format(clinic_name=clinic.name) + "\n\n" + clinic_facts(clinic, time_off, now)
+
+
+def clinic_facts(clinic: Clinic, time_off: Iterable[TimeOff], now: datetime) -> str:
+    doctors = [d for d in clinic.doctors if d.active]
+    names = {d.id: d.name for d in clinic.doctors}
+    lines = [
+        "CLINIC FACTS (the only facts you may state):",
+        f"- Right now it is {now.strftime('%A, %d %B %Y, %H:%M')} at the clinic.",
+        f"- Name: {clinic.name}",
+    ]
+    if clinic.address:
+        lines.append(f"- Address: {clinic.address}")
+    if clinic.phone:
+        lines.append(f"- Phone: {clinic.phone}")
+
+    lines.append("- Doctors:" if doctors else "- Doctors: none listed.")
+    for d in doctors:
+        detail = ", ".join(x for x in [d.specialty, f"fee ₹{d.fee}" if d.fee else ""] if x)
+        lines.append(f"  - {d.name}{f' ({detail})' if detail else ''}: {weekly_hours(d)}")
+
+    closures = [
+        f"  - {names.get(t.doctor_id, 'Whole clinic closed') if t.doctor_id else 'Whole clinic closed'}"
+        f"{' on leave' if t.doctor_id else ''}: {_span(t)}{f' ({t.reason})' if t.reason else ''}"
+        for t in time_off
+    ]
+    if closures:
+        lines.append("- Upcoming leave and holidays:")
+        lines.extend(closures)
+
+    if clinic.faq:
+        lines.append("- Other answers the clinic has given:")
+        lines.extend(f"  - Q: {f.question} A: {f.answer}" for f in clinic.faq)
+    return "\n".join(lines)
+
+
+def weekly_hours(doctor: Doctor) -> str:
+    """'Monday to Saturday 10:00-13:00 and 17:00-20:00; Sunday closed' style."""
+    by_day = {
+        day: tuple((h.start, h.end) for h in doctor.hours if h.weekday == day)
+        for day in range(7)
+    }
+    if not any(by_day.values()):
+        return "no regular hours set"
+
+    groups: list[tuple[list[int], tuple]] = []
+    for day in range(7):
+        if groups and groups[-1][1] == by_day[day] and groups[-1][0][-1] == day - 1:
+            groups[-1][0].append(day)
+        else:
+            groups.append(([day], by_day[day]))
+
+    parts = []
+    for days, sittings in groups:
+        label = DAY_NAMES[days[0]] if len(days) == 1 else f"{DAY_NAMES[days[0]]} to {DAY_NAMES[days[-1]]}"
+        if sittings:
+            times = " and ".join(f"{a:%H:%M}-{b:%H:%M}" for a, b in sittings)
+            parts.append(f"{label} {times}")
+        else:
+            parts.append(f"{label} not available")
+    return "; ".join(parts)
+
+
+def _span(t: TimeOff) -> str:
+    if t.date_from == t.date_to:
+        return t.date_from.strftime("%A %d %B")
+    return f"{t.date_from:%d %B} to {t.date_to:%d %B}"

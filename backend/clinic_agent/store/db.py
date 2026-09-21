@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 from sqlalchemy import Engine, create_engine, event
@@ -32,3 +33,11 @@ def init_db(engine: Engine) -> None:
 
 def session_factory(engine: Engine) -> sessionmaker[Session]:
     return sessionmaker(engine, expire_on_commit=False)
+
+
+@lru_cache
+def sessions_for(url: str) -> sessionmaker[Session]:
+    """One engine per database URL per process, shared by every call."""
+    engine = make_engine(url)
+    init_db(engine)
+    return session_factory(engine)

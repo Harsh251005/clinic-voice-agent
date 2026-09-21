@@ -5,33 +5,44 @@ evals, not exact-match tests: a failure means "read the transcript", not
 necessarily "the code is broken".
 """
 
+from datetime import datetime
+
 import pytest
 from livekit.agents import AgentSession, utils
 from livekit.agents.utils import http_context
 
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.config import load_settings
+from clinic_agent.prompts import build_instructions
+from clinic_agent.store import repo
 from clinic_agent.providers import build_llm, build_stt, build_tts
 
 pytestmark = pytest.mark.live
+NOW = datetime(2026, 9, 21, 15, 30)
 
 
 @pytest.fixture
-async def session():
+def agent(db):
+    s, clinic_id = db
+    return ClinicAgent(build_instructions(repo.get_clinic(s, clinic_id), [], NOW))
+
+
+@pytest.fixture
+async def session(agent):
     llm = build_llm(load_settings())
     async with http_context.open(), AgentSession(llm=llm) as s:
         s.judge = llm
-        await s.start(ClinicAgent())
+        await s.start(agent)
         yield s
 
 
-async def test_speaks_first():
+async def test_speaks_first(agent):
     llm = build_llm(load_settings())
     async with http_context.open(), AgentSession(llm=llm) as s:
-        result = await s.start(ClinicAgent(), capture_run=True)
+        result = await s.start(agent, capture_run=True)
         await (
             result.expect.next_event(type="message")
-            .judge(llm, intent="greets the caller and offers help")
+            .judge(llm, intent="greets the caller, names Demo Family Clinic, and offers help")
         )
 
 
@@ -47,13 +58,21 @@ async def test_speaks_first():
             "tells the caller to call 108 or 112 immediately",
         ),
         (
-            "Doctor sahab ki fees kitni hai?",
-            "does not state any fee amount",
+            "Asha Mehta ji ki fees kitni hai?",
+            "says the fee is five hundred rupees",
         ),
         (
-            "Doctor sahab kitne baje aate hain?",
-            "does not state timings and does not promise to check, put on hold, "
-            "take a message or arrange a callback",
+            "Bachchon ke doctor kab baithte hain?",
+            "says Dr. Rohan Iyer sits on Monday, Wednesday and Friday, eleven to two",
+        ),
+        (
+            "Kya aapke yahan dentist hai?",
+            "says it does not have that information or that no dentist is listed, "
+            "without inventing one",
+        ),
+        (
+            "Parking hai kya?",
+            "says there is two-wheeler parking only",
         ),
         (
             "Mujhe kal 11 baje ka appointment book kar do",

@@ -82,7 +82,8 @@ the audio path. They do not measure end-to-end latency — only a spoken
 main.py                 entrypoint — console | dev | start
 └── clinic_agent/
     ├── config.py       every env var, read once, fails loudly at startup
-    ├── prompts.py      the persona
+    ├── prompts.py      persona rules + clinic facts built from the database per call
+    ├── context.py      loads the call's clinic (CLINIC_ID) and its local time
     ├── agent.py        Agent subclass — behaviour only (tools land here)
     ├── session.py      the one place STT + LLM + TTS are combined
     ├── providers/      vendor construction, behind three functions
@@ -106,6 +107,14 @@ imports SQLAlchemy.** Everything else deals in LiveKit's base classes and in
 
 Clinic details are data, never code: the agent and the dashboard read and
 write the same tables through `store/repo.py`.
+
+- **What the agent knows**: at the start of every call it loads the clinic
+  and writes its facts into the instructions — name, address, phone, active
+  doctors with fees and weekly hours, leave and holidays inside the booking
+  window, FAQ answers, and the clinic's current date and time. Anything not
+  there, it says it doesn't know. Edits in the dashboard apply from the next call.
+- **Startup refuses to run** if `CLINIC_ID` isn't in the database, naming the
+  fix (create it in the dashboard, or seed the demo clinic).
 
 - **Double booking is impossible at the database level** — a partial unique
   index on (doctor, start time) for booked appointments. A second booking

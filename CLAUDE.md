@@ -9,11 +9,13 @@ A Hindi/Hinglish voice receptionist for Indian clinics. All code lives in
 ElevenLabs TTS (switched from all-Sarvam to save Sarvam credits; Sarvam
 builders stay registered — switch back in `.env`, don't comment code out).
 
-Current state is **Stage 1 — a talking loop only**. No tools, database,
-booking or telephony yet; those are later stages. The system prompt
-(`clinic_agent/prompts.py`) may only describe what is built: no promised
-checks, holds, messages or callbacks. Add a capability to it in the same
-change that builds it.
+Current state: **Stage 2 in progress** (plan:
+`~/.claude/plans/distributed-munching-wall.md`). Done: clinic database, free-slot
+rules, Streamlit setup dashboard, agent answering from clinic data. Next:
+booking tools, appointments page, end-call tool. No telephony yet. The
+instructions (`clinic_agent/prompts.py`) may only describe what is built: no
+promised checks, holds, messages or callbacks. Add a capability to them in the
+same change that builds it.
 
 ## Commands
 
@@ -44,15 +46,22 @@ No linter or formatter is configured.
 The pipeline is split so each concern lives in exactly one module:
 
 - `main.py` — validates config *before* `cli.run_app` starts the worker
-  (a `ConfigError` exits with a one-line message, not a traceback), then each
-  job builds a session and starts `ClinicAgent` in the room.
+  (a `ConfigError`, unknown provider, missing key or missing `CLINIC_ID` exits
+  with a one-line message, not a traceback). Each job loads the clinic
+  (`context.load_clinic`, off the event loop), builds instructions, builds a
+  session and starts `ClinicAgent` in the room.
 - `clinic_agent/config.py` — the **only** place that reads `os.environ`.
   Frozen `Settings` dataclass; a new setting means a field, a line in
   `load_settings()`, and an entry in `.env.example`.
 - `clinic_agent/session.py` — the **only** place STT + LLM + TTS are combined
   into an `AgentSession`.
-- `clinic_agent/agent.py` — behaviour only (persona, and `@function_tool`
-  methods from Stage 2 onward). Speaks first via `on_enter`.
+- `clinic_agent/agent.py` — behaviour only: takes its instructions from the
+  entrypoint; tools attach here. Speaks first via `on_enter`.
+- `clinic_agent/prompts.py` — fixed persona `RULES` + `clinic_facts()` generated
+  from the database per call (active doctors, grouped weekly hours, leave and
+  holidays in the booking window, FAQ, current clinic time). Static facts go in
+  the prompt; tools are only for changing data and actions.
+- `clinic_agent/context.py` — `load_clinic(cfg)` and `clinic_now(tz)`.
 - `clinic_agent/store/` — clinic data (SQLAlchemy, sync). `repo.py` holds every
   query; writes commit before returning; callers see `repo.NotFound` /
   `repo.SlotTaken`, never SQLAlchemy errors. **Only `store/` imports
