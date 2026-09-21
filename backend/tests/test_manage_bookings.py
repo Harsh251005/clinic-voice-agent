@@ -136,3 +136,11 @@ def test_database_refuses_moving_onto_a_booked_slot(booked):
         repo.move_appointment(s, appt_id, asha.id, datetime(2026, 9, 23, 17))
     s.expire_all()
     assert repo.get_appointment(s, appt_id).starts_at == datetime(2026, 9, 22, 10)
+
+
+def test_one_phone_lists_every_family_members_bookings(booked):
+    s, clinic_id, appt_id = booked
+    booking.book_slot(s, clinic_id, "Asha", TUE, time(10, 15), "Priya", PHONE, NOW)
+    out = booking.find_appointments(s, clinic_id, PHONE, NOW)
+    assert f"Appointment {appt_id}: Dr. Asha Mehta, Tuesday 22 September 2026 at 10:00, for Ravi." in out
+    assert "at 10:15, for Priya." in out

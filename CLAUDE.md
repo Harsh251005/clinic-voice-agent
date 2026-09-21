@@ -81,7 +81,11 @@ The pipeline is split so each concern lives in exactly one module:
   query; writes commit before returning; callers see `repo.NotFound` /
   `repo.SlotTaken`, never SQLAlchemy errors. **Only `store/` imports
   SQLAlchemy.** Double booking is prevented by a partial unique index, not by
-  code. Clinic details are data (seed or dashboard), never in `.py` files.
+  code; only that index's violation may become `SlotTaken` (`_is_slot_clash`).
+  Patients are unique on (clinic, phone, name): families share phones, and a
+  new name must never rename an existing patient. Schema changes to existing
+  tables need a step in `store/migrations.py` (idempotent, backs up the file)
+  until Alembic replaces it. Clinic details are data (seed or dashboard), never in `.py` files.
 - `dashboard/` — Streamlit clinic setup, run from `backend/` with
   `uv run streamlit run dashboard/app.py`. `app.py` → `pages/` → `sections/` (one tab per file).
   Writes only via `store/repo.py`. Styling: palette and fields in

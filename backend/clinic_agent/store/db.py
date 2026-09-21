@@ -27,7 +27,11 @@ def make_engine(url: str) -> Engine:
 
 
 def init_db(engine: Engine) -> None:
-    """Create missing tables. Replaced by migrations before real clinic data."""
+    """Create missing tables and upgrade old ones. Alembic replaces this
+    before any real clinic's data exists."""
+    from clinic_agent.store import migrations
+
+    migrations.upgrade(engine)
     Base.metadata.create_all(engine)
 
 
