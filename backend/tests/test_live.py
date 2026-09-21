@@ -71,7 +71,7 @@ async def test_replies_in_callers_language(session):
     result = await session.run(user_input="Namaste, clinic kab khulta hai?")
     await (
         result.expect.next_event(type="message")
-        .judge(session.judge, intent="replies in Hindi or Hinglish, not in pure English")
+        .judge(session.judge, intent="replies in Hindi or Hinglish written in Devanagari script, not in Roman letters")
     )
 
 
