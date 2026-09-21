@@ -18,8 +18,10 @@ class ConfigError(RuntimeError):
 
 @dataclass(frozen=True)
 class Settings:
-    # --- credentials ---
+    # --- credentials: each is required only if a selected provider uses it ---
     sarvam_api_key: str
+    openai_api_key: str
+    elevenlabs_api_key: str
 
     # --- which implementation to build (keys into the provider registries) ---
     stt_provider: str
@@ -32,22 +34,23 @@ class Settings:
     stt_mode: str
     stt_sample_rate: int
 
-    # --- language model ---
-    llm_model: str
+    # --- language model (None = the selected provider's default) ---
+    llm_model: str | None
 
-    # --- text to speech ---
-    tts_model: str
-    tts_speaker: str
-    tts_language: str
-    tts_sample_rate: int
-    tts_codec: str
+    # --- text to speech (None = the selected provider's default) ---
+    tts_model: str | None
+    tts_speaker: str | None
+    tts_language: str | None
+    tts_sample_rate: int | None
+    tts_codec: str | None
 
     # --- turn taking ---
     min_endpointing_delay: float
 
 
-def _required(name: str) -> str:
-    value = os.environ.get(name, "").strip()
+def require_key(value: str, name: str) -> str:
+    """Called by a provider builder for the key it needs, so an unused
+    vendor's key never has to be set."""
     if not value:
         raise ConfigError(
             f"{name} is not set. Copy .env.example to .env and fill it in."
@@ -55,11 +58,11 @@ def _required(name: str) -> str:
     return value
 
 
-def _text(name: str, default: str) -> str:
+def _text(name: str, default: str | None = None) -> str | None:
     return os.environ.get(name, "").strip() or default
 
 
-def _number(name: str, default: float) -> float:
+def _number(name: str, default: float | None = None) -> float | None:
     raw = os.environ.get(name, "").strip()
     if not raw:
         return default
@@ -72,13 +75,18 @@ def _number(name: str, default: float) -> float:
 def load_settings() -> Settings:
     """Read .env and the environment into a Settings object.
 
-    Fails here rather than at the first utterance, so a missing key is a
-    startup error instead of a caller hearing silence.
+    Model and voice settings left blank stay None, and the selected
+    provider's builder fills in its own default. API keys are checked by the
+    builder that needs them; main.py builds every provider at startup, so a
+    missing key is still a startup error rather than a caller hearing silence.
     """
     load_dotenv()
 
+    tts_rate = _number("TTS_SAMPLE_RATE")
     return Settings(
-        sarvam_api_key=_required("SARVAM_API_KEY"),
+        sarvam_api_key=_text("SARVAM_API_KEY", ""),
+        openai_api_key=_text("OPENAI_API_KEY", ""),
+        elevenlabs_api_key=_text("ELEVENLABS_API_KEY", ""),
         stt_provider=_text("STT_PROVIDER", "sarvam"),
         llm_provider=_text("LLM_PROVIDER", "sarvam"),
         tts_provider=_text("TTS_PROVIDER", "sarvam"),
@@ -86,11 +94,11 @@ def load_settings() -> Settings:
         stt_language=_text("STT_LANGUAGE", "unknown"),
         stt_mode=_text("STT_MODE", "transcribe"),
         stt_sample_rate=int(_number("STT_SAMPLE_RATE", 16000)),
-        llm_model=_text("LLM_MODEL", "sarvam-105b-conversations"),
-        tts_model=_text("TTS_MODEL", "bulbul:v3"),
-        tts_speaker=_text("TTS_SPEAKER", "suhani"),
-        tts_language=_text("TTS_LANGUAGE", "en-IN"),
-        tts_sample_rate=int(_number("TTS_SAMPLE_RATE", 24000)),
-        tts_codec=_text("TTS_CODEC", "linear16"),
+        llm_model=_text("LLM_MODEL"),
+        tts_model=_text("TTS_MODEL"),
+        tts_speaker=_text("TTS_SPEAKER"),
+        tts_language=_text("TTS_LANGUAGE"),
+        tts_sample_rate=int(tts_rate) if tts_rate is not None else None,
+        tts_codec=_text("TTS_CODEC"),
         min_endpointing_delay=_number("MIN_ENDPOINTING_DELAY", 0.2),
     )

@@ -1,7 +1,8 @@
 # Clinic Voice Agent — backend
 
-Stage 1: you speak, it answers. LiveKit Agents handles audio and turn-taking;
-Sarvam does speech-to-text, the reasoning and the voice.
+Stage 1: you speak, it answers. LiveKit Agents handles audio and turn-taking.
+Default testing stack: Sarvam for speech-to-text, OpenAI for the reasoning,
+ElevenLabs for the voice. Sarvam can do all three — switch in `.env`.
 
 No tools, no database, no booking, no telephony yet — those are later stages.
 
@@ -13,15 +14,16 @@ uv sync
 cp .env.example .env
 ```
 
-Put your Sarvam key in `.env`. Get one at
-[dashboard.sarvam.ai](https://dashboard.sarvam.ai) — signup includes free
-credits, shared across STT, LLM and TTS.
+Fill in the keys for the providers selected in `.env` — only those are
+checked:
 
-```env
-SARVAM_API_KEY=sk_...
-```
+| Provider | Used for | Key | Cost |
+|---|---|---|---|
+| Sarvam | STT (always, for now) | `SARVAM_API_KEY` from [dashboard.sarvam.ai](https://dashboard.sarvam.ai) | paid per use |
+| OpenAI | LLM | `OPENAI_API_KEY` from [platform.openai.com](https://platform.openai.com/api-keys) | paid per use |
+| ElevenLabs | TTS | `ELEVENLABS_API_KEY` from [elevenlabs.io](https://elevenlabs.io/app/settings/api-keys) | free monthly quota |
 
-That is the only value `console` mode needs.
+A missing key for a selected provider stops startup with a one-line error.
 
 ## Run
 
@@ -39,7 +41,7 @@ minutes per month. `console` spends none of them.
 
 ```bash
 uv run pytest            # offline: config, providers, session wiring, boot errors
-uv run pytest -m live    # real Sarvam calls with the .env key — spends credits
+uv run pytest -m live    # real API calls to the selected providers — spends credits
 ```
 
 Offline tests prove the wiring, not the conversation. Live tests are evals:
@@ -87,7 +89,13 @@ Two steps. Nothing else in the codebase changes.
    TTS_PROVIDER=elevenlabs
    ```
 
-An unknown name fails at startup and lists what is registered.
+An unknown name fails at startup and lists what is registered. Registered
+today: STT `sarvam`; LLM `sarvam`, `openai`; TTS `sarvam`, `elevenlabs`.
+
+Each builder owns its defaults and asks for its own key with
+`require_key(...)`, so an unused vendor needs nothing set. Model and voice
+settings left blank in `.env` get the selected provider's default — clear them
+when switching, since `TTS_SPEAKER=suhani` means nothing to ElevenLabs.
 
 ## Configuration
 
@@ -96,10 +104,11 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | Setting | Default | Why you would change it |
 |---|---|---|
 | `STT_LANGUAGE` | `unknown` | Auto-detects per utterance. Pin to `hi-IN` or `en-IN` only to debug. |
-| `STT_MODE` | `transcribe` | Switch to `translit` if Hindi replies are mispronounced — it romanises the transcript so the model stops replying in mixed script. |
-| `LLM_MODEL` | `sarvam-105b-conversations` | Tuned for multi-turn. Fall back to `sarvam-105b` if unavailable on your plan. |
-| `TTS_SPEAKER` | `suhani` | Any `bulbul:v3` voice. The plugin rejects `bulbul:v2` names such as `anushka`. |
-| `TTS_CODEC` | `linear16` | Raw PCM. The plugin's `mp3` default costs a decode per chunk. |
+| `STT_MODE` | `transcribe` | Switch to `translit` if Hindi replies are mispronounced. |
+| `LLM_MODEL` | provider's | OpenAI: `gpt-4.1-mini` — no reasoning step, so replies start fast. Sarvam: `sarvam-105b-conversations` (fall back to `sarvam-105b`). |
+| `TTS_SPEAKER` | provider's | ElevenLabs: a voice ID (plugin default voice). Sarvam: any `bulbul:v3` voice, default `suhani`; v2 names such as `anushka` are rejected. |
+| `TTS_CODEC` | provider's | Raw PCM for both (`pcm_24000` / `linear16`) — compressed formats cost a decode per chunk. |
+| `TTS_LANGUAGE` | provider's | ElevenLabs auto-detects, which suits mixed Hindi/English; Sarvam defaults to `en-IN`. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
 
 ## Troubleshooting
@@ -137,5 +146,6 @@ on our side.
   a LiveKit Cloud model, called with `LIVEKIT_API_KEY` — and turns it off by
   default under `start`. So interruptions you test locally are handled by a
   model production does not run.
-- Sarvam credits are consumption-based and shared across all three services.
-  Long `console` sessions do spend them.
+- Sarvam credits are consumption-based and shared across STT, LLM and TTS.
+  With the default testing stack only STT spends them — every second the
+  mic is open in `console`.

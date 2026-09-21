@@ -10,36 +10,33 @@ def test_defaults(env):
     assert (cfg.stt_provider, cfg.llm_provider, cfg.tts_provider) == ("sarvam",) * 3
     assert cfg.stt_model == "saaras:v4"
     assert cfg.stt_language == "unknown"
-    assert cfg.llm_model == "sarvam-105b-conversations"
-    assert cfg.tts_model == "bulbul:v3"
-    assert cfg.tts_speaker == "suhani"
-    assert cfg.tts_codec == "linear16"
     assert cfg.min_endpointing_delay == 0.2
+    # Model and voice defaults belong to each provider's builder.
+    assert cfg.llm_model is None
+    assert (cfg.tts_model, cfg.tts_speaker, cfg.tts_codec) == (None, None, None)
 
 
-def test_missing_key_is_a_config_error(env):
+def test_keys_are_not_checked_by_config(env):
+    # Which key is required depends on the selected providers, so loading
+    # never fails for a missing key; the builder that needs it does.
     env.delenv("SARVAM_API_KEY")
-    with pytest.raises(ConfigError, match="SARVAM_API_KEY is not set"):
-        load_settings()
-
-
-def test_whitespace_key_counts_as_missing(env):
-    env.setenv("SARVAM_API_KEY", "   ")
-    with pytest.raises(ConfigError):
-        load_settings()
+    assert load_settings().sarvam_api_key == ""
 
 
 def test_env_overrides_default(env):
-    env.setenv("TTS_SPEAKER", "priya")
+    env.setenv("STT_MODEL", "saaras:v3")
     env.setenv("MIN_ENDPOINTING_DELAY", "0.5")
     cfg = load_settings()
-    assert cfg.tts_speaker == "priya"
+    assert cfg.stt_model == "saaras:v3"
     assert cfg.min_endpointing_delay == 0.5
 
 
 def test_blank_value_falls_back_to_default(env):
-    env.setenv("TTS_SPEAKER", "")
-    assert load_settings().tts_speaker == "suhani"
+    env.setenv("STT_MODEL", "")
+    env.setenv("TTS_SPEAKER", "  ")
+    cfg = load_settings()
+    assert cfg.stt_model == "saaras:v4"
+    assert cfg.tts_speaker is None
 
 
 def test_non_numeric_number_is_a_config_error(env):

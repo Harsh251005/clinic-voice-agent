@@ -36,7 +36,7 @@ def test_unknown_provider_exits_with_one_line(tmp_path):
     r = run_main(tmp_path, SARVAM_API_KEY="x", TTS_PROVIDER="eleven")
     assert r.returncode == 1
     assert r.stderr.strip() == (
-        "configuration error: unknown TTS provider 'eleven'; available: ['sarvam']"
+        "configuration error: unknown TTS provider 'eleven'; available: ['elevenlabs', 'sarvam']"
     )
 
 

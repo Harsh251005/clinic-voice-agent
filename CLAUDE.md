@@ -5,7 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A Hindi/Hinglish voice receptionist for Indian clinics. All code lives in
-`backend/`: a LiveKit Agents worker with Sarvam doing STT, LLM and TTS.
+`backend/`: a LiveKit Agents worker. Testing stack: Sarvam STT, OpenAI LLM,
+ElevenLabs TTS (switched from all-Sarvam to save Sarvam credits; Sarvam
+builders stay registered — switch back in `.env`, don't comment code out).
 
 Current state is **Stage 1 — a talking loop only**. No tools, database,
 booking or telephony yet; those are later stages. The system prompt
@@ -19,7 +21,7 @@ Run from `backend/` (Python ≥3.13, managed with `uv`, `package = false`):
 
 ```bash
 uv sync                          # install
-cp .env.example .env             # then set SARVAM_API_KEY
+cp .env.example .env             # then set the keys for the selected providers
 uv run python main.py console    # talk over the local mic — spends no LiveKit minutes
 uv run python main.py dev        # join a LiveKit room, reloads on save
 uv run python main.py start      # production worker
@@ -27,11 +29,12 @@ uv run python main.py start      # production worker
 
 Prefer `console` for testing. `dev`/`start` need the three `LIVEKIT_*` values
 and spend from LiveKit Cloud's free tier (1,000 agent-session minutes/month).
-All modes spend Sarvam credits, which are shared across STT, LLM and TTS.
+All modes spend credits on the selected providers (ElevenLabs has a free
+monthly quota; Sarvam and OpenAI are paid per use).
 
 ```bash
 uv run pytest                    # offline tests: config, providers, session, boot
-uv run pytest -m live            # calls real Sarvam with the .env key; spends credits
+uv run pytest -m live            # calls the selected providers for real; spends credits
 ```
 
 No linter or formatter is configured.
@@ -52,6 +55,10 @@ The pipeline is split so each concern lives in exactly one module:
   methods from Stage 2 onward). Speaks first via `on_enter`.
 - `clinic_agent/providers/{stt,llm,tts}.py` — each has a `BUILDERS` registry
   mapping a name to a builder returning LiveKit's base `STT`/`LLM`/`TTS` class.
+  Builders own their vendor's defaults (model/voice settings are `None` in
+  `Settings` when blank) and call `require_key(...)` for their own API key, so
+  only selected vendors need keys. `main.py` builds all three at boot, which is
+  what turns a missing key into a startup error.
 
 **Invariant: only `providers/` imports a vendor package.** Everything else
 works against LiveKit's base classes. Swapping a vendor = add a builder to the
@@ -67,12 +74,14 @@ matching `BUILDERS` dict + set `STT_PROVIDER` / `LLM_PROVIDER` /
   recording that. Don't add or remove `vad=` without Harsh's decision.
 - **Keep `backend/README.md` current** with every behaviour, command or setup
   change, in the same commit.
-- **`TTS_CODEC=linear16`.** The Sarvam plugin defaults to mp3; raw PCM avoids a
-  decode per chunk.
-- **`TTS_SPEAKER` must be a `bulbul:v3` voice** (default `suhani`); the plugin
-  rejects v2 names such as `anushka`.
+- **Raw PCM TTS output** (`linear16` for Sarvam, `pcm_24000` for ElevenLabs).
+  Both plugins default to mp3; PCM avoids a decode per chunk.
+- **Sarvam `TTS_SPEAKER` must be a `bulbul:v3` voice** (default `suhani`); the
+  plugin rejects v2 names such as `anushka`. For ElevenLabs it is a voice ID.
+- **OpenAI default is `gpt-4.1-mini`**, not the gpt-5 family: no reasoning step,
+  so the first token comes fast enough for a phone call.
 - **`STT_LANGUAGE=unknown`** auto-detects per utterance. If Hindi replies come
   out mispronounced, switch `STT_MODE` to `translit` rather than pinning a
   language.
-- `LLM_MODEL` defaults to `sarvam-105b-conversations`; fall back to
+- Sarvam `LLM_MODEL` defaults to `sarvam-105b-conversations`; fall back to
   `sarvam-105b` if the plan lacks it.

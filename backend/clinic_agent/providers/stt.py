@@ -11,7 +11,7 @@ from collections.abc import Callable
 from livekit.agents import stt
 from livekit.plugins import sarvam
 
-from clinic_agent.config import Settings
+from clinic_agent.config import Settings, require_key
 
 
 def _sarvam(cfg: Settings) -> stt.STT:
@@ -22,7 +22,7 @@ def _sarvam(cfg: Settings) -> stt.STT:
         language=cfg.stt_language,
         mode=cfg.stt_mode,
         sample_rate=cfg.stt_sample_rate,
-        api_key=cfg.sarvam_api_key,
+        api_key=require_key(cfg.sarvam_api_key, "SARVAM_API_KEY"),
     )
 
 
