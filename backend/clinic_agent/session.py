@@ -16,7 +16,10 @@ def build_session(cfg: Settings) -> AgentSession:
         stt=build_stt(cfg),
         llm=build_llm(cfg),
         tts=build_tts(cfg),
-        # Trust Sarvam's end-of-speech signal instead of running a local VAD.
-        turn_detection="stt",
-        min_endpointing_delay=cfg.min_endpointing_delay,
+        turn_handling={
+            # Trust Sarvam's end-of-speech signal. Must stay explicit: omitting
+            # it makes LiveKit fall back to its own turn-detector model.
+            "turn_detection": "stt",
+            "endpointing": {"min_delay": cfg.min_endpointing_delay},
+        },
     )

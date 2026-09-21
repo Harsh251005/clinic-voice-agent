@@ -91,7 +91,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 ## Notes
 
 - **No Silero VAD, deliberately.** Sarvam's STT streams and does its own
-  endpointing, so `turn_detection="stt"` trusts its end-of-speech signal.
+  endpointing, so `turn_handling={"turn_detection": "stt"}` trusts its end-of-speech signal.
   Adding a local VAD would run two at once and double-trigger interruptions.
 - Sarvam credits are consumption-based and shared across all three services.
   Long `console` sessions do spend them.

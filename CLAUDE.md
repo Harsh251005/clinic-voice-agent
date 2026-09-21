@@ -55,7 +55,8 @@ matching `BUILDERS` dict + set `STT_PROVIDER` / `LLM_PROVIDER` /
 ## Deliberate choices — don't "fix" these
 
 - **No Silero/local VAD.** Sarvam STT streams and does its own endpointing;
-  the session uses `turn_detection="stt"`. A local VAD would double-trigger
+  the session sets `turn_handling={"turn_detection": "stt"}` explicitly (omitting
+  it falls back to LiveKit's own turn-detector model). A local VAD would double-trigger
   interruptions.
 - **`TTS_CODEC=linear16`.** The Sarvam plugin defaults to mp3; raw PCM avoids a
   decode per chunk.
