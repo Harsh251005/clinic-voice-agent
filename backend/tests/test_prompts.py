@@ -55,8 +55,9 @@ def test_doctor_without_hours(db):
     assert weekly_hours(doc) == "no regular hours set"
 
 
-def test_prompt_says_booking_is_not_available_yet(db):
-    # Flips in the slice that adds the booking tool.
+def test_prompt_describes_booking_and_only_built_capabilities(db):
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW)
-    assert "You cannot book" in text
+    assert "find_available_slots" in text and "book_appointment" in text
+    assert "only after a clear yes" in text
+    assert "cannot cancel or change an appointment" in text

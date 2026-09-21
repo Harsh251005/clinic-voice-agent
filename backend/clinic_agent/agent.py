@@ -1,18 +1,18 @@
-"""The agent's behaviour: instructions now, tools next.
+"""The agent's behaviour: its instructions and the tools it may call.
 
-Instructions are built per call from the clinic's data (see prompts.py), so
-the agent is constructed by the entrypoint with them. Nothing about the
-speech pipeline lives here.
+Both are built per call by the entrypoint (instructions from the clinic's
+data in prompts.py, tools from clinic_agent.tools). Nothing about the speech
+pipeline lives here.
 """
 
 from __future__ import annotations
 
-from livekit.agents import Agent
+from livekit.agents import Agent, llm
 
 
 class ClinicAgent(Agent):
-    def __init__(self, instructions: str) -> None:
-        super().__init__(instructions=instructions)
+    def __init__(self, instructions: str, tools: list[llm.Tool] | None = None) -> None:
+        super().__init__(instructions=instructions, tools=tools or [])
 
     async def on_enter(self) -> None:
         """Speak first, the way a receptionist picks up the phone."""

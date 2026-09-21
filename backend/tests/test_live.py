@@ -15,6 +15,7 @@ from clinic_agent.agent import ClinicAgent
 from clinic_agent.config import load_settings
 from clinic_agent.prompts import build_instructions
 from clinic_agent.store import repo
+from clinic_agent.tools.booking import ClinicLink, booking_tools
 from clinic_agent.providers import build_llm, build_stt, build_tts
 
 pytestmark = pytest.mark.live
@@ -24,7 +25,10 @@ NOW = datetime(2026, 9, 21, 15, 30)
 @pytest.fixture
 def agent(db):
     s, clinic_id = db
-    return ClinicAgent(build_instructions(repo.get_clinic(s, clinic_id), [], NOW))
+    # Real tool schemas; the booking evals below swap in mocks for execution,
+    # so the LLM's decisions are graded without a real clock or database.
+    tools = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions=None))
+    return ClinicAgent(build_instructions(repo.get_clinic(s, clinic_id), [], NOW), tools)
 
 
 @pytest.fixture
@@ -113,3 +117,53 @@ async def test_speech_round_trip(line):
     text = heard.alternatives[0].text
     assert "11" in text or "ग्यारह" in text or "gyarah" in text.lower(), text
     assert heard.alternatives[0].language.startswith("hi"), heard.alternatives[0].language
+
+
+# ---------- booking conversation (tools mocked) ----------
+
+SLOTS = "Dr. Asha Mehta on Tuesday 22 September 2026: 17:00, 17:15, 17:30."
+
+
+def _calls(result, name):
+    import json
+
+    return [
+        json.loads(e.item.arguments)
+        for e in result.events
+        if e.type == "function_call" and e.item.name == name
+    ]
+
+
+async def test_booking_flow_reads_back_before_booking(session):
+    from livekit.agents.voice.run_result import mock_tools
+
+    booked = []
+
+    async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
+        return SLOTS
+
+    async def book_appointment(**kwargs):
+        booked.append(kwargs)
+        return "Booked, appointment number 1: Dr. Asha Mehta, Tuesday 22 September 2026 at 17:00, for Ravi, mobile 9876543210."
+
+    with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots, "book_appointment": book_appointment}):
+        r1 = await session.run(user_input="कल शाम को आशा मेहता जी के साथ अपॉइंटमेंट चाहिए")
+        (args,) = _calls(r1, "find_available_slots")
+        assert args["date"] == "2026-09-22"  # "kal" resolved from the date in CLINIC FACTS
+        assert "asha" in args.get("doctor_name", "").lower()
+        assert args.get("part_of_day") == "evening"
+        await r1.expect.contains_message(role="assistant").judge(
+            session.judge, intent="offers only times among 17:00, 17:15 and 17:30"
+        )
+
+        r2 = await session.run(user_input="पाँच बजे ठीक है। नाम रवि, नंबर नौ आठ सात छह पाँच चार तीन दो एक शून्य")
+        assert _calls(r2, "book_appointment") == [], "booked before reading back"
+        await r2.expect.contains_message(role="assistant").judge(
+            session.judge,
+            intent="reads back doctor, Tuesday, five o'clock, the name Ravi and the number, and asks if it is correct",
+        )
+
+        r3 = await session.run(user_input="हाँ, सही है")
+        (b,) = _calls(r3, "book_appointment")
+        assert b["caller_confirmed"] is True and b["time"] == "17:00" and b["date"] == "2026-09-22"
+        assert b["patient_phone"].replace(" ", "")[-10:] == "9876543210"

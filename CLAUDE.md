@@ -11,8 +11,8 @@ builders stay registered — switch back in `.env`, don't comment code out).
 
 Current state: **Stage 2 in progress** (plan:
 `~/.claude/plans/distributed-munching-wall.md`). Done: clinic database, free-slot
-rules, Streamlit setup dashboard, agent answering from clinic data. Next:
-booking tools, appointments page, end-call tool. No telephony yet. The
+rules, Streamlit setup dashboard, agent answering from clinic data, booking
+tools. Next: appointments page, end-call tool. No telephony yet. The
 instructions (`clinic_agent/prompts.py`) may only describe what is built: no
 promised checks, holds, messages or callbacks. Add a capability to them in the
 same change that builds it.
@@ -62,6 +62,14 @@ The pipeline is split so each concern lives in exactly one module:
   holidays in the booking window, FAQ, current clinic time). Static facts go in
   the prompt; tools are only for changing data and actions.
 - `clinic_agent/context.py` — `load_clinic(cfg)` and `clinic_now(tz)`.
+- `clinic_agent/booking.py` — booking rules as plain functions over a session;
+  raise `BookingError` with a caller-sayable message. `clinic_agent/tools/`
+  holds the LiveKit `@function_tool` wrappers only: run the rule in
+  `asyncio.to_thread`, map `BookingError` → `ToolError`. Put rules in
+  `booking.py`, never in the wrapper. Tests: in-memory DB for rules; a file DB
+  for tools (SQLite `:memory:` is per-thread, so threaded tools would see an
+  empty database). Live evals use `mock_tools` so the LLM's tool choices are
+  graded without a real clock.
 - `clinic_agent/store/` — clinic data (SQLAlchemy, sync). `repo.py` holds every
   query; writes commit before returning; callers see `repo.NotFound` /
   `repo.SlotTaken`, never SQLAlchemy errors. **Only `store/` imports

@@ -84,6 +84,8 @@ main.py                 entrypoint — console | dev | start
     ├── config.py       every env var, read once, fails loudly at startup
     ├── prompts.py      persona rules + clinic facts built from the database per call
     ├── context.py      loads the call's clinic (CLINIC_ID) and its local time
+    ├── booking.py      booking rules: find slots, validate, book — no LiveKit
+    ├── tools/booking.py  find_available_slots / book_appointment as LiveKit tools
     ├── agent.py        Agent subclass — behaviour only (tools land here)
     ├── session.py      the one place STT + LLM + TTS are combined
     ├── providers/      vendor construction, behind three functions
@@ -113,6 +115,18 @@ write the same tables through `store/repo.py`.
   doctors with fees and weekly hours, leave and holidays inside the booking
   window, FAQ answers, and the clinic's current date and time. Anything not
   there, it says it doesn't know. Edits in the dashboard apply from the next call.
+- **Booking** (two tools, rules in `booking.py`):
+  - `find_available_slots(date, doctor?, part_of_day?)` returns up to the
+    clinic's "slots offered" per doctor. With nothing free it says why (clinic
+    closed, doctor on leave, doesn't sit that day, fully booked) and gives the
+    next free day.
+  - `book_appointment(...)` refuses unless `caller_confirmed` is true, which
+    the instructions tie to reading every detail back first. It re-checks the
+    slot, validates a 10-digit Indian mobile (+91 / 0 / spaces accepted), and
+    turns a lost race into "just taken — offer these instead".
+  - Database work runs in a worker thread so a slow query never stalls audio.
+    Tool errors reach the LLM as plain sentences it can relay.
+  - Callers cannot cancel or reschedule yet; staff can, from the dashboard (next).
 - **Startup refuses to run** if `CLINIC_ID` isn't in the database, naming the
   fix (create it in the dashboard, or seed the demo clinic).
 
