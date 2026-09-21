@@ -61,3 +61,4 @@ def test_prompt_describes_booking_and_only_built_capabilities(db):
     assert "find_available_slots" in text and "book_appointment" in text
     assert "only after a clear yes" in text
     assert "cannot cancel or change an appointment" in text
+    assert "call end_call" in text

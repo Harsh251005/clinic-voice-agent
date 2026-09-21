@@ -4,8 +4,9 @@ Stage 1: you speak, it answers. LiveKit Agents handles audio and turn-taking.
 Default testing stack: Sarvam for speech-to-text, OpenAI for the reasoning,
 ElevenLabs for the voice. Sarvam can do all three — switch in `.env`.
 
-Stage 2 in progress: a clinic database (doctors, hours, time off, patients,
-appointments) that the agent and a setup dashboard share. No telephony yet.
+Stage 2: the agent answers from each clinic's own data, books appointments
+and hangs up when the caller is done; clinic staff set everything up and see
+bookings in a Streamlit dashboard. No telephony yet.
 
 ## Setup
 
@@ -93,6 +94,7 @@ main.py                 entrypoint — console | dev | start
     ├── context.py      loads the call's clinic (CLINIC_ID) and its local time
     ├── booking.py      booking rules: find slots, validate, book — no LiveKit
     ├── tools/booking.py  find_available_slots / book_appointment as LiveKit tools
+    ├── tools/call.py     end_call — LiveKit's EndCallTool, goodbye then hang up
     ├── agent.py        Agent subclass — behaviour only (tools land here)
     ├── session.py      the one place STT + LLM + TTS are combined
     ├── providers/      vendor construction, behind three functions
@@ -134,6 +136,10 @@ write the same tables through `store/repo.py`.
   - Database work runs in a worker thread so a slow query never stalls audio.
     Tool errors reach the LLM as plain sentences it can relay.
   - Callers cannot cancel or reschedule yet; staff can cancel from the dashboard.
+- **Ending the call**: `end_call` (LiveKit's `EndCallTool`) speaks one
+  goodbye, shuts the session down after it, and deletes the room — which
+  disconnects a phone caller. It is hidden during the greeting, and the
+  instructions say to ask "anything else?" when unsure rather than hang up.
 - **Startup refuses to run** if `CLINIC_ID` isn't in the database, naming the
   fix (create it in the dashboard, or seed the demo clinic).
 

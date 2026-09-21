@@ -22,6 +22,7 @@ from clinic_agent.session import build_session
 from clinic_agent.store.db import sessions_for
 from clinic_agent.store.repo import NotFound
 from clinic_agent.tools.booking import ClinicLink, booking_tools
+from clinic_agent.tools.call import end_call_tool
 
 logger = logging.getLogger("clinic-agent")
 
@@ -38,7 +39,8 @@ async def entrypoint(ctx: JobContext) -> None:
     clinic, time_off = await asyncio.to_thread(load_clinic, cfg)
     logger.info("clinic %s: %s", clinic.id, clinic.name)
     instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone))
-    tools = booking_tools(ClinicLink(clinic.id, clinic.timezone, sessions_for(cfg.database_url)))
+    link = ClinicLink(clinic.id, clinic.timezone, sessions_for(cfg.database_url))
+    tools = [*booking_tools(link), end_call_tool()]
 
     session = build_session(cfg)
     await session.start(agent=ClinicAgent(instructions, tools), room=ctx.room)

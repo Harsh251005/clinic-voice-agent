@@ -11,7 +11,9 @@ from livekit.agents import Agent, llm
 
 
 class ClinicAgent(Agent):
-    def __init__(self, instructions: str, tools: list[llm.Tool] | None = None) -> None:
+    def __init__(
+        self, instructions: str, tools: list[llm.Tool | llm.Toolset] | None = None
+    ) -> None:
         super().__init__(instructions=instructions, tools=tools or [])
 
     async def on_enter(self) -> None:

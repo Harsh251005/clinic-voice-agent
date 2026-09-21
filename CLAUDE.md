@@ -9,10 +9,11 @@ A Hindi/Hinglish voice receptionist for Indian clinics. All code lives in
 ElevenLabs TTS (switched from all-Sarvam to save Sarvam credits; Sarvam
 builders stay registered — switch back in `.env`, don't comment code out).
 
-Current state: **Stage 2 in progress** (plan:
-`~/.claude/plans/distributed-munching-wall.md`). Done: clinic database, free-slot
-rules, Streamlit setup dashboard, agent answering from clinic data, booking
-tools, appointments page. Next: end-call tool. No telephony yet. The
+Current state: **Stage 2 built** (plan:
+`~/.claude/plans/distributed-munching-wall.md`): clinic database, free-slot
+rules, Streamlit dashboard (setup + appointments), agent answering from clinic
+data, booking tools, end-call tool. Not yet: caller cancel/reschedule,
+dashboard login, migrations, telephony. The
 instructions (`clinic_agent/prompts.py`) may only describe what is built: no
 promised checks, holds, messages or callbacks. Add a capability to them in the
 same change that builds it.
@@ -62,6 +63,8 @@ The pipeline is split so each concern lives in exactly one module:
   holidays in the booking window, FAQ, current clinic time). Static facts go in
   the prompt; tools are only for changing data and actions.
 - `clinic_agent/context.py` — `load_clinic(cfg)` and `clinic_now(tz)`.
+- `clinic_agent/tools/call.py` — `end_call` via LiveKit's `beta.tools.EndCallTool`
+  (`ignore_on_enter=True`; goodbye text follows the script rules).
 - `clinic_agent/booking.py` — booking rules as plain functions over a session;
   raise `BookingError` with a caller-sayable message. `clinic_agent/tools/`
   holds the LiveKit `@function_tool` wrappers only: run the rule in

@@ -16,6 +16,7 @@ from clinic_agent.config import load_settings
 from clinic_agent.prompts import build_instructions
 from clinic_agent.store import repo
 from clinic_agent.tools.booking import ClinicLink, booking_tools
+from clinic_agent.tools.call import end_call_tool
 from clinic_agent.providers import build_llm, build_stt, build_tts
 
 pytestmark = pytest.mark.live
@@ -27,7 +28,7 @@ def agent(db):
     s, clinic_id = db
     # Real tool schemas; the booking evals below swap in mocks for execution,
     # so the LLM's decisions are graded without a real clock or database.
-    tools = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions=None))
+    tools = [*booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions=None)), end_call_tool()]
     return ClinicAgent(build_instructions(repo.get_clinic(s, clinic_id), [], NOW), tools)
 
 
@@ -167,3 +168,19 @@ async def test_booking_flow_reads_back_before_booking(session):
         (b,) = _calls(r3, "book_appointment")
         assert b["caller_confirmed"] is True and b["time"] == "17:00" and b["date"] == "2026-09-22"
         assert b["patient_phone"].replace(" ", "")[-10:] == "9876543210"
+
+
+# ---------- ending the call (tool mocked: no room to delete in a test) ----------
+
+async def test_hangs_up_when_caller_is_done_but_not_when_they_ask_to_wait(session):
+    from livekit.agents.voice.run_result import mock_tools
+
+    async def end_call():
+        return "Say one short, warm goodbye."
+
+    with mock_tools(ClinicAgent, {"end_call": end_call}):
+        wait = await session.run(user_input="एक मिनट रुकिए, मैं सोच के बताता हूँ")
+        assert _calls(wait, "end_call") == [], "hung up on a caller who asked to wait"
+
+        done = await session.run(user_input="बस इतना ही था, धन्यवाद")
+        assert len(_calls(done, "end_call")) == 1
