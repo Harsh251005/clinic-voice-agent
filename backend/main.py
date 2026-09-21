@@ -14,6 +14,7 @@ from livekit.agents import JobContext, WorkerOptions, cli
 
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.config import ConfigError, load_settings
+from clinic_agent.providers import build_llm, build_stt, build_tts
 from clinic_agent.session import build_session
 
 logger = logging.getLogger("clinic-agent")
@@ -34,10 +35,13 @@ async def entrypoint(ctx: JobContext) -> None:
 
 if __name__ == "__main__":
     # Fail before the worker starts rather than on the first call, and report
-    # it as a one-line setup error instead of a traceback.
+    # it as a one-line setup error instead of a traceback. Building the
+    # providers here is what catches an unknown *_PROVIDER name; the session
+    # itself needs a running event loop, so it is left to the entrypoint.
     try:
-        load_settings()
-    except ConfigError as err:
+        cfg = load_settings()
+        build_stt(cfg), build_llm(cfg), build_tts(cfg)
+    except (ConfigError, ValueError) as err:
         sys.exit(f"configuration error: {err}")
 
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
