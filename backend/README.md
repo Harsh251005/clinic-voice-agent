@@ -99,7 +99,7 @@ main.py                 entrypoint — console | dev | start
     ├── prompts.py      persona rules + clinic facts built from the database per call
     ├── context.py      loads the call's clinic (CLINIC_ID) and its local time
     ├── booking.py      booking rules: find slots, validate, book — no LiveKit
-    ├── tools/booking.py  find_available_slots / book_appointment as LiveKit tools
+    ├── tools/booking.py  slots, book, find/cancel/reschedule as LiveKit tools
     ├── tools/call.py     end_call — LiveKit's EndCallTool, goodbye then hang up
     ├── agent.py        Agent subclass — behaviour only (tools land here)
     ├── session.py      the one place STT + LLM + TTS are combined
@@ -141,7 +141,15 @@ write the same tables through `store/repo.py`.
     turns a lost race into "just taken — offer these instead".
   - Database work runs in a worker thread so a slow query never stalls audio.
     Tool errors reach the LLM as plain sentences it can relay.
-  - Callers cannot cancel or reschedule yet; staff can cancel from the dashboard.
+- **Cancelling and moving** (three more tools): `find_my_appointments` looks
+  bookings up by the mobile number they were made with; `cancel_appointment`
+  and `reschedule_appointment` act only on the caller's own upcoming booking
+  and only with `caller_confirmed` after a read-back. A move is one database
+  update: the appointment keeps its number, and the double-booking index
+  still refuses a taken slot, so it is never half-moved. A wrong number, an
+  unknown id and another clinic's id all get the same answer, so guessing
+  reveals nothing. **The mobile number is the only proof of identity today** —
+  once telephony arrives, match it against the caller's own number.
 - **Ending the call**: `end_call` (LiveKit's `EndCallTool`) speaks one
   goodbye, shuts the session down after it, and deletes the room — which
   disconnects a phone caller. It is hidden during the greeting, and the

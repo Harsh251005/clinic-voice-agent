@@ -184,3 +184,26 @@ async def test_hangs_up_when_caller_is_done_but_not_when_they_ask_to_wait(sessio
 
         done = await session.run(user_input="बस इतना ही था, धन्यवाद")
         assert len(_calls(done, "end_call")) == 1
+
+
+# ---------- cancelling (tools mocked) ----------
+
+async def test_cancel_flow_looks_up_reads_back_then_cancels(session):
+    from livekit.agents.voice.run_result import mock_tools
+
+    async def find_my_appointments(patient_phone: str):
+        return "Appointment 7: Dr. Asha Mehta, Tuesday 22 September 2026 at 17:00, for Ravi."
+
+    async def cancel_appointment(appointment_id: int, patient_phone: str, caller_confirmed: bool):
+        return "Cancelled appointment 7: Dr. Asha Mehta, Tuesday 22 September 2026 at 17:00."
+
+    with mock_tools(ClinicAgent, {
+        "find_my_appointments": find_my_appointments, "cancel_appointment": cancel_appointment,
+    }):
+        r1 = await session.run(user_input="मुझे अपना अपॉइंटमेंट कैंसल करना है, नंबर 9876543210")
+        assert len(_calls(r1, "find_my_appointments")) == 1
+        assert _calls(r1, "cancel_appointment") == [], "cancelled before reading back"
+
+        r2 = await session.run(user_input="हाँ, कैंसल कर दीजिए")
+        (c,) = _calls(r2, "cancel_appointment")
+        assert c["appointment_id"] == 7 and c["caller_confirmed"] is True

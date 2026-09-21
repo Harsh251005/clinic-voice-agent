@@ -17,7 +17,10 @@ def _names(agent):
 def test_call_agent_has_booking_and_end_call_tools():
     tools = [*booking_tools(ClinicLink(1, "Asia/Kolkata", sessions=None)), end_call_tool()]
     agent = ClinicAgent("instructions", tools)
-    assert sorted(_names(agent)) == ["book_appointment", "end_call", "find_available_slots"]
+    assert sorted(_names(agent)) == [
+        "book_appointment", "cancel_appointment", "end_call", "find_available_slots",
+        "find_my_appointments", "reschedule_appointment",
+    ]
 
 
 def test_end_call_cannot_fire_during_greeting():

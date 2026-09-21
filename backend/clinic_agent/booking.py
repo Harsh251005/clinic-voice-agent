@@ -118,7 +118,93 @@ def book_slot(
     )
 
 
+def find_appointments(s: Session, clinic_id: int, patient_phone: str, now: datetime) -> str:
+    phone = normalise_phone(patient_phone)
+    appts = repo.upcoming_for_phone(s, clinic_id, phone, now)
+    if not appts:
+        raise BookingError(
+            f"No upcoming appointments booked with mobile {phone}. Check the number with the caller."
+        )
+    return " ".join(
+        f"Appointment {a.id}: {a.doctor.name}, {_day(a.starts_at.date())} at {a.starts_at:%H:%M}, "
+        f"for {a.patient.name}."
+        for a in appts
+    )
+
+
+def cancel_booking(
+    s: Session, clinic_id: int, appointment_id: int, patient_phone: str, now: datetime
+) -> str:
+    appt = _owned(s, clinic_id, appointment_id, patient_phone, now)
+    repo.cancel_appointment(s, appt.id)
+    return (
+        f"Cancelled appointment {appt.id}: {appt.doctor.name}, "
+        f"{_day(appt.starts_at.date())} at {appt.starts_at:%H:%M}."
+    )
+
+
+def reschedule_booking(
+    s: Session,
+    clinic_id: int,
+    appointment_id: int,
+    patient_phone: str,
+    day: date,
+    start: time,
+    now: datetime,
+    doctor_name: str | None = None,
+) -> str:
+    appt = _owned(s, clinic_id, appointment_id, patient_phone, now)
+    clinic = repo.get_clinic(s, clinic_id)
+    doctor = resolve_doctor(clinic, doctor_name) if doctor_name else appt.doctor
+    _check_day(day, now, clinic)
+
+    old = f"{appt.doctor.name}, {_day(appt.starts_at.date())} at {appt.starts_at:%H:%M}"
+    starts_at = datetime.combine(day, start)
+    if doctor.id == appt.doctor_id and starts_at == appt.starts_at:
+        raise BookingError(f"Appointment {appt.id} is already at that time.")
+
+    time_off = repo.time_off_overlapping(s, clinic.id, day, day)
+    free = _day_slots(s, doctor, day, time_off, now, None)
+    if starts_at not in free:
+        offer = f" Free times that day: {_times(free[: clinic.slots_offered])}." if free else ""
+        raise BookingError(f"{doctor.name} is not free at {start:%H:%M} on {_day(day)}.{offer}")
+
+    try:
+        repo.move_appointment(s, appt.id, doctor.id, starts_at)
+    except repo.SlotTaken:
+        raise BookingError(
+            "That time was just taken by another caller. The appointment is unchanged."
+        ) from None
+    return (
+        f"Moved appointment {appt.id} from {old} to {doctor.name}, "
+        f"{_day(day)} at {start:%H:%M}."
+    )
+
+
 # ---------- helpers ----------
+
+def _owned(s: Session, clinic_id: int, appointment_id: int, patient_phone: str, now: datetime):
+    """The caller's own upcoming booking, or a BookingError.
+
+    The same message covers 'no such appointment', 'another clinic's' and
+    'someone else's', so a guessed id reveals nothing about other patients.
+    """
+    phone = normalise_phone(patient_phone)
+    try:
+        appt = repo.get_appointment(s, appointment_id)
+    except repo.NotFound:
+        appt = None
+    if appt is None or appt.clinic_id != clinic_id or appt.patient.phone != phone:
+        raise BookingError(
+            f"No appointment {appointment_id} booked with mobile {phone}. "
+            "Use find_my_appointments to see the caller's bookings."
+        )
+    if appt.status != "booked":
+        raise BookingError(f"Appointment {appointment_id} is already cancelled.")
+    if appt.starts_at < now:
+        raise BookingError(f"Appointment {appointment_id} has already passed.")
+    return appt
+
 
 def _check_day(day: date, now: datetime, clinic: Clinic) -> None:
     try:

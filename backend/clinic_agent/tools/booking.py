@@ -1,4 +1,4 @@
-"""find_available_slots and book_appointment, as LiveKit function tools.
+"""Appointment tools for the agent: find slots, book, look up, cancel, move.
 
 Each call runs the matching `clinic_agent.booking` function in a worker
 thread (database I/O must not stall the audio loop) and turns a
@@ -90,7 +90,68 @@ def booking_tools(link: ClinicLink) -> list:
             patient_name, patient_phone, clinic_now(link.timezone),
         )
 
-    return [find_available_slots, book_appointment]
+    @function_tool
+    async def find_my_appointments(patient_phone: str) -> str:
+        """List the caller's upcoming appointments, found by the mobile number they booked with.
+
+        Args:
+            patient_phone: The 10-digit mobile number the appointment was booked with.
+        """
+        return await run(booking.find_appointments, patient_phone, clinic_now(link.timezone))
+
+    @function_tool
+    async def cancel_appointment(appointment_id: int, patient_phone: str, caller_confirmed: bool) -> str:
+        """Cancel one of the caller's appointments. Call only after reading it back.
+
+        Args:
+            appointment_id: The appointment number from find_my_appointments.
+            patient_phone: The mobile number it was booked with.
+            caller_confirmed: True only if you read back the doctor, day and time
+                and the caller clearly said yes, cancel it.
+        """
+        if not caller_confirmed:
+            raise ToolError(
+                "Not cancelled. Read the doctor, day and time back to the caller and "
+                "cancel only after they say yes."
+            )
+        return await run(
+            booking.cancel_booking, appointment_id, patient_phone, clinic_now(link.timezone)
+        )
+
+    @function_tool
+    async def reschedule_appointment(
+        appointment_id: int,
+        patient_phone: str,
+        date: str,
+        time: str,
+        caller_confirmed: bool,
+        doctor_name: str = "",
+    ) -> str:
+        """Move one of the caller's appointments to a new free time. Call only after reading it back.
+
+        Args:
+            appointment_id: The appointment number from find_my_appointments.
+            patient_phone: The mobile number it was booked with.
+            date: The new day as YYYY-MM-DD.
+            time: The new start time as HH:MM (24-hour), one of the free times found.
+            caller_confirmed: True only if you read back the old and new day and
+                time and the caller clearly said yes.
+            doctor_name: Only if the caller wants a different doctor; empty keeps the same one.
+        """
+        if not caller_confirmed:
+            raise ToolError(
+                "Not moved. Read the old and the new day and time back to the caller and "
+                "move it only after they say yes."
+            )
+        return await run(
+            booking.reschedule_booking, appointment_id, patient_phone, _date(date), _time(time),
+            clinic_now(link.timezone), doctor_name or None,
+        )
+
+    return [
+        find_available_slots, book_appointment,
+        find_my_appointments, cancel_appointment, reschedule_appointment,
+    ]
 
 
 def _date(value: str) -> date:

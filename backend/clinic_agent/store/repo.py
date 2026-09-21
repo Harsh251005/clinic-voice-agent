@@ -226,6 +226,49 @@ def book(
     return appt
 
 
+def upcoming_for_phone(
+    s: Session, clinic_id: int, phone: str, now: datetime
+) -> list[Appointment]:
+    """Booked appointments from now on for the patient with this phone number."""
+    return list(s.scalars(
+        select(Appointment)
+        .join(Patient, Appointment.patient_id == Patient.id)
+        .where(
+            Appointment.clinic_id == clinic_id,
+            Patient.phone == phone,
+            Appointment.status == "booked",
+            Appointment.starts_at >= now,
+        )
+        .options(selectinload(Appointment.doctor), selectinload(Appointment.patient))
+        .order_by(Appointment.starts_at)
+    ))
+
+
+def get_appointment(s: Session, appointment_id: int) -> Appointment:
+    return _get(s, Appointment, appointment_id)
+
+
+def move_appointment(
+    s: Session, appointment_id: int, doctor_id: int, starts_at: datetime
+) -> Appointment:
+    """Move a booking to a new doctor/time in one update: it keeps its id, and
+    the partial unique index still refuses a slot someone else holds."""
+    appt = _get(s, Appointment, appointment_id)
+    doctor = _get(s, Doctor, doctor_id)
+    if doctor.clinic_id != appt.clinic_id:
+        raise NotFound(f"doctor {doctor_id} is not at clinic {appt.clinic_id}")
+    appt.doctor_id = doctor.id
+    appt.starts_at = starts_at
+    appt.ends_at = starts_at + timedelta(minutes=doctor.slot_minutes)
+    try:
+        s.commit()
+    except IntegrityError:
+        s.rollback()
+        raise SlotTaken(f"doctor {doctor_id} is already booked at {starts_at}") from None
+    s.refresh(appt)
+    return appt
+
+
 def cancel_appointment(s: Session, appointment_id: int) -> Appointment:
     appt = _get(s, Appointment, appointment_id)
     appt.status = "cancelled"

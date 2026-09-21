@@ -12,8 +12,9 @@ builders stay registered — switch back in `.env`, don't comment code out).
 Current state: **Stage 2 built** (plan:
 `~/.claude/plans/distributed-munching-wall.md`): clinic database, free-slot
 rules, Streamlit dashboard (setup + appointments), agent answering from clinic
-data, booking tools, end-call tool. Not yet: caller cancel/reschedule,
-dashboard login, migrations, telephony. The
+data, booking + cancel/reschedule tools, end-call tool, `console --text`.
+Not yet: dashboard login, migrations, telephony (identity is by spoken
+mobile number until caller ID exists). The
 instructions (`clinic_agent/prompts.py`) may only describe what is built: no
 promised checks, holds, messages or callbacks. Add a capability to them in the
 same change that builds it.

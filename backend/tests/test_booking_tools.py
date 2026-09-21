@@ -20,7 +20,7 @@ def tools(tmp_path):
     sessions = session_factory(engine)
     with sessions() as s:
         clinic_id = seed_demo(s)
-    find, book = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions))
+    find, book, *_ = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions))
     return find, book, sessions, clinic_id
 
 
@@ -73,3 +73,34 @@ async def test_booking_errors_reach_the_llm_as_tool_errors(tools):
     find, *_ = tools
     with pytest.raises(ToolError, match="No doctor called 'Dr. Sharma'"):
         await find(date=next_working_day().isoformat(), doctor_name="Dr. Sharma")
+
+
+async def test_find_cancel_through_the_tools(tools):
+    find, book, sessions, clinic_id = tools
+    day = next_working_day().isoformat()
+    await book(
+        doctor_name="Asha", date=day, time="17:00",
+        patient_name="Ravi", patient_phone="9876543210", caller_confirmed=True,
+    )
+    mine, cancel, move = _manage(sessions, clinic_id)
+    listed = await mine(patient_phone="9876543210")
+    appt_id = int(listed.split(":")[0].removeprefix("Appointment "))
+    with pytest.raises(ToolError, match="Not cancelled"):
+        await cancel(appointment_id=appt_id, patient_phone="9876543210", caller_confirmed=False)
+    with pytest.raises(ToolError, match="Not moved"):
+        await move(
+            appointment_id=appt_id, patient_phone="9876543210", date=day, time="17:15",
+            caller_confirmed=False,
+        )
+    moved = await move(
+        appointment_id=appt_id, patient_phone="9876543210", date=day, time="17:15",
+        caller_confirmed=True,
+    )
+    assert moved.startswith(f"Moved appointment {appt_id}")
+    cancelled = await cancel(appointment_id=appt_id, patient_phone="9876543210", caller_confirmed=True)
+    assert cancelled.startswith(f"Cancelled appointment {appt_id}")
+
+
+def _manage(sessions, clinic_id):
+    _, _, mine, cancel, move = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions))
+    return mine, cancel, move
