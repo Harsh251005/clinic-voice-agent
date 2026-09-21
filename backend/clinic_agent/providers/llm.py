@@ -22,11 +22,21 @@ def _sarvam(cfg: Settings) -> llm.LLM:
 
 def _openai(cfg: Settings) -> llm.LLM:
     # gpt-4.1-mini: no reasoning step, so the first token arrives fast enough
-    # for a phone call; the gpt-5 family thinks before answering.
+    # for a phone call. Reasoning models (gpt-5*, o*) get reasoning_effort
+    # "none" explicitly: Chat Completions refuses tools with reasoning on,
+    # and the plugin only sets it for model names it already knows, so a
+    # newer model (e.g. gpt-5.6-luna) would fail on every turn.
+    model = cfg.llm_model or "gpt-4.1-mini"
+    options = {"reasoning_effort": "none"} if _reasons(model) else {}
     return openai.LLM(
-        model=cfg.llm_model or "gpt-4.1-mini",
+        model=model,
         api_key=require_key(cfg.openai_api_key, "OPENAI_API_KEY"),
+        **options,
     )
+
+
+def _reasons(model: str) -> bool:
+    return model.startswith(("gpt-5", "o1", "o3", "o4"))
 
 
 BUILDERS: dict[str, Callable[[Settings], llm.LLM]] = {

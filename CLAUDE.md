@@ -115,7 +115,9 @@ matching `BUILDERS` dict + set `STT_PROVIDER` / `LLM_PROVIDER` /
 - **Sarvam `TTS_SPEAKER` must be a `bulbul:v3` voice** (default `suhani`); the
   plugin rejects v2 names such as `anushka`. For ElevenLabs it is a voice ID.
 - **OpenAI default is `gpt-4.1-mini`**, not the gpt-5 family: no reasoning step,
-  so the first token comes fast enough for a phone call.
+  so the first token comes fast enough for a phone call. For reasoning models
+  the builder forces `reasoning_effort="none"`: Chat Completions rejects tools
+  otherwise, and the plugin only sets it for model names it knows.
 - **`STT_LANGUAGE=unknown`** auto-detects per utterance.
 - **Hindi replies are written in Devanagari** (prompt rule). The TTS pronounces
   by script; romanised Hindi ("aap kaise hain") is read with English spelling

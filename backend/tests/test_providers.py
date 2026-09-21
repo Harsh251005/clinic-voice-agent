@@ -41,6 +41,19 @@ def test_openai_model_override(env):
     assert build_llm(load_settings()).model == "gpt-4o-mini"
 
 
+@pytest.mark.parametrize(
+    ("model", "effort"),
+    [("gpt-5.6-luna", "none"), ("gpt-5-mini", "none"), ("o4-mini", "none"), ("gpt-4.1-mini", None)],
+)
+def test_openai_reasoning_is_off_so_tools_work(env, model, effort):
+    env.setenv("LLM_PROVIDER", "openai")
+    env.setenv("OPENAI_API_KEY", "sk-test")
+    env.setenv("LLM_MODEL", model)
+    opts = build_llm(load_settings())._opts
+    got = opts.reasoning_effort if isinstance(opts.reasoning_effort, str) else None
+    assert got == effort
+
+
 def test_elevenlabs_tts(env):
     env.setenv("TTS_PROVIDER", "elevenlabs")
     env.setenv("ELEVENLABS_API_KEY", "el-test")
