@@ -35,6 +35,16 @@ uv run python main.py start     # production worker
 `LIVEKIT_*` values in `.env` and spend from the free tier's 1,000 agent-session
 minutes per month. `console` spends none of them.
 
+## Test
+
+```bash
+uv run pytest            # offline: config, providers, session wiring, boot errors
+uv run pytest -m live    # real Sarvam calls with the .env key — spends credits
+```
+
+Offline tests prove the wiring, not the conversation. Only live tests and
+real calls say whether the agent behaves well.
+
 ## How it fits together
 
 ```
@@ -88,10 +98,35 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `TTS_CODEC` | `linear16` | Raw PCM. The plugin's `mp3` default costs a decode per chunk. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
 
+## Troubleshooting
+
+**`403 ... invalid_api_key_error`, or `STT WebSocket session failed: 403`** —
+Sarvam rejected `SARVAM_API_KEY`. Startup cannot catch this; the session dies
+on the first call. Check the key directly:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.sarvam.ai/text-to-speech \
+  -H "api-subscription-key: $(grep ^SARVAM_API_KEY= .env | cut -d= -f2-)" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"namaste","target_language_code":"hi-IN","model":"bulbul:v3","speaker":"suhani"}'
+```
+
+`200` means the key works; `403` means get a new one from the dashboard.
+
+**`RuntimeWarning: coroutine 'AgentServer.aclose' was never awaited` on
+Ctrl+C in `console`** — harmless, and a LiveKit bug (1.8.2, the latest
+release). Ctrl+C schedules the shutdown; when the worker finishes it raises
+SIGTERM, whose handler schedules a second `aclose()` onto an event loop that
+has already stopped. The first shutdown has completed by then. Nothing to fix
+on our side.
+
 ## Notes
 
-- **No Silero VAD, deliberately.** Sarvam's STT streams and does its own
-  endpointing, so `turn_handling={"turn_detection": "stt"}` trusts its end-of-speech signal.
-  Adding a local VAD would run two at once and double-trigger interruptions.
+- **VAD — decision pending.** Sarvam's STT does its own endpointing and
+  `turn_handling={"turn_detection": "stt"}` trusts it for end of turn. But
+  LiveKit 1.8.2 still attaches a local Silero VAD by default unless
+  `AgentSession(vad=None)` is passed, so one is running today (tracked by the
+  expected-failure test `test_no_local_vad`). Keeping it gives faster barge-in;
+  removing it avoids double-triggered interruptions. To be settled on a live call.
 - Sarvam credits are consumption-based and shared across all three services.
   Long `console` sessions do spend them.

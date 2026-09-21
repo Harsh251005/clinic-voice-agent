@@ -59,10 +59,13 @@ matching `BUILDERS` dict + set `STT_PROVIDER` / `LLM_PROVIDER` /
 
 ## Deliberate choices — don't "fix" these
 
-- **No Silero/local VAD.** Sarvam STT streams and does its own endpointing;
-  the session sets `turn_handling={"turn_detection": "stt"}` explicitly (omitting
-  it falls back to LiveKit's own turn-detector model). A local VAD would double-trigger
-  interruptions.
+- **Turn detection is `"stt"`**, set explicitly in `session.py` (omitting it
+  falls back to LiveKit's own turn-detector model).
+- **VAD is undecided.** LiveKit 1.8.2 attaches a local Silero VAD unless
+  `vad=None` is passed, so one runs today; `test_no_local_vad` is a strict xfail
+  recording that. Don't add or remove `vad=` without Harsh's decision.
+- **Keep `backend/README.md` current** with every behaviour, command or setup
+  change, in the same commit.
 - **`TTS_CODEC=linear16`.** The Sarvam plugin defaults to mp3; raw PCM avoids a
   decode per chunk.
 - **`TTS_SPEAKER` must be a `bulbul:v3` voice** (default `suhani`); the plugin
