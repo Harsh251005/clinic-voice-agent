@@ -4,7 +4,8 @@ Stage 1: you speak, it answers. LiveKit Agents handles audio and turn-taking.
 Default testing stack: Sarvam for speech-to-text, OpenAI for the reasoning,
 ElevenLabs for the voice. Sarvam can do all three — switch in `.env`.
 
-No tools, no database, no booking, no telephony yet — those are later stages.
+Stage 2 in progress: a clinic database (doctors, hours, time off, patients,
+appointments) that the agent and a setup dashboard share. No telephony yet.
 
 ## Setup
 
@@ -25,6 +26,13 @@ checked:
 
 A missing key for a selected provider stops startup with a one-line error.
 
+Create the local database with a fictional demo clinic (real clinics will be
+set up through the dashboard):
+
+```bash
+uv run python -m seeds.demo_clinic   # writes data/clinic.db (gitignored)
+```
+
 ## Run
 
 ```bash
@@ -40,7 +48,7 @@ minutes per month. `console` spends none of them.
 ## Test
 
 ```bash
-uv run pytest            # offline: config, providers, session wiring, boot errors
+uv run pytest            # offline: config, providers, session, boot, clinic store
 uv run pytest -m live    # real API calls to the selected providers — spends credits
 ```
 
@@ -60,14 +68,37 @@ main.py                 entrypoint — console | dev | start
     ├── prompts.py      the persona
     ├── agent.py        Agent subclass — behaviour only (tools land here)
     ├── session.py      the one place STT + LLM + TTS are combined
-    └── providers/      vendor construction, behind three functions
-        ├── stt.py
-        ├── llm.py
-        └── tts.py
+    ├── providers/      vendor construction, behind three functions
+    │   ├── stt.py
+    │   ├── llm.py
+    │   └── tts.py
+    └── store/          clinic data — the only package that imports SQLAlchemy
+        ├── db.py       engine + sessions from DATABASE_URL
+        ├── models.py   clinics, FAQ, doctors, hours, time off, patients, appointments
+        └── repo.py     every query the agent and dashboard make
+seeds/demo_clinic.py    fictional clinic for tests and a first run
 ```
 
-The rule: **only `providers/` imports a vendor package.** Everything else deals
-in LiveKit's own `STT`, `LLM` and `TTS` base classes.
+The rules: **only `providers/` imports a vendor package**, and **only `store/`
+imports SQLAlchemy.** Everything else deals in LiveKit's base classes and in
+`repo` functions.
+
+## Clinic data
+
+Clinic details are data, never code: the agent and the dashboard read and
+write the same tables through `store/repo.py`.
+
+- **Double booking is impossible at the database level** — a partial unique
+  index on (doctor, start time) for booked appointments. A second booking
+  raises `repo.SlotTaken`; a cancelled slot can be rebooked.
+- **Split shifts** are several `doctor_hours` rows for one weekday (e.g.
+  10–1 and 5–8). **Time off** with no doctor is a whole-clinic holiday.
+- One patient per phone number per clinic; the latest name given wins.
+- Times are stored naive, in the clinic's timezone (`Asia/Kolkata`).
+- Tables are created with `create_all()`. Migrations (Alembic) come before
+  any real clinic's data exists.
+- Moving to Postgres: set `DATABASE_URL=postgresql+psycopg://…` and add the
+  driver. No code changes.
 
 ## Swapping a component
 
@@ -110,6 +141,8 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `TTS_SPEAKER` | provider's | ElevenLabs: a voice ID. The plugin default is not a Hindi voice — pick one in ElevenLabs → Voices → Voice Library (language Hindi, accent Indian), add it to My Voices, copy its ID. Sarvam: any `bulbul:v3` voice, default `suhani`; v2 names such as `anushka` are rejected. |
 | `TTS_CODEC` | provider's | Raw PCM for both (`pcm_24000` / `linear16`) — compressed formats cost a decode per chunk. |
 | `TTS_LANGUAGE` | provider's | ElevenLabs auto-detects, which suits mixed Hindi/English; Sarvam defaults to `en-IN`. |
+| `DATABASE_URL` | `sqlite:///data/clinic.db` | Point at Postgres for production. |
+| `CLINIC_ID` | `1` | Which clinic this worker answers for, until telephony routes calls by the dialled number. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
 
 ## Troubleshooting

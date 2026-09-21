@@ -6,6 +6,7 @@ requires-python = ">=3.13"
 dependencies = [
     "livekit-agents[sarvam,openai,elevenlabs]>=1.8.2",
     "python-dotenv>=1.0.0",
+    "sqlalchemy>=2.0",
 ]
 
 [tool.uv]

@@ -47,6 +47,10 @@ class Settings:
     # --- turn taking ---
     min_endpointing_delay: float
 
+    # --- clinic data ---
+    database_url: str
+    clinic_id: int  # which clinic this worker answers for, until telephony routes by number
+
 
 def require_key(value: str, name: str) -> str:
     """Called by a provider builder for the key it needs, so an unused
@@ -101,4 +105,6 @@ def load_settings() -> Settings:
         tts_sample_rate=int(tts_rate) if tts_rate is not None else None,
         tts_codec=_text("TTS_CODEC"),
         min_endpointing_delay=_number("MIN_ENDPOINTING_DELAY", 0.2),
+        database_url=_text("DATABASE_URL", "sqlite:///data/clinic.db"),
+        clinic_id=int(_number("CLINIC_ID", 1)),
     )

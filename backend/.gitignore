@@ -27,6 +27,7 @@ htmlcov/
 *.sqlite3
 *.log
 logs/
+data/
 
 # ---------- PyCharm ----------
 .idea/

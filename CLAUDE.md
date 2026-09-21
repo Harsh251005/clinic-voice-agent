@@ -53,6 +53,11 @@ The pipeline is split so each concern lives in exactly one module:
   into an `AgentSession`.
 - `clinic_agent/agent.py` — behaviour only (persona, and `@function_tool`
   methods from Stage 2 onward). Speaks first via `on_enter`.
+- `clinic_agent/store/` — clinic data (SQLAlchemy, sync). `repo.py` holds every
+  query; writes commit before returning; callers see `repo.NotFound` /
+  `repo.SlotTaken`, never SQLAlchemy errors. **Only `store/` imports
+  SQLAlchemy.** Double booking is prevented by a partial unique index, not by
+  code. Clinic details are data (seed or dashboard), never in `.py` files.
 - `clinic_agent/providers/{stt,llm,tts}.py` — each has a `BUILDERS` registry
   mapping a name to a builder returning LiveKit's base `STT`/`LLM`/`TTS` class.
   Builders own their vendor's defaults (model/voice settings are `None` in
