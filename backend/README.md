@@ -42,8 +42,12 @@ uv run pytest            # offline: config, providers, session wiring, boot erro
 uv run pytest -m live    # real Sarvam calls with the .env key — spends credits
 ```
 
-Offline tests prove the wiring, not the conversation. Only live tests and
-real calls say whether the agent behaves well.
+Offline tests prove the wiring, not the conversation. Live tests are evals:
+an LLM judge grades each reply against a stated intent (greets first, refuses
+medicine, escalates chest pain, never states a fee, never confirms a booking,
+answers Hinglish in Hinglish), and a TTS → STT round trip proves both halves of
+the audio path. They do not measure end-to-end latency — only a spoken
+`console` call does that.
 
 ## How it fits together
 
@@ -128,5 +132,10 @@ on our side.
   `AgentSession(vad=None)` is passed, so one is running today (tracked by the
   expected-failure test `test_no_local_vad`). Keeping it gives faster barge-in;
   removing it avoids double-triggered interruptions. To be settled on a live call.
+- **`console`/`dev` do not behave exactly like `start`.** With a VAD present,
+  LiveKit turns on *adaptive interruption detection* in console and dev mode —
+  a LiveKit Cloud model, called with `LIVEKIT_API_KEY` — and turns it off by
+  default under `start`. So interruptions you test locally are handled by a
+  model production does not run.
 - Sarvam credits are consumption-based and shared across all three services.
   Long `console` sessions do spend them.
