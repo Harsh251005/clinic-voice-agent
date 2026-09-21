@@ -46,7 +46,7 @@ def test_elevenlabs_tts(env):
     env.setenv("ELEVENLABS_API_KEY", "el-test")
     t = build_tts(load_settings())
     assert isinstance(t, tts.TTS)
-    assert t.model == "eleven_flash_v2_5"
+    assert t.model == "eleven_v3_conversational"
     assert t._opts.voice_id == elevenlabs.DEFAULT_VOICE_ID
     assert t._opts.encoding == "pcm_24000"
     assert t.sample_rate == 24000

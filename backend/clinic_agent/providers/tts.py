@@ -27,13 +27,17 @@ def _sarvam(cfg: Settings) -> tts.TTS:
 
 
 def _elevenlabs(cfg: Settings) -> tts.TTS:
-    # flash_v2_5 is ElevenLabs' lowest-latency multilingual model and speaks
-    # Hindi. pcm_24000 is raw PCM for the same reason as Sarvam's linear16.
-    # Language is left to auto-detect unless pinned, since callers mix
-    # Hindi and English. TTS_SPEAKER is an ElevenLabs voice ID.
+    # eleven_v3_conversational is ElevenLabs' most expressive model built for
+    # live dialogue; LiveKit streams it over the text-to-dialogue websocket.
+    # Fallback if the plan rejects it: TTS_MODEL=eleven_multilingual_v2
+    # (most natural of the v2 models) or eleven_flash_v2_5 (fastest).
+    # How real it sounds depends as much on TTS_SPEAKER - pick a Hindi voice
+    # ID from the Voice Library - and on the prompt writing Hindi in
+    # Devanagari. pcm_24000 is raw PCM, for the same reason as Sarvam's
+    # linear16. Language auto-detects, since callers mix Hindi and English.
     options = {"language": cfg.tts_language} if cfg.tts_language else {}
     return elevenlabs.TTS(
-        model=cfg.tts_model or "eleven_flash_v2_5",
+        model=cfg.tts_model or "eleven_v3_conversational",
         voice_id=cfg.tts_speaker or elevenlabs.DEFAULT_VOICE_ID,
         encoding=cfg.tts_codec or "pcm_24000",
         api_key=require_key(cfg.elevenlabs_api_key, "ELEVENLABS_API_KEY"),

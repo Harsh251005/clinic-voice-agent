@@ -80,8 +80,11 @@ matching `BUILDERS` dict + set `STT_PROVIDER` / `LLM_PROVIDER` /
   plugin rejects v2 names such as `anushka`. For ElevenLabs it is a voice ID.
 - **OpenAI default is `gpt-4.1-mini`**, not the gpt-5 family: no reasoning step,
   so the first token comes fast enough for a phone call.
-- **`STT_LANGUAGE=unknown`** auto-detects per utterance. If Hindi replies come
-  out mispronounced, switch `STT_MODE` to `translit` rather than pinning a
-  language.
+- **`STT_LANGUAGE=unknown`** auto-detects per utterance.
+- **Hindi replies are written in Devanagari** (prompt rule). The TTS pronounces
+  by script; romanised Hindi ("aap kaise hain") is read with English spelling
+  rules. Don't switch the prompt or `STT_MODE` to romanised output.
+- **ElevenLabs default model is `eleven_v3_conversational`**, chosen for realism
+  over latency.
 - Sarvam `LLM_MODEL` defaults to `sarvam-105b-conversations`; fall back to
   `sarvam-105b` if the plan lacks it.
