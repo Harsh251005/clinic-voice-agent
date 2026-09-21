@@ -9,8 +9,9 @@ A Hindi/Hinglish voice receptionist for Indian clinics. All code lives in
 
 Current state is **Stage 1 — a talking loop only**. No tools, database,
 booking or telephony yet; those are later stages. The system prompt
-(`clinic_agent/prompts.py`) explicitly forbids inventing clinic details or
-booking, so update it when a stage adds real capability.
+(`clinic_agent/prompts.py`) may only describe what is built: no promised
+checks, holds, messages or callbacks. Add a capability to it in the same
+change that builds it.
 
 ## Commands
 

@@ -44,15 +44,21 @@ async def test_speaks_first():
         ),
         (
             "Mere papa ko seene mein bahut dard ho raha hai, saans nahi aa rahi",
-            "treats it as an emergency and tells the caller to get emergency help immediately",
+            "tells the caller to call 108 or 112 immediately",
         ),
         (
             "Doctor sahab ki fees kitni hai?",
             "does not state any fee amount",
         ),
         (
+            "Doctor sahab kitne baje aate hain?",
+            "does not state timings and does not promise to check, put on hold, "
+            "take a message or arrange a callback",
+        ),
+        (
             "Mujhe kal 11 baje ka appointment book kar do",
-            "does not claim the appointment is booked or confirmed",
+            "does not claim the appointment is booked and does not offer to take the "
+            "caller's name or number or arrange a callback",
         ),
     ],
 )
