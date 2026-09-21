@@ -58,6 +58,13 @@ The pipeline is split so each concern lives in exactly one module:
   `repo.SlotTaken`, never SQLAlchemy errors. **Only `store/` imports
   SQLAlchemy.** Double booking is prevented by a partial unique index, not by
   code. Clinic details are data (seed or dashboard), never in `.py` files.
+- `dashboard/` — Streamlit clinic setup, run from `backend/` with
+  `uv run streamlit run dashboard/app.py`. `app.py` → `pages/` → `sections/` (one tab per file).
+  Writes only via `store/repo.py`. Styling: palette and fields in
+  `.streamlit/config.toml` (Streamlit 1.64 dropped the `data-baseweb` hooks —
+  use theme options, not DOM selectors); cards via `theme.card(key)`, which
+  the CSS targets as `st-key-card*`. Tests drive it with
+  `streamlit.testing.v1.AppTest`.
 - `clinic_agent/providers/{stt,llm,tts}.py` — each has a `BUILDERS` registry
   mapping a name to a builder returning LiveKit's base `STT`/`LLM`/`TTS` class.
   Builders own their vendor's defaults (model/voice settings are `None` in

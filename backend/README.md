@@ -45,10 +45,27 @@ uv run python main.py start     # production worker
 `LIVEKIT_*` values in `.env` and spend from the free tier's 1,000 agent-session
 minutes per month. `console` spends none of them.
 
+## Dashboard
+
+Clinic setup for staff: details, booking rules, doctors, weekly hours (split
+shifts), leave and holidays, and FAQ answers. Everything the agent knows about
+a clinic is entered here.
+
+```bash
+uv run streamlit run dashboard/app.py   # run from backend/ — .streamlit/ lives here
+```
+
+- It writes through `store/repo.py`, the same functions the agent uses.
+- Doctors are deactivated, never deleted, so appointment history survives.
+- **No login yet** — local testing only. Add authentication before any clinic
+  uses it.
+- After editing anything under `dashboard/`, restart Streamlit; it does not
+  reliably hot-reload imported modules.
+
 ## Test
 
 ```bash
-uv run pytest            # offline: config, providers, session, boot, clinic store
+uv run pytest            # offline: config, providers, session, boot, store, scheduling, dashboard
 uv run pytest -m live    # real API calls to the selected providers — spends credits
 ```
 
@@ -78,6 +95,7 @@ main.py                 entrypoint — console | dev | start
         └── repo.py     every query the agent and dashboard make
     scheduling.py       free-slot rules — pure functions, no DB, no LiveKit
 seeds/demo_clinic.py    fictional clinic for tests and a first run
+dashboard/              Streamlit clinic setup (app.py → pages/ → sections/, one section per file)
 ```
 
 The rules: **only `providers/` imports a vendor package**, and **only `store/`
