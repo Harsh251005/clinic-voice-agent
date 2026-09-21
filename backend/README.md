@@ -38,11 +38,17 @@ uv run python -m seeds.demo_clinic   # writes data/clinic.db (gitignored)
 
 ```bash
 uv run python main.py console   # talk over your mic — no LiveKit minutes used
+uv run python main.py console --text   # type instead: LLM only, no STT/TTS cost
 uv run python main.py dev       # join a LiveKit room, reloads on save
 uv run python main.py start     # production worker
 ```
 
-**Use `console` for everyday testing.** `dev` and `start` need the three
+**Use `console --text` for testing conversations, tools and bookings.** It
+builds no speech providers at all, so it spends only LLM tokens and needs no
+Sarvam or ElevenLabs key; bookings it makes are real rows in the database.
+Use plain `console` when you need to hear the voice.
+
+**`console` spends no LiveKit minutes.** `dev` and `start` need the three
 `LIVEKIT_*` values in `.env` and spend from the free tier's 1,000 agent-session
 minutes per month. `console` spends none of them.
 

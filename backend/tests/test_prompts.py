@@ -62,3 +62,9 @@ def test_prompt_describes_booking_and_only_built_capabilities(db):
     assert "only after a clear yes" in text
     assert "cannot cancel or change an appointment" in text
     assert "call end_call" in text
+
+
+def test_unknown_doctor_rule(db):
+    s, clinic_id = db
+    text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW)
+    assert "Never answer about one\n  doctor as if they were another" in text

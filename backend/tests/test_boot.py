@@ -21,7 +21,7 @@ def seeded_db(tmp_path) -> str:
     return url
 
 
-def run_main(tmp_path, **overrides):
+def run_main(tmp_path, *args, **overrides):
     # load_dotenv searches upward from config.py's own folder, so the code is
     # copied out of the repo; otherwise the developer's real .env is found.
     env = {k: v for k, v in os.environ.items() if not k.endswith(("_PROVIDER", "DATABASE_URL", "CLINIC_ID"))}
@@ -30,7 +30,7 @@ def run_main(tmp_path, **overrides):
     shutil.copy(BACKEND / "main.py", tmp_path)
     shutil.copytree(BACKEND / "clinic_agent", tmp_path / "clinic_agent")
     return subprocess.run(
-        [sys.executable, "main.py", "--help"],
+        [sys.executable, "main.py", *(args or ("--help",))],
         cwd=tmp_path, env=env, capture_output=True, text=True, timeout=60,
     )
 
@@ -63,3 +63,24 @@ def test_valid_config_reaches_the_cli(tmp_path):
     r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 0
     assert "console" in r.stdout and "dev" in r.stdout and "start" in r.stdout
+
+
+def test_text_mode_needs_no_speech_keys(tmp_path):
+    # LLM key only: no Sarvam key for STT, no ElevenLabs key for TTS.
+    r = run_main(
+        tmp_path, "console", "--text", "--help",
+        LLM_PROVIDER="openai", OPENAI_API_KEY="sk-x", TTS_PROVIDER="elevenlabs",
+        DATABASE_URL=seeded_db(tmp_path),
+    )
+    assert r.returncode == 0, r.stderr
+    assert "text mode" in r.stdout
+
+
+def test_voice_console_still_needs_speech_keys(tmp_path):
+    r = run_main(
+        tmp_path, "console", "--help",
+        LLM_PROVIDER="openai", OPENAI_API_KEY="sk-x", TTS_PROVIDER="elevenlabs",
+        DATABASE_URL=seeded_db(tmp_path),
+    )
+    assert r.returncode == 1
+    assert "SARVAM_API_KEY is not set" in r.stderr

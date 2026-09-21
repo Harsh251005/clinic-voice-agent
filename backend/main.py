@@ -1,6 +1,8 @@
 """Clinic voice agent.
 
     uv run python main.py console   talk to it locally (no LiveKit minutes)
+    uv run python main.py console --text
+                                    type to it: LLM only, no STT/TTS cost
     uv run python main.py dev       join a LiveKit room, reload on save
     uv run python main.py start     production worker
 """
@@ -26,15 +28,22 @@ from clinic_agent.tools.call import end_call_tool
 
 logger = logging.getLogger("clinic-agent")
 
+# `console --text` is the cheap testing mode: no speech providers are built.
+# Console jobs run in this same process, so the entrypoint can read it.
+TEXT_ONLY = sys.argv[1:2] == ["console"] and "--text" in sys.argv
+
 
 async def entrypoint(ctx: JobContext) -> None:
     cfg = load_settings()
-    logger.info(
-        "starting session: stt=%s/%s llm=%s/%s tts=%s/%s speaker=%s",
-        cfg.stt_provider, cfg.stt_model,
-        cfg.llm_provider, cfg.llm_model,
-        cfg.tts_provider, cfg.tts_model, cfg.tts_speaker,
-    )
+    if TEXT_ONLY:
+        logger.info("starting text-only session: llm=%s/%s", cfg.llm_provider, cfg.llm_model or "default")
+    else:
+        logger.info(
+            "starting session: stt=%s/%s llm=%s/%s tts=%s/%s speaker=%s",
+            cfg.stt_provider, cfg.stt_model,
+            cfg.llm_provider, cfg.llm_model or "default",
+            cfg.tts_provider, cfg.tts_model or "default", cfg.tts_speaker or "default",
+        )
 
     clinic, time_off = await asyncio.to_thread(load_clinic, cfg)
     logger.info("clinic %s: %s", clinic.id, clinic.name)
@@ -42,7 +51,7 @@ async def entrypoint(ctx: JobContext) -> None:
     link = ClinicLink(clinic.id, clinic.timezone, sessions_for(cfg.database_url))
     tools = [*booking_tools(link), end_call_tool()]
 
-    session = build_session(cfg)
+    session = build_session(cfg, text_only=TEXT_ONLY)
     await session.start(agent=ClinicAgent(instructions, tools), room=ctx.room)
 
 
@@ -54,7 +63,9 @@ if __name__ == "__main__":
     # Loading the clinic here catches a CLINIC_ID missing from the database.
     try:
         cfg = load_settings()
-        build_stt(cfg), build_llm(cfg), build_tts(cfg)
+        build_llm(cfg)
+        if not TEXT_ONLY:
+            build_stt(cfg), build_tts(cfg)
         load_clinic(cfg)
     except NotFound:
         sys.exit(

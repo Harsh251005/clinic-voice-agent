@@ -11,7 +11,15 @@ from clinic_agent.config import Settings
 from clinic_agent.providers import build_llm, build_stt, build_tts
 
 
-def build_session(cfg: Settings) -> AgentSession:
+def build_session(cfg: Settings, text_only: bool = False) -> AgentSession:
+    """The voice pipeline, or with text_only just the LLM: typed in, printed out.
+
+    Text-only builds no STT or TTS at all, so testing the conversation, tools
+    and database spends only LLM tokens and needs no speech-provider keys.
+    """
+    if text_only:
+        # Typed messages are whole turns already: nothing to detect, no VAD.
+        return AgentSession(llm=build_llm(cfg), vad=None, turn_handling={"turn_detection": "manual"})
     return AgentSession(
         stt=build_stt(cfg),
         llm=build_llm(cfg),

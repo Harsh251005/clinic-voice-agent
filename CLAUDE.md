@@ -26,6 +26,7 @@ Run from `backend/` (Python ≥3.13, managed with `uv`, `package = false`):
 uv sync                          # install
 cp .env.example .env             # then set the keys for the selected providers
 uv run python main.py console    # talk over the local mic — spends no LiveKit minutes
+uv run python main.py console --text  # typed, LLM-only: no STT/TTS built or billed
 uv run python main.py dev        # join a LiveKit room, reloads on save
 uv run python main.py start      # production worker
 ```
@@ -55,7 +56,9 @@ The pipeline is split so each concern lives in exactly one module:
   Frozen `Settings` dataclass; a new setting means a field, a line in
   `load_settings()`, and an entry in `.env.example`.
 - `clinic_agent/session.py` — the **only** place STT + LLM + TTS are combined
-  into an `AgentSession`.
+  into an `AgentSession`. `text_only=True` (from `console --text`, detected in
+  `main.py` as `TEXT_ONLY`) builds an LLM-only session with manual turns; boot
+  then skips the speech providers and their keys.
 - `clinic_agent/agent.py` — behaviour only: takes its instructions from the
   entrypoint; tools attach here. Speaks first via `on_enter`.
 - `clinic_agent/prompts.py` — fixed persona `RULES` + `clinic_facts()` generated

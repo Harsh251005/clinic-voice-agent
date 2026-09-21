@@ -19,3 +19,12 @@ async def test_turn_detection_trusts_stt(env):
 )
 async def test_no_local_vad(env):
     assert build_session(load_settings()).vad is None
+
+
+async def test_text_only_session_builds_no_speech_providers(env):
+    env.setenv("LLM_PROVIDER", "openai")
+    env.setenv("OPENAI_API_KEY", "sk-test")
+    env.delenv("SARVAM_API_KEY")  # not needed: no STT or TTS is built
+    session = build_session(load_settings(), text_only=True)
+    assert session.stt is None and session.tts is None and session.vad is None
+    assert session.options.turn_handling["turn_detection"] == "manual"
