@@ -104,3 +104,42 @@ def test_pre_alembic_database_with_another_schema_is_left_alone(tmp_path):
 
 def test_record_timestamps_are_utc():
     assert abs(utc_now() - datetime.now(UTC).replace(tzinfo=None)).total_seconds() < 5
+
+
+def test_models_and_migrations_agree(tmp_path):
+    # A models.py change without a matching revision fails here, not in production.
+    from alembic.autogenerate import compare_metadata
+    from alembic.runtime.migration import MigrationContext
+
+    from clinic_agent.store.models import Base
+
+    engine = make_engine(f"sqlite:///{tmp_path}/drift.db")
+    migrations.upgrade(engine)
+    with engine.connect() as conn:
+        assert compare_metadata(MigrationContext.configure(conn), Base.metadata) == []
+
+
+def test_existing_clinics_get_unique_slugs(tmp_path):
+    from alembic import command
+
+    engine = make_engine(f"sqlite:///{tmp_path}/slugs.db")
+    with engine.begin() as conn:
+        command.upgrade(migrations._config(conn), "0001")
+        for name in ("Cure Dental Clinic", "Cure Dental Clinic", "शर्मा क्लिनिक"):
+            conn.exec_driver_sql(
+                "INSERT INTO clinics (name, address, phone, timezone, booking_window_days, slots_offered) "
+                f"VALUES ('{name}', '', '', 'Asia/Kolkata', 30, 3)"
+            )
+    migrations.upgrade(engine)
+    with session_factory(engine)() as s:
+        assert [c.slug for c in repo.list_clinics(s)] == ["cure-dental-clinic", "cure-dental-clinic-2", "clinic"]
+
+
+def test_foreign_keys_are_back_on_after_an_upgrade(tmp_path):
+    # Upgrades switch them off (see _upgrade_sqlite); a pooled connection
+    # left that way would silently stop cascading deletes.
+    engine = make_engine(f"sqlite:///{tmp_path}/fk.db")
+    migrations.upgrade(engine)
+    for _ in range(3):
+        with engine.connect() as conn:
+            assert conn.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1

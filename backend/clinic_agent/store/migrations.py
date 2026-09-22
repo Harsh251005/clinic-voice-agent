@@ -64,12 +64,34 @@ def upgrade(engine: Engine) -> None:
         _adopt(engine)
     elif rev is not None:
         _backup(engine)
-    with engine.begin() as conn:
-        if conn.dialect.name == "postgresql":
+    if engine.dialect.name == "sqlite":
+        _upgrade_sqlite(engine)
+    else:
+        with engine.begin() as conn:
             # Held until commit: a second upgrade waits instead of racing.
             conn.execute(text("SELECT pg_advisory_xact_lock(7201)"))
-        command.upgrade(_config(conn), "head")
+            command.upgrade(_config(conn), "head")
     logger.info("database upgraded to %s", head())
+
+
+def _upgrade_sqlite(engine: Engine) -> None:
+    """SQLite alters a table by copying it and dropping the original. With
+    foreign keys on, that drop cascades: rebuilding `clinics` would delete
+    every doctor and appointment. So they are off while revisions run (the
+    pragma only works outside a transaction), checked before commit, and
+    back on before the connection returns to the pool."""
+    with engine.connect() as conn:
+        conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        conn.commit()
+        try:
+            with conn.begin():
+                command.upgrade(_config(conn), "head")
+                broken = conn.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+                if broken:
+                    raise RuntimeError(f"upgrade would break foreign keys, rolled back: {broken[:5]}")
+        finally:
+            conn.exec_driver_sql("PRAGMA foreign_keys=ON")
+            conn.commit()
 
 
 def _config(connection=None) -> Config:

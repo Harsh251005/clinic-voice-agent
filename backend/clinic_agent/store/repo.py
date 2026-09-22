@@ -6,6 +6,8 @@ SQLAlchemy error - nothing outside `store/` should need to import it.
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
 
@@ -49,18 +51,75 @@ def get_clinic(s: Session, clinic_id: int) -> Clinic:
     return clinic
 
 
+def get_clinic_by_slug(s: Session, slug: str) -> Clinic:
+    """The clinic a call link is for, loaded like get_clinic."""
+    clinic_id = s.scalar(select(Clinic.id).where(Clinic.slug == slug))
+    if clinic_id is None:
+        raise NotFound(f"no clinic with link {slug!r}")
+    return get_clinic(s, clinic_id)
+
+
 def list_clinics(s: Session) -> list[Clinic]:
     return list(s.scalars(select(Clinic).order_by(Clinic.id)))
 
 
 def create_clinic(s: Session, **fields) -> Clinic:
+    """A new clinic. Its call-link slug is made from the name unless given."""
+    if "slug" in fields:
+        _check_slug(s, fields["slug"])
+    else:
+        fields["slug"] = _free_slug(s, slugify(fields.get("name", "")))
     clinic = Clinic(**fields)
     s.add(clinic)
     s.commit()
     return clinic
 
 
+SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+
+
+def slugify(name: str) -> str:
+    """"Sharma Skin Clinic" -> "sharma-skin-clinic". Accents are folded; a name
+    with no Latin letters or digits (all Devanagari, say) gives "clinic"."""
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()).strip("-")[:60].strip("-")
+    return slug if len(slug) >= 3 else "clinic"
+
+
+def set_slug(s: Session, clinic_id: int, slug: str) -> Clinic:
+    """Change a clinic's call link. The old link stops working.
+    Raises ValueError with a message staff can read."""
+    clinic = _get(s, Clinic, clinic_id)
+    if slug != clinic.slug:
+        _check_slug(s, slug)
+        clinic.slug = slug
+        s.commit()
+    return clinic
+
+
+def _check_slug(s: Session, slug: str) -> None:
+    if not (3 <= len(slug) <= 60 and SLUG.fullmatch(slug)):
+        raise ValueError(
+            "The link name must be 3-60 characters: lowercase letters, digits and "
+            "single hyphens, e.g. sharma-skin."
+        )
+    if s.scalar(select(Clinic.id).where(Clinic.slug == slug)) is not None:
+        raise ValueError(f"The link name {slug!r} is already taken by another clinic.")
+
+
+def _free_slug(s: Session, base: str) -> str:
+    taken = set(s.scalars(select(Clinic.slug).where(Clinic.slug.like(f"{base}%"))))
+    slug, n = base, 2
+    while slug in taken:
+        slug = f"{base[:56]}-{n}"
+        n += 1
+    return slug
+
+
 def update_clinic(s: Session, clinic_id: int, **fields) -> Clinic:
+    """Details and booking rules. The slug changes only through set_slug."""
+    if "slug" in fields:
+        raise TypeError("use set_slug to change a clinic's call link")
     clinic = _get(s, Clinic, clinic_id)
     for key, value in fields.items():
         setattr(clinic, key, value)

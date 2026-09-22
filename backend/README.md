@@ -200,6 +200,11 @@ write the same tables through `store/repo.py`.
   raises `repo.SlotTaken`; a cancelled slot can be rebooked.
 - **Split shifts** are several `doctor_hours` rows for one weekday (e.g.
   10–1 and 5–8). **Time off** with no doctor is a whole-clinic holiday.
+- **Each clinic has a link name** (`slug`, e.g. `sharma-skin-clinic`), made
+  from its name when created, `-2`, `-3` if taken, and editable on the
+  dashboard's **Call link** tab. Its call link is `PUBLIC_BASE_URL/call/<slug>`.
+  Patients see the slug, never the database id. Renaming it breaks the old
+  link.
 - **A patient is a phone number plus a name**, so one phone can hold a whole
   family (a parent booking for their children). The same name in another
   case is the same person; a new name is a new person, never a rename.
@@ -219,6 +224,13 @@ write the same tables through `store/repo.py`.
   `clinic.db.bak-<time>`.
 - After changing `models.py`, write a revision, read it, and commit it:
   `uv run alembic revision --autogenerate --rev-id 0002 -m "what changed"`.
+- SQLite changes a table by copying it and dropping the original, and a
+  drop with foreign keys on cascades (rebuilding `clinics` would delete every
+  doctor and appointment). So the migrations command turns foreign keys off
+  while revisions run, runs `PRAGMA foreign_key_check` before committing, and
+  turns them back on. Keep it that way.
+- `tests/test_migrations.py::test_models_and_migrations_agree` fails when
+  `models.py` changes without a revision.
 - A database made before Alembic (by Stage 2's `create_all`) is adopted at
   revision `0001`, but only if its schema matches the baseline exactly;
   anything else is refused and left untouched.
@@ -286,6 +298,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `TTS_CODEC` | provider's | Raw PCM for both (`pcm_24000` / `linear16`) — compressed formats cost a decode per chunk. |
 | `TTS_LANGUAGE` | provider's | ElevenLabs auto-detects, which suits mixed Hindi/English; Sarvam defaults to `en-IN`. |
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
+| `PUBLIC_BASE_URL` | `http://localhost:8080` | Where the call-link server is reachable; the dashboard builds each clinic's link from it. Your tunnel's https address for a demo from outside. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
 
 ## Troubleshooting

@@ -50,6 +50,9 @@ class Settings:
     # --- clinic data ---
     database_url: str
 
+    # --- call links ---
+    public_base_url: str  # where the call-link server is reachable, no trailing slash
+
 
 def require_key(value: str, name: str) -> str:
     """Called by a provider builder for the key it needs, so an unused
@@ -106,4 +109,5 @@ def load_settings() -> Settings:
         tts_codec=_text("TTS_CODEC"),
         min_endpointing_delay=_number("MIN_ENDPOINTING_DELAY", 0.2),
         database_url=_text("DATABASE_URL", "sqlite:///data/clinic.db"),
+        public_base_url=_text("PUBLIC_BASE_URL", "http://localhost:8080").rstrip("/"),
     )

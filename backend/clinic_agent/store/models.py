@@ -36,6 +36,9 @@ class Clinic(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
+    # Public name in the clinic's call link (/call/<slug>): the link, not the
+    # database id, is what patients see. Set by repo.create_clinic.
+    slug: Mapped[str] = mapped_column(String(60), unique=True)
     address: Mapped[str] = mapped_column(String(500), default="")
     phone: Mapped[str] = mapped_column(String(20), default="")
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Kolkata")
