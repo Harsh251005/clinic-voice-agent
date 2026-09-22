@@ -53,6 +53,10 @@ class Settings:
     # --- dashboard ---
     dashboard_login: str  # "google", or "off" for local development only
     admin_emails: frozenset[str]  # lowercased; see every clinic and manage access
+    dashboard_url: str  # where staff open the dashboard, no trailing slash
+    session_secret: str  # signs the dashboard session cookie
+    google_client_id: str
+    google_client_secret: str
 
     # --- clinic data ---
     database_url: str
@@ -139,6 +143,10 @@ def load_settings() -> Settings:
         admin_emails=frozenset(
             e.strip().lower() for e in (_text("ADMIN_EMAILS") or "").split(",") if e.strip()
         ),
+        dashboard_url=_text("DASHBOARD_URL", "http://localhost:3000").rstrip("/"),
+        session_secret=_text("SESSION_SECRET", ""),
+        google_client_id=_text("GOOGLE_CLIENT_ID", ""),
+        google_client_secret=_text("GOOGLE_CLIENT_SECRET", ""),
         database_url=_text("DATABASE_URL", "sqlite:///data/clinic.db"),
         livekit_url=_text("LIVEKIT_URL", ""),
         livekit_api_key=_text("LIVEKIT_API_KEY", ""),

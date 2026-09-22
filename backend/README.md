@@ -112,7 +112,32 @@ To let someone outside your machine call (a demo, a pilot), expose port 8080
 with a tunnel and set `PUBLIC_BASE_URL` to its https address. Browsers
 only allow the microphone on https or `localhost`.
 
-## Dashboard
+## Dashboard API (for the Next.js dashboard)
+
+The same server (`uv run python -m api`) serves the dashboard's JSON API
+under `/api`. The Next.js dashboard (being built, Stage 3b) is only
+screens; every rule and access check lives here, in `api/dashboard/`, and
+in `repo.py`.
+
+- **Sign-in:** Google, via `/api/auth/login` → Google →
+  `/api/auth/callback`. Only a verified email is kept, in a signed session
+  cookie (`clinic_console`: httpOnly, SameSite=Lax, Secure on https, 12
+  hours). Settings: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+  `SESSION_SECRET`, `DASHBOARD_URL`. Google's redirect URI is
+  `DASHBOARD_URL/api/auth/callback`.
+- **Access** is re-read from the database on every request, so removing
+  someone takes effect at once. Admins (`ADMIN_EMAILS`) see every clinic;
+  members see theirs; another clinic's URL is a 404.
+- **Every row id is checked against the clinic in the URL**
+  (`repo.in_clinic`). Without it, a member of one clinic could change
+  another's data by guessing ids. `tests/test_dashboard_api.py` attacks
+  every kind of row; it fails if the check is removed (verified).
+- **CSRF:** changes must send the header `x-clinic-console: 1`, which a
+  cross-site form can't; reading doesn't need it.
+- Rule violations come back as 422 with a message staff can read (bad link
+  name, overlapping sittings); rows outside the clinic as 404.
+
+## Dashboard (Streamlit, being replaced)
 
 Two pages for clinic staff:
 

@@ -215,6 +215,13 @@ def set_doctor_hours(
     """Replace the doctor's whole weekly schedule with (weekday, start, end) rows."""
     doctor = _get(s, Doctor, doctor_id)
     sittings = list(sittings)
+    check_sittings(sittings)
+    doctor.hours = [DoctorHours(weekday=w, start=a, end=b) for w, a, b in sittings]
+    s.commit()
+
+
+def check_sittings(sittings: list[tuple[int, time, time]]) -> None:
+    """ValueError, with a message staff can read, for a week that can't be saved."""
     for weekday, start, end in sittings:
         if not 0 <= weekday <= 6:
             raise ValueError(f"weekday must be 0-6, got {weekday}")
@@ -226,8 +233,6 @@ def set_doctor_hours(
         for (_, end), (start, _) in zip(spans, spans[1:]):
             if start < end:
                 raise ValueError(f"sittings on {DAY_NAMES[day]} overlap: one starts at {start:%H:%M} before the other ends at {end:%H:%M}")
-    doctor.hours = [DoctorHours(weekday=w, start=a, end=b) for w, a, b in sittings]
-    s.commit()
 
 
 # ---------- time off ----------
@@ -417,6 +422,16 @@ def _is_slot_clash(err: IntegrityError) -> bool:
     other constraint that must not be reported to a caller as 'slot taken'."""
     text = str(err.orig)
     return "uq_doctor_slot_booked" in text or "appointments.doctor_id, appointments.starts_at" in text
+
+
+def in_clinic(s: Session, model, row_id: int, clinic_id: int):
+    """The row, only if it belongs to this clinic; NotFound otherwise, as if
+    it didn't exist. The dashboard API reaches rows by id from the URL, so
+    without this a member of one clinic could change another's by guessing."""
+    row = s.get(model, row_id)
+    if row is None or row.clinic_id != clinic_id:
+        raise NotFound(f"no {model.__name__} with id {row_id} in clinic {clinic_id}")
+    return row
 
 
 def _get(s: Session, model, row_id: int):

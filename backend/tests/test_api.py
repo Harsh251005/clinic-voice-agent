@@ -35,6 +35,7 @@ def client(env, seeded_url):
     env.setenv("LIVEKIT_URL", "wss://clinic-voice-agent-a35bk4rv.livekit.cloud")
     env.setenv("LIVEKIT_API_KEY", KEY)
     env.setenv("LIVEKIT_API_SECRET", SECRET)
+    env.setenv("DASHBOARD_LOGIN", "off")  # call links need no dashboard sign-in
     from api.app import create_app
 
     return TestClient(create_app(load_settings()))
@@ -148,6 +149,7 @@ def test_configured_ip_header_separates_callers_behind_a_tunnel(env, seeded_url)
     env.setenv("LIVEKIT_URL", "wss://x.livekit.cloud")
     env.setenv("LIVEKIT_API_KEY", KEY)
     env.setenv("LIVEKIT_API_SECRET", SECRET)
+    env.setenv("DASHBOARD_LOGIN", "off")  # call links need no dashboard sign-in
     env.setenv("CLIENT_IP_HEADER", "CF-Connecting-IP")
     from api.app import create_app
 
@@ -162,6 +164,7 @@ def test_health(client):
 
 def test_missing_livekit_settings_stop_startup(env, seeded_url):
     env.setenv("DATABASE_URL", seeded_url)
+    env.setenv("DASHBOARD_LOGIN", "off")
     from api.app import create_app
 
     with pytest.raises(ConfigError, match="LIVEKIT_URL is not set"):
