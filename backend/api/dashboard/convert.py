@@ -44,5 +44,5 @@ def appointment(a, problem: str | None = None) -> schemas.Appointment:
         id=a.id, doctor_id=a.doctor_id, doctor_name=a.doctor.name,
         patient_name=a.patient.name, patient_phone=a.patient.phone,
         starts_at=a.starts_at, ends_at=a.ends_at, status=a.status, source=a.source,
-        problem=problem,
+        reason=a.reason, problem=problem,
     )

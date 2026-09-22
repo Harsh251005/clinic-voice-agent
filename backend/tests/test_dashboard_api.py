@@ -43,6 +43,7 @@ def world(tmp_path, env):
             "demo_faq": repo.get_clinic(s, demo).faq[0].id,
             "demo_off": repo.time_off_overlapping(s, demo, date(2026, 12, 1), date(2026, 12, 1))[0].id,
             "demo_appt": repo.appointments_on(s, demo, date(2026, 12, 7))[0].id,
+            "cure_appt": repo.appointments_on(s, cure, date(2026, 12, 7))[0].id,
         }
         repo.add_member(s, demo, "doctor@demo.in")
         ids["demo_member"] = repo.list_members(s, demo)[0].id
@@ -178,12 +179,20 @@ def test_only_admins_create_clinics_and_manage_teams(world):
 ATTACKS = [
     # (method, path under the attacker's own clinic, body, the row it targets)
     ("DELETE", "/doctors/{demo_doctor}", None),
+    ("PUT", "/appointments/{demo_appt}", {"doctor_id": "{khushboo}", "starts_at": "2026-12-08T10:00",
+                                          "patient_name": "X", "patient_phone": "9876543210"}),
+    ("GET", "/doctors/{demo_doctor}/free?day=2026-12-07", None),
     ("DELETE", "/faq/{demo_faq}", None),
     ("DELETE", "/time-off/{demo_off}", None),
     ("PATCH", "/doctors/{demo_doctor}", {"fee": 1}),
     ("PUT", "/doctors/{demo_doctor}/hours", {"sittings": []}),
     ("POST", "/appointments/{demo_appt}/cancel", None),
     ("POST", "/time-off", {"date_from": "2026-12-01", "date_to": "2026-12-01", "doctor_id": "{demo_doctor}"}),
+    ("POST", "/appointments", {"doctor_id": "{demo_doctor}", "starts_at": "2026-12-08T10:00",
+                               "patient_name": "X", "patient_phone": "9876543210"}),
+    # moving your own booking onto another clinic's doctor
+    ("PUT", "/appointments/{cure_appt}", {"doctor_id": "{demo_doctor}", "starts_at": "2026-12-08T10:00",
+                                          "patient_name": "X", "patient_phone": "9876543210"}),
 ]
 
 
@@ -197,9 +206,11 @@ def test_another_clinics_rows_cant_be_reached_through_your_own_clinic(world, met
     _demo_untouched(world)
 
 
-@pytest.mark.parametrize(("method", "path", "body"), ATTACKS[:6])
+@pytest.mark.parametrize(("method", "path", "body"), ATTACKS[:8])
 def test_another_clinics_rows_cant_be_reached_through_its_url(world, method, path, body):
     c = client_as("reception@cure.in")
+    fill = lambda v: int(v.format(**world)) if isinstance(v, str) and v.startswith("{") else v  # noqa: E731
+    body = {k: fill(v) for k, v in body.items()} if body else None
     r = c.request(method, f"/api/clinics/{world['demo']}" + path.format(**world), json=body)
     assert r.status_code == 404
     _demo_untouched(world)
@@ -350,3 +361,52 @@ def test_deactivating_a_doctor_flags_their_bookings(world):
     assert c.patch(f"{base}/doctors/{world['khushboo']}", json={"active": False}).json()["upcoming"] == 1
     (appt,) = c.get(f"{base}/appointments", params={"day": "2026-12-07"}).json()["appointments"]
     assert appt["problem"] == "Dr. Khushboo is no longer taking appointments"
+
+
+# ---------- staff book and change appointments ----------
+
+def _booking(world, **kw):
+    return {"doctor_id": world["khushboo"], "starts_at": "2026-12-08T10:00",
+            "patient_name": "Meena Joshi", "patient_phone": "98190 22222", "reason": "दाँत में दर्द", **kw}
+
+
+def test_staff_book_a_walk_in_at_any_time(world):
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}"
+    # 10:05 is off the 15-minute grid, 21:00 outside hours: staff's call
+    for at in ("2026-12-08T10:05", "2026-12-08T21:00"):
+        a = c.post(f"{base}/appointments", json=_booking(world, starts_at=at)).json()
+        assert (a["source"], a["reason"], a["problem"]) == ("dashboard", "दाँत में दर्द", None)
+        assert a["patient_phone"] == "9819022222"
+
+
+def test_staff_cant_double_book_a_doctor(world):
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}"
+    r = c.post(f"{base}/appointments", json=_booking(world, starts_at="2026-12-07T10:10"))  # Harsh 10:00-10:15
+    assert r.status_code == 422 and "already has Harsh from 10:00 to 10:15" in r.json()["detail"]
+    bad = c.post(f"{base}/appointments", json=_booking(world, patient_phone="12345"))
+    assert bad.status_code == 422 and "10-digit" in bad.json()["detail"]
+
+
+def test_staff_change_who_why_and_when(world):
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}"
+    body = _booking(world, starts_at="2026-12-09T11:30", patient_name="Harsh D", reason="Cleaning")
+    a = c.put(f"{base}/appointments/{world['cure_appt']}", json=body).json()
+    assert (a["id"], a["starts_at"], a["patient_name"], a["reason"]) == (
+        world["cure_appt"], "2026-12-09T11:30:00", "Harsh D", "Cleaning")
+    old_day = c.get(f"{base}/appointments", params={"day": "2026-12-07"}).json()
+    assert old_day["appointments"] == []  # moved, not copied
+
+
+def test_free_times_are_quick_picks(world):
+    c = client_as("reception@cure.in")
+    r = c.get(f"/api/clinics/{world['cure']}/doctors/{world['khushboo']}/free", params={"day": "2026-12-07"}).json()
+    assert r["times"][:3] == ["10:15:00", "10:30:00", "10:45:00"]  # 10:00 is Harsh's
+
+
+def test_a_timezone_is_refused(world):
+    c = client_as("reception@cure.in")
+    r = c.post(f"/api/clinics/{world['cure']}/appointments", json=_booking(world, starts_at="2026-12-08T10:00+05:30"))
+    assert r.status_code == 422

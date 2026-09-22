@@ -39,6 +39,10 @@
             ],
             "title": "Problem"
           },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
           "source": {
             "enum": [
               "voice",
@@ -70,9 +74,49 @@
           "starts_at",
           "ends_at",
           "status",
-          "source"
+          "source",
+          "reason"
         ],
         "title": "Appointment",
+        "type": "object"
+      },
+      "AppointmentIn": {
+        "description": "A booking as staff enter it; also the whole edit form (PUT).",
+        "properties": {
+          "doctor_id": {
+            "title": "Doctor Id",
+            "type": "integer"
+          },
+          "patient_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Patient Name",
+            "type": "string"
+          },
+          "patient_phone": {
+            "maxLength": 20,
+            "title": "Patient Phone",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Reason",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "doctor_id",
+          "starts_at",
+          "patient_name",
+          "patient_phone"
+        ],
+        "title": "AppointmentIn",
         "type": "object"
       },
       "Clinic": {
@@ -419,6 +463,23 @@
           "answer"
         ],
         "title": "FaqIn",
+        "type": "object"
+      },
+      "FreeTimes": {
+        "properties": {
+          "times": {
+            "items": {
+              "format": "time",
+              "type": "string"
+            },
+            "title": "Times",
+            "type": "array"
+          }
+        },
+        "required": [
+          "times"
+        ],
+        "title": "FreeTimes",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1037,6 +1098,111 @@
           }
         },
         "summary": "Day"
+      },
+      "post": {
+        "operationId": "book_api_clinics__clinic_id__appointments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Book"
+      }
+    },
+    "/api/clinics/{clinic_id}/appointments/{appointment_id}": {
+      "put": {
+        "operationId": "change_api_clinics__clinic_id__appointments__appointment_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointment_id",
+            "required": true,
+            "schema": {
+              "title": "Appointment Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change"
       }
     },
     "/api/clinics/{clinic_id}/appointments/{appointment_id}/cancel": {
@@ -1241,6 +1407,64 @@
           }
         },
         "summary": "Update Doctor"
+      }
+    },
+    "/api/clinics/{clinic_id}/doctors/{doctor_id}/free": {
+      "get": {
+        "operationId": "free_api_clinics__clinic_id__doctors__doctor_id__free_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "doctor_id",
+            "required": true,
+            "schema": {
+              "title": "Doctor Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreeTimes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Free"
       }
     },
     "/api/clinics/{clinic_id}/doctors/{doctor_id}/hours": {

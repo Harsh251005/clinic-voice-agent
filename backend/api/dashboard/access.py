@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException, Request
 
+from clinic_agent.booking import BookingError
 from clinic_agent.store import repo
 
 # State-changing requests must carry this header. A form or image on another
@@ -65,11 +66,12 @@ def same_site(request: Request) -> None:
 @contextmanager
 def staff_errors():
     """Rule violations become messages staff can read: a ValueError from the
-    repo (bad slug, overlapping sittings...) is a 422 with its message, and a
-    row outside the clinic is a 404."""
+    repo (bad slug, overlapping sittings...) or a BookingError (overlapping
+    booking, bad mobile number) is a 422 with its message, and a row outside
+    the clinic is a 404."""
     try:
         yield
     except repo.NotFound:
         raise HTTPException(404, "Not found.") from None
-    except ValueError as err:
+    except (ValueError, BookingError) as err:
         raise HTTPException(422, str(err)) from None

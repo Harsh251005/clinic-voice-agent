@@ -82,6 +82,7 @@ def booking_tools(link: ClinicLink) -> list:
         patient_name: str,
         patient_phone: str,
         caller_confirmed: bool,
+        reason: str = "",
     ) -> str:
         """Book an appointment. Call only after reading every detail back to the caller.
 
@@ -93,6 +94,9 @@ def booking_tools(link: ClinicLink) -> list:
             patient_phone: The caller's 10-digit mobile number.
             caller_confirmed: True only if you read back the doctor, day, time,
                 name and number and the caller clearly said yes.
+            reason: Why the patient is coming, briefly in the caller's own words
+                (e.g. "आँखों से धुंधला दिखता है", "दाँत में दर्द"), for the clinic's
+                staff. Empty if the caller didn't want to say.
         """
         if not caller_confirmed:
             raise ToolError(
@@ -101,7 +105,7 @@ def booking_tools(link: ClinicLink) -> list:
             )
         return await run(
             ctx, booking.book_slot, doctor_name, _date(date), _time(time),
-            patient_name, patient_phone, clinic_now(link.timezone),
+            patient_name, patient_phone, clinic_now(link.timezone), reason,
         )
 
     @function_tool

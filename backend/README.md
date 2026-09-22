@@ -144,9 +144,21 @@ The screens are in `../frontend/` (run instructions in its README); every
 action below is an `/api` endpoint here.
 
 - **Appointments**, one day at a time, grouped by doctor, each tagged
-  *Call* (booked by the agent) or *Staff*. Counters for the day, bookings
-  from calls, and the next seven days. Cancelling asks first; cancelled slots
-  become bookable again.
+  *Call* (booked by the agent) or *Staff*, with the reason for the visit.
+  Counters for the day, bookings from calls, and the next seven days.
+- **Staff have the final say.** *New appointment* books a walk-in or a
+  booking taken on the clinic's own phone; *Edit* on any row changes the
+  doctor, day, time, patient's name and number, or the reason; *Cancel*
+  asks first and frees the slot. The form offers the doctor's free times as
+  quick picks **and accepts any time typed in** — outside hours, on leave,
+  off the slot grid — because a clinic squeezes people in. The only thing
+  refused is overlapping another booking of the same doctor, and the
+  message names who holds the time. A cancelled booking can't be moved
+  (book a new one), but its details can still be corrected. The patient is
+  never told automatically.
+- **The reason for the visit** ("आँखों से धुंधला दिखता है") is asked for on
+  the call and shown on the row; staff can add or change it. It is health
+  information: shown to the clinic, never written to logs.
 - **Clinic setup**: details, booking rules, the call link, doctors, weekly
   hours (split shifts), leave and holidays, FAQ answers, and (admins) the
   team. Everything the agent knows about a clinic is entered here.
@@ -283,7 +295,8 @@ write the same tables through `store/repo.py`.
     answers "anything later / in the evening?" from the full list. With nothing free it says why (clinic
     closed, doctor on leave, doesn't sit that day or that part of the day, no
     times left today, fully booked) and gives the next free day.
-  - `book_appointment(...)` refuses unless `caller_confirmed` is true, which
+  - `book_appointment(...)` also takes the caller's own words for why they
+    are coming, for the clinic's staff. It refuses unless `caller_confirmed` is true, which
     the instructions tie to reading every detail back first. It re-checks the
     slot, validates a 10-digit Indian mobile (+91 / 0 / spaces accepted), and
     turns a lost race into "just taken — offer these instead".
