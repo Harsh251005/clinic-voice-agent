@@ -4,7 +4,7 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = [p for d in ("clinic_agent", "dashboard", "seeds") for p in (ROOT / d).rglob("*.py")] + [ROOT / "main.py"]
+SOURCES = [p for d in ("clinic_agent", "dashboard", "seeds", "api") for p in (ROOT / d).rglob("*.py")] + [ROOT / "main.py"]
 VENDORS = ("livekit.plugins",)
 DATABASE = ("sqlalchemy", "alembic")
 
