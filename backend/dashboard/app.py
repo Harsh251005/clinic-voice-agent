@@ -37,14 +37,14 @@ with st.sidebar:
         )
     else:
         st.session_state["clinic_id"] = None
-    if viewer.is_admin and clinics and st.button("New clinic", icon=":material/add:", use_container_width=True):
+    if viewer.is_admin and clinics and st.button("New clinic", icon=":material/add:", width="stretch"):
         st.session_state["_new_clinic"] = True
         st.switch_page("views/setup.py")
 
     st.divider()
     if viewer.email:
         st.caption(f"Signed in as {viewer.email}" + (" · admin" if viewer.is_admin else ""))
-        if st.button("Sign out", use_container_width=True):
+        if st.button("Sign out", width="stretch"):
             st.logout()
     else:
         st.caption(":orange[Sign-in is off (DASHBOARD_LOGIN=off). Local development only.]")

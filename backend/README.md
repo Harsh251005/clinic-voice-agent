@@ -124,6 +124,17 @@ Two pages for clinic staff:
 - **Clinic setup** — details, booking rules, doctors, weekly hours (split
   shifts), leave and holidays, and FAQ answers. Everything the agent knows
   about a clinic is entered here.
+- **A new doctor starts with hours**, not an empty week: *Starting hours* on
+  the add form defaults to Mon–Sat, 10 am–1 pm and 5–8 pm (or another
+  pattern, a colleague's hours, or none). They are bookable at once, so the
+  confirmation says to check them.
+- **Weekly hours** is one row per day: an *Open* switch, a sitting, and an
+  optional second sitting. *Fill the week* applies a pattern or a colleague's
+  week, and *Copy Monday to all open days* fills the rest. Nothing is saved
+  until *Save hours*: an *Unsaved changes* badge shows, and *Discard
+  changes* reverts. A preview shows exactly how the receptionist will
+  describe the hours. Overlapping sittings are refused, by the form and by
+  `repo.set_doctor_hours`. Patterns live in `dashboard/schedules.py`.
 
 ```bash
 uv run streamlit run dashboard/app.py   # run from backend/ — .streamlit/ lives here

@@ -97,7 +97,7 @@ def _sign_in() -> None:
         with theme.card("sign_in"):
             st.markdown('<p class="card-title">Sign in</p>', unsafe_allow_html=True)
             st.caption("Use the Google account your clinic added to the dashboard.")
-            if st.button("Sign in with Google", type="primary", use_container_width=True):
+            if st.button("Sign in with Google", type="primary", width="stretch"):
                 st.login()
     st.stop()
 

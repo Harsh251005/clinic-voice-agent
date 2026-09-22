@@ -197,6 +197,7 @@ def _text(at):
 
 def test_login_not_configured_explains_setup(db_url, monkeypatch):
     monkeypatch.setenv("DASHBOARD_LOGIN", "google")
+    monkeypatch.setattr("dashboard.auth.login_configured", lambda: False)  # ignore a real secrets.toml
     at = AppTest.from_file(APP, default_timeout=30).run()
     assert not at.exception
     assert "Sign-in isn't set up" in _text(at)
@@ -269,3 +270,94 @@ def test_no_pages_folder():
     # stops before st.navigation (the sign-in gate) and runs those files
     # without app.py: a signed-out visitor could open /setup directly.
     assert not (Path(APP).parent / "pages").exists()
+
+
+# ---------- doctors' hours ----------
+
+def _add_doctor(at, name, starting=None):
+    [t for t in at.text_input if t.label == "Name"][-1].input(name)
+    if starting:
+        next(sb for sb in at.selectbox if sb.label == "Starting hours").select(starting)
+    next(b for b in reversed(at.button) if b.label == "Add doctor").click().run()
+    assert not at.exception
+
+
+def _hours(url, clinic_id, name):
+    with sessions(url)() as s:
+        doctor = next(d for d in repo.get_clinic(s, clinic_id).doctors if d.name == name)
+        return sorted((h.weekday, h.start.strftime("%H:%M"), h.end.strftime("%H:%M")) for h in doctor.hours)
+
+
+def test_a_new_doctor_starts_with_common_hours(seeded):
+    url, clinic_id = seeded
+    _add_doctor(setup_page(), "Dr. Neha Kulkarni")
+    hours = _hours(url, clinic_id, "Dr. Neha Kulkarni")
+    assert hours == sorted([(d, "10:00", "13:00") for d in range(6)] + [(d, "17:00", "20:00") for d in range(6)])
+
+
+def test_a_new_doctor_can_copy_a_colleague_or_start_empty(seeded):
+    url, clinic_id = seeded
+    _add_doctor(setup_page(), "Dr. Copy", starting="Same as Dr. Rohan Iyer")
+    assert _hours(url, clinic_id, "Dr. Copy") == _hours(url, clinic_id, "Dr. Rohan Iyer")
+    _add_doctor(setup_page(), "Dr. Empty", starting="No hours yet")
+    assert _hours(url, clinic_id, "Dr. Empty") == []
+
+
+def _hours_tab(url, clinic_id, name="Dr. Asha Mehta"):
+    at = setup_page()
+    with sessions(url)() as s:
+        doctor_id = next(d.id for d in repo.get_clinic(s, clinic_id).doctors if d.name == name)
+    at.selectbox(key="hours_doctor").select(doctor_id).run()
+    return at, doctor_id
+
+
+def test_opening_sunday_and_saving(seeded):
+    url, clinic_id = seeded
+    at, did = _hours_tab(url, clinic_id)
+    at.toggle(key=f"hr{did}_6_open").set_value(True).run()
+    at.button(key=f"save_hours_{did}").click().run()
+    assert not at.exception
+    assert (6, "10:00", "13:00") in _hours(url, clinic_id, "Dr. Asha Mehta")
+
+
+def test_applying_a_pattern_fills_the_week_until_saved(seeded):
+    url, clinic_id = seeded
+    before = _hours(url, clinic_id, "Dr. Rohan Iyer")
+    at, did = _hours_tab(url, clinic_id, "Dr. Rohan Iyer")
+    at.selectbox(key=f"pattern_{did}").select("Mon–Fri, 9 am–5 pm").run()
+    at.button(key=f"apply_{did}").click().run()
+    assert "Unsaved changes" in " ".join(m.value for m in at.markdown)
+    assert _hours(url, clinic_id, "Dr. Rohan Iyer") == before  # nothing written yet
+    at.button(key=f"save_hours_{did}").click().run()
+    assert _hours(url, clinic_id, "Dr. Rohan Iyer") == [(d, "09:00", "17:00") for d in range(5)]
+
+
+def test_copy_monday_to_open_days(seeded):
+    from datetime import time
+
+    url, clinic_id = seeded
+    at, did = _hours_tab(url, clinic_id)
+    at.time_input(key=f"hr{did}_0_s1").set_value(time(9, 0)).run()
+    at.button(key=f"copy_{did}").click().run()
+    at.button(key=f"save_hours_{did}").click().run()
+    mornings = [h for h in _hours(url, clinic_id, "Dr. Asha Mehta") if h[2] == "13:00"]
+    assert mornings == [(d, "09:00", "13:00") for d in range(6)]  # Sunday stays closed
+
+
+def test_overlapping_sittings_are_explained_not_saved(seeded):
+    from datetime import time
+
+    url, clinic_id = seeded
+    before = _hours(url, clinic_id, "Dr. Asha Mehta")
+    at, did = _hours_tab(url, clinic_id)
+    at.time_input(key=f"hr{did}_1_s2").set_value(time(12, 0)).run()  # Tuesday evening starts before 1 pm
+    at.button(key=f"save_hours_{did}").click().run()
+    assert any("Tuesday: the second sitting starts before the first one ends" in e.value for e in at.error)
+    assert _hours(url, clinic_id, "Dr. Asha Mehta") == before
+
+
+def test_preview_says_what_the_receptionist_will_say(seeded):
+    url, clinic_id = seeded
+    at, did = _hours_tab(url, clinic_id)
+    text = " ".join(m.value for m in at.markdown)
+    assert "Monday to Saturday 10:00-13:00 and 17:00-20:00; Sunday not available" in text

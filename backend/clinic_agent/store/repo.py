@@ -128,6 +128,9 @@ def update_clinic(s: Session, clinic_id: int, **fields) -> Clinic:
     return clinic
 
 
+DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
 # ---------- dashboard access ----------
 
 EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
@@ -217,6 +220,12 @@ def set_doctor_hours(
             raise ValueError(f"weekday must be 0-6, got {weekday}")
         if start >= end:
             raise ValueError(f"sitting must end after it starts: {start}-{end}")
+    for day in range(7):
+        # Overlapping sittings would offer the same slot twice.
+        spans = sorted((a, b) for w, a, b in sittings if w == day)
+        for (_, end), (start, _) in zip(spans, spans[1:]):
+            if start < end:
+                raise ValueError(f"sittings on {DAY_NAMES[day]} overlap: one starts at {start:%H:%M} before the other ends at {end:%H:%M}")
     doctor.hours = [DoctorHours(weekday=w, start=a, end=b) for w, a, b in sittings]
     s.commit()
 
