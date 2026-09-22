@@ -25,6 +25,12 @@ same change that builds it.
 
 ## Commands
 
+Dashboard (Next.js, `frontend/`, screens only; see `frontend/README.md`):
+`npm run dev` (needs `uv run python -m api` running), `npm run api:types`
+after any API change (a backend test fails if the schema is stale),
+`npm run typecheck`, `npm run lint`, `npm run build`.
+
+
 Run from `backend/` (Python ≥3.13, managed with `uv`, `package = false`):
 
 ```bash
