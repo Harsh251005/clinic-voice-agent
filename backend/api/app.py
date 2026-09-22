@@ -1,9 +1,11 @@
-"""Routes: the call page, its join pass, and a health check."""
+"""The server: patients' call pages, the dashboard's JSON API (/api), and a
+health check. One process, one origin for the dashboard's cookie."""
 
 from __future__ import annotations
 
 import html
 import logging
+import secrets
 from pathlib import Path
 from string import Template
 from urllib.parse import urlparse
@@ -11,7 +13,9 @@ from urllib.parse import urlparse
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
+from api import dashboard
 from api.limits import RateLimiter
 from api.passes import call_pass
 from clinic_agent.config import ConfigError, Settings, load_settings, require_key
@@ -34,18 +38,38 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
     """Fails fast, like main.py: missing LiveKit settings or an old schema
     raise here, before the server accepts a request."""
     cfg = cfg or load_settings()
-    for value, name in (
+    required = [
         (cfg.livekit_url, "LIVEKIT_URL"),
         (cfg.livekit_api_key, "LIVEKIT_API_KEY"),
         (cfg.livekit_api_secret, "LIVEKIT_API_SECRET"),
-    ):
+    ]
+    if cfg.dashboard_login == "google":
+        required += [
+            (cfg.session_secret, "SESSION_SECRET"),
+            (cfg.google_client_id, "GOOGLE_CLIENT_ID"),
+            (cfg.google_client_secret, "GOOGLE_CLIENT_SECRET"),
+        ]
+    for value, name in required:
         require_key(value, name)
+    if cfg.dashboard_login == "google" and len(cfg.session_secret) < 32:
+        raise ConfigError("SESSION_SECRET is too short: use 32+ random characters (see .env.example)")
     sessions = sessions_for(cfg.database_url)
     per_ip, per_clinic = RateLimiter(*CALLS_PER_IP), RateLimiter(*CALLS_PER_CLINIC)
     csp = _content_security_policy(cfg.livekit_url)
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    app.state.cfg, app.state.sessions = cfg, sessions
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
+    app.add_middleware(
+        SessionMiddleware,
+        # Sign-in off (local dev) needs no stable secret: nobody signs in.
+        secret_key=cfg.session_secret or secrets.token_hex(32),
+        session_cookie="clinic_console",
+        max_age=12 * 60 * 60,  # a working day; then sign in again
+        same_site="lax",
+        https_only=cfg.dashboard_url.startswith("https://"),
+    )
+    app.include_router(dashboard.router(cfg))
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):

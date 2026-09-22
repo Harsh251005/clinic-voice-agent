@@ -215,3 +215,14 @@ def test_overlapping_sittings_on_a_day_are_refused(db):
         repo.set_doctor_hours(s, doctor.id, [(1, time(10), time(13)), (1, time(12), time(15))])
     # back to back is fine, and the same times on different days are too
     repo.set_doctor_hours(s, doctor.id, [(1, time(10), time(13)), (1, time(13), time(15)), (2, time(12), time(15))])
+
+
+def test_rows_are_only_found_in_their_own_clinic(db):
+    s, clinic_id = db
+    other = repo.create_clinic(s, name="Other Clinic")
+    faq = repo.get_clinic(s, clinic_id).faq[0]
+    assert repo.in_clinic(s, repo.ClinicFaq, faq.id, clinic_id) is faq
+    with pytest.raises(repo.NotFound):
+        repo.in_clinic(s, repo.ClinicFaq, faq.id, other.id)
+    with pytest.raises(repo.NotFound):
+        repo.in_clinic(s, repo.ClinicFaq, 99999, clinic_id)

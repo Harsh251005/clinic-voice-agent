@@ -75,6 +75,15 @@ The pipeline is split so each concern lives in exactly one module:
   trusted proxy header (last entry used). Strict CSP; livekit-client pinned
   with SRI. Reads data only via `repo`; fails fast on missing LiveKit
   settings or old schema, like `main.py`.
+- `api/dashboard/` — the dashboard JSON API (Stage 3b: Next.js replaces
+  Streamlit; plan `~/.claude/plans/stage-3b-nextjs-dashboard.md`). FastAPI
+  owns Google sign-in (Authlib) and a signed session cookie holding only the
+  email; `access.py` has `Viewer`, `current_viewer`, `open_clinic` (404 for
+  clinics you can't open), `admin`, `same_site` (CSRF header
+  `x-clinic-console`), `staff_errors` (ValueError→422). **Every route that
+  takes a row id must go through `repo.in_clinic`** (IDOR); add an entry to
+  `ATTACKS` in `tests/test_dashboard_api.py` for any new row type. Tests
+  set the viewer with `dependency_overrides`, never a backdoor.
 - `clinic_agent/config.py` — the **only** place that reads `os.environ`.
   Frozen `Settings` dataclass; a new setting means a field, a line in
   `load_settings()`, and an entry in `.env.example`.
