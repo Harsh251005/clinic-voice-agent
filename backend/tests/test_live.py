@@ -142,33 +142,50 @@ async def test_speech_round_trip(line):
 
 
 async def _transcribe(stt_, frames) -> str:
-    """Final transcript of the frames followed by trailing silence, which is
-    what makes the STT decide the speaker has finished."""
+    """Final transcript of `frames`, fed the way a call feeds the STT: in real
+    time, after a few seconds of faint room noise (the caller listening to the
+    greeting), then quiet, with the stream left open. LiveKit never ends or
+    flushes a live STT stream, so a test that does would get transcripts a
+    call never gets. Both bugs this caught passed the old instant, silent,
+    stream-ending version: manual commits, and language auto-detect locking
+    onto the wrong language during the lead-in."""
     import asyncio
+    import random
+    import struct
 
     from livekit import rtc
     from livekit.agents import stt as stt_types
 
     rate = frames[0].sample_rate
-    silence = rtc.AudioFrame(b"\0\0" * (rate // 10), rate, 1, rate // 10)
+    n = rate // 100  # 10 ms frames
+    rng = random.Random(7)
+    quiet = [rtc.AudioFrame(struct.pack(f"<{n}h", *(rng.randint(-100, 100) for _ in range(n))), rate, 1, n)
+             for _ in range(50)]
     stream = stt_.stream()
-    for f in frames:
-        stream.push_frame(f)
-    for _ in range(30):  # 3 s of silence, in 100 ms frames
-        stream.push_frame(silence)
-    stream.end_input()
 
-    finals = []
+    async def feed():
+        for i in range(800):  # 8 s lead-in, about a greeting's length
+            stream.push_frame(quiet[i % 50])
+            await asyncio.sleep(0.01)
+        for f in frames:
+            stream.push_frame(f)
+            await asyncio.sleep(f.samples_per_channel / rate)
+        for i in range(600):  # 6 s of quiet for the end of speech
+            stream.push_frame(quiet[i % 50])
+            await asyncio.sleep(0.01)
 
-    async def collect():
+    async def first_final():
         async for ev in stream:
             if ev.type == stt_types.SpeechEventType.FINAL_TRANSCRIPT and ev.alternatives[0].text.strip():
-                finals.append(ev.alternatives[0].text)
-                return
+                return ev.alternatives[0].text
+        return ""
 
-    await asyncio.wait_for(collect(), timeout=20)
-    await stream.aclose()
-    return " ".join(finals)
+    feeder = asyncio.create_task(feed())
+    try:
+        return await asyncio.wait_for(first_final(), timeout=30)
+    finally:
+        feeder.cancel()
+        await stream.aclose()
 
 
 # ---------- booking conversation (tools mocked) ----------

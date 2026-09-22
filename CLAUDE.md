@@ -156,7 +156,10 @@ with `Session` / `Sessions` from `store/db.py`.
   so the first token comes fast enough for a phone call. For reasoning models
   the builder forces `reasoning_effort="none"`: Chat Completions rejects tools
   otherwise, and the plugin only sets it for model names it knows.
-- **`STT_LANGUAGE=unknown`** auto-detects per utterance.
+- **`STT_LANGUAGE=unknown`** auto-detects per utterance on Sarvam. On
+  ElevenLabs it means `hi` (auto-detect there breaks live calls), and its
+  builder must keep `server_vad={}` (manual commits never fire on a call).
+  Test STT the way a call feeds it: real time, lead-in noise, stream open.
 - **Hindi replies are written in Devanagari** (prompt rule). The TTS pronounces
   by script; romanised Hindi ("aap kaise hain") is read with English spelling
   rules. Don't switch the prompt or `STT_MODE` to romanised output.
