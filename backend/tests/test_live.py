@@ -246,8 +246,8 @@ async def test_booking_flow_reads_back_before_booking(session):
 async def test_hangs_up_when_caller_is_done_but_not_when_they_ask_to_wait(session):
     from livekit.agents.voice.run_result import mock_tools
 
-    async def end_call():
-        return "Say one short, warm goodbye."
+    async def end_call(goodbye: str):
+        return None
 
     with mock_tools(ClinicAgent, {"end_call": end_call}):
         wait = await session.run(user_input="एक मिनट रुकिए, मैं सोच के बताता हूँ")

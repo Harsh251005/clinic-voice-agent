@@ -3,6 +3,8 @@
 Each call runs the matching `clinic_agent.booking` function in a worker
 thread (database I/O must not stall the audio loop) and turns a
 BookingError into a ToolError, whose message the LLM reads and relays.
+While it runs, the caller hears "one moment" unless the model already said
+something (tools/speech.py).
 """
 
 from __future__ import annotations
@@ -13,11 +15,12 @@ from dataclasses import dataclass
 from datetime import date, time
 from typing import Literal
 
-from livekit.agents import ToolError, function_tool
+from livekit.agents import RunContext, ToolError, function_tool
 
 from clinic_agent import booking
 from clinic_agent.context import clinic_now
 from clinic_agent.store.db import Sessions
+from clinic_agent.tools.speech import filler_unless_spoken
 
 
 @dataclass(frozen=True)
@@ -30,18 +33,23 @@ class ClinicLink:
 
 
 def booking_tools(link: ClinicLink) -> list:
-    async def run(fn: Callable, *args):
+    said: set[str] = set()  # replies whose "one moment" was already spoken
+
+    async def run(ctx: RunContext | None, fn: Callable, *args):
         def work():
             with link.sessions() as s:
                 return fn(s, link.clinic_id, *args)
 
+        task = asyncio.ensure_future(asyncio.to_thread(work))  # start before the filler wait
+        await filler_unless_spoken(ctx, said)
         try:
-            return await asyncio.to_thread(work)
+            return await task
         except booking.BookingError as err:
             raise ToolError(str(err)) from None
 
     @function_tool
     async def find_available_slots(
+        ctx: RunContext,
         date: str,
         doctor_name: str = "",
         part_of_day: Literal["any", "morning", "afternoon", "evening"] = "any",
@@ -61,12 +69,13 @@ def booking_tools(link: ClinicLink) -> list:
             part_of_day: Only if the caller asked for morning, afternoon or evening.
         """
         return await run(
-            booking.find_slots, _date(date), clinic_now(link.timezone),
+            ctx, booking.find_slots, _date(date), clinic_now(link.timezone),
             doctor_name or None, None if part_of_day == "any" else part_of_day,
         )
 
     @function_tool
     async def book_appointment(
+        ctx: RunContext,
         doctor_name: str,
         date: str,
         time: str,
@@ -91,21 +100,23 @@ def booking_tools(link: ClinicLink) -> list:
                 "caller and book only after they say yes."
             )
         return await run(
-            booking.book_slot, doctor_name, _date(date), _time(time),
+            ctx, booking.book_slot, doctor_name, _date(date), _time(time),
             patient_name, patient_phone, clinic_now(link.timezone),
         )
 
     @function_tool
-    async def find_my_appointments(patient_phone: str) -> str:
+    async def find_my_appointments(ctx: RunContext, patient_phone: str) -> str:
         """List the caller's upcoming appointments, found by the mobile number they booked with.
 
         Args:
             patient_phone: The 10-digit mobile number the appointment was booked with.
         """
-        return await run(booking.find_appointments, patient_phone, clinic_now(link.timezone))
+        return await run(ctx, booking.find_appointments, patient_phone, clinic_now(link.timezone))
 
     @function_tool
-    async def cancel_appointment(appointment_id: int, patient_phone: str, caller_confirmed: bool) -> str:
+    async def cancel_appointment(
+        ctx: RunContext, appointment_id: int, patient_phone: str, caller_confirmed: bool
+    ) -> str:
         """Cancel one of the caller's appointments. Call only after reading it back.
 
         Args:
@@ -120,11 +131,12 @@ def booking_tools(link: ClinicLink) -> list:
                 "cancel only after they say yes."
             )
         return await run(
-            booking.cancel_booking, appointment_id, patient_phone, clinic_now(link.timezone)
+            ctx, booking.cancel_booking, appointment_id, patient_phone, clinic_now(link.timezone)
         )
 
     @function_tool
     async def reschedule_appointment(
+        ctx: RunContext,
         appointment_id: int,
         patient_phone: str,
         date: str,
@@ -149,7 +161,7 @@ def booking_tools(link: ClinicLink) -> list:
                 "move it only after they say yes."
             )
         return await run(
-            booking.reschedule_booking, appointment_id, patient_phone, _date(date), _time(time),
+            ctx, booking.reschedule_booking, appointment_id, patient_phone, _date(date), _time(time),
             clinic_now(link.timezone), doctor_name or None,
         )
 
