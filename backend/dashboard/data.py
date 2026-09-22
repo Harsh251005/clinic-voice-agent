@@ -12,14 +12,12 @@ import streamlit as st
 
 from clinic_agent.config import load_settings
 from clinic_agent.store import repo
-from clinic_agent.store.db import init_db, make_engine, session_factory
+from clinic_agent.store.db import sessions_for
 
 
 @st.cache_resource
 def _sessions():
-    engine = make_engine(load_settings().database_url)
-    init_db(engine)
-    return session_factory(engine)
+    return sessions_for(load_settings().database_url)
 
 
 @contextmanager

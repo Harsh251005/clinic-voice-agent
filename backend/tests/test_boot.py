@@ -10,12 +10,13 @@ BACKEND = Path(__file__).resolve().parents[1]
 
 
 def seeded_db(tmp_path) -> str:
-    from clinic_agent.store.db import init_db, make_engine, session_factory
+    from clinic_agent.store import migrations
+    from clinic_agent.store.db import make_engine, session_factory
     from seeds.demo_clinic import seed_demo
 
     url = f"sqlite:///{tmp_path}/boot.db"
     engine = make_engine(url)
-    init_db(engine)
+    migrations.upgrade(engine)
     with session_factory(engine)() as s:
         seed_demo(s)
     return url
@@ -52,7 +53,18 @@ def test_unknown_provider_exits_with_one_line(tmp_path):
     )
 
 
+def test_unmigrated_database_exits_with_one_line(tmp_path):
+    r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=f"sqlite:///{tmp_path}/none.db")
+    assert r.returncode == 1
+    assert r.stderr.strip().startswith("configuration error: database schema is not set up")
+    assert "python -m clinic_agent.store.migrations" in r.stderr
+
+
 def test_missing_clinic_exits_with_one_line(tmp_path):
+    from clinic_agent.store import migrations
+    from clinic_agent.store.db import make_engine
+
+    migrations.upgrade(make_engine(f"sqlite:///{tmp_path}/empty.db"))
     r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=f"sqlite:///{tmp_path}/empty.db")
     assert r.returncode == 1
     assert r.stderr.strip().startswith("configuration error: clinic 1 is not in sqlite:///")

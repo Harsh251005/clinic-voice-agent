@@ -1,8 +1,12 @@
-"""In-place upgrades for databases created by an older schema.
+"""Schema upgrades, through Alembic.
 
-A stopgap until Alembic: `create_all` adds missing tables but never changes
-existing ones. Each step checks whether it is needed, so running them on
-every start is safe. SQLite only - Postgres arrives with Alembic.
+    uv run python -m clinic_agent.store.migrations    # bring DATABASE_URL to the latest schema
+
+The agent and dashboard never change the schema. They call `check()` and
+refuse to start on an old one, so two processes can never migrate the same
+database at once. Writing a new revision after changing models.py:
+
+    uv run alembic revision --autogenerate --rev-id 0002 -m "what changed"
 """
 
 from __future__ import annotations
@@ -12,70 +16,131 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import Engine, text
-from sqlalchemy.schema import CreateTable
-
-from clinic_agent.store.models import Patient
+from alembic import command
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
+from sqlalchemy import Engine, create_engine, inspect, text
 
 logger = logging.getLogger("clinic-agent.migrations")
 
+SCRIPTS = Path(__file__).with_name("alembic")
+BASELINE = "0001"
+COMMAND = "uv run python -m clinic_agent.store.migrations"
+
+
+class SchemaOutdated(RuntimeError):
+    """The database is not at the schema this code expects."""
+
+
+def head() -> str:
+    return ScriptDirectory.from_config(_config()).get_current_head()
+
+
+def current(engine: Engine) -> str | None:
+    with engine.connect() as conn:
+        return MigrationContext.configure(conn).get_current_revision()
+
+
+def check(engine: Engine) -> None:
+    """Raise SchemaOutdated unless the database is at the latest revision."""
+    rev, latest = current(engine), head()
+    if rev != latest:
+        state = f"at revision {rev}" if rev else "not set up"
+        raise SchemaOutdated(
+            f"database schema is {state}, this code needs {latest}. Run: {COMMAND}"
+        )
+
 
 def upgrade(engine: Engine) -> None:
-    if engine.dialect.name != "sqlite":
+    """Bring the database to the latest revision. Safe to run repeatedly."""
+    rev = current(engine)
+    if rev == head():
         return
-    if _patients_unique_on_phone_only(engine):
+    if rev is None and _has_tables(engine):
+        _adopt(engine)
+    elif rev is not None:
         _backup(engine)
-        _rebuild_patients(engine)
+    with engine.begin() as conn:
+        if conn.dialect.name == "postgresql":
+            # Held until commit: a second upgrade waits instead of racing.
+            conn.execute(text("SELECT pg_advisory_xact_lock(7201)"))
+        command.upgrade(_config(conn), "head")
+    logger.info("database upgraded to %s", head())
 
 
-def _patients_unique_on_phone_only(engine: Engine) -> bool:
-    """Old schema: one patient per phone, so a family sharing a phone collided."""
-    with engine.connect() as conn:
-        if not conn.execute(text("SELECT 1 FROM sqlite_master WHERE name='patients'")).first():
-            return False
-        for idx in conn.execute(text("PRAGMA index_list('patients')")).mappings():
-            if not idx["unique"]:
-                continue
-            cols = [r["name"] for r in conn.execute(text(f"PRAGMA index_info('{idx['name']}')")).mappings()]
-            if cols == ["clinic_id", "phone"]:
-                return True
-    return False
+def _config(connection=None) -> Config:
+    cfg = Config()
+    cfg.set_main_option("script_location", str(SCRIPTS))
+    if connection is not None:
+        cfg.attributes["connection"] = connection
+    return cfg
 
 
-def _rebuild_patients(engine: Engine) -> None:
-    """SQLite can't drop a constraint: copy the table into the new shape.
+def _has_tables(engine: Engine) -> bool:
+    """Any of our tables. An empty alembic_version alone (left by
+    `alembic revision --autogenerate` on a fresh database) doesn't count."""
+    return bool(set(inspect(engine).get_table_names()) - {"alembic_version"})
 
-    The documented 12-step procedure, inside one transaction; row ids are
-    kept, so appointments still point at the same patients.
-    """
-    new_ddl = str(CreateTable(Patient.__table__).compile(engine)).replace(
-        "CREATE TABLE patients", "CREATE TABLE patients_new", 1
-    )
-    with engine.connect() as conn:
-        # Must be outside a transaction or SQLite ignores it.
-        conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
-        conn.commit()
-        with conn.begin():
-            conn.exec_driver_sql(new_ddl)
-            conn.exec_driver_sql(
-                "INSERT INTO patients_new (id, clinic_id, name, phone) "
-                "SELECT id, clinic_id, name, phone FROM patients"
-            )
-            conn.exec_driver_sql("DROP TABLE patients")
-            conn.exec_driver_sql("ALTER TABLE patients_new RENAME TO patients")
-            broken = conn.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
-            if broken:
-                raise RuntimeError(f"patients rebuild broke foreign keys: {broken}")
-        conn.exec_driver_sql("PRAGMA foreign_keys=ON")
-        conn.commit()
-    logger.info("upgraded patients: one phone can now hold several patients")
+
+def _adopt(engine: Engine) -> None:
+    """A database made before Alembic (Stage 2, by create_all): stamp it at
+    the baseline, but only if its schema really is the baseline. Stamping a
+    different schema would let later revisions run against tables they don't
+    expect."""
+    if engine.dialect.name != "sqlite":
+        raise SchemaOutdated("database has tables but no migration history; refusing to guess")
+    baseline = create_engine("sqlite://")
+    with baseline.begin() as conn:
+        command.upgrade(_config(conn), BASELINE)
+    if _shape(engine) != _shape(baseline):
+        raise SchemaOutdated(
+            f"{engine.url.database} predates migrations and does not match the "
+            "baseline schema, so it can't be upgraded automatically"
+        )
+    _backup(engine)
+    with engine.begin() as conn:
+        command.stamp(_config(conn), BASELINE)
+    logger.info("adopted a pre-Alembic database at revision %s", BASELINE)
+
+
+def _shape(engine: Engine) -> dict:
+    """Tables, columns and uniqueness rules, ignoring constraint names (which
+    pre-Alembic databases don't have)."""
+    insp = inspect(engine)
+    shape = {}
+    for table in insp.get_table_names():
+        if table == "alembic_version":
+            continue
+        unique = {tuple(u["column_names"]) for u in insp.get_unique_constraints(table)}
+        unique |= {tuple(i["column_names"]) for i in insp.get_indexes(table) if i["unique"]}
+        shape[table] = (
+            sorted((c["name"], c["nullable"]) for c in insp.get_columns(table)),
+            sorted(unique),
+        )
+    return shape
 
 
 def _backup(engine: Engine) -> None:
+    """Copy a SQLite file before changing it. Postgres is backed up by pg_dump."""
     path = engine.url.database
-    if not path or path == ":memory:":
+    if engine.dialect.name != "sqlite" or not path or path == ":memory:":
         return
     src = Path(path)
     dst = src.with_name(f"{src.name}.bak-{datetime.now():%Y%m%d-%H%M%S}")
     shutil.copy2(src, dst)
     logger.info("backed up %s to %s before upgrading", src, dst)
+
+
+if __name__ == "__main__":
+    from clinic_agent.config import load_settings
+    from clinic_agent.store.db import make_engine
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logging.getLogger("alembic").setLevel(logging.WARNING)  # our own lines say what happened
+    url = load_settings().database_url
+    try:
+        upgrade(make_engine(url))
+    except SchemaOutdated as err:
+        raise SystemExit(f"migration error: {err}") from None
+    print(f"{url.split('@')[-1]}: schema at {head()}")

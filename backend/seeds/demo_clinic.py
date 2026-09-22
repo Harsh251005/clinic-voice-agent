@@ -44,11 +44,12 @@ def seed_demo(s: Session) -> int:
 
 if __name__ == "__main__":
     from clinic_agent.config import load_settings
-    from clinic_agent.store.db import init_db, make_engine, session_factory
+    from clinic_agent.store import migrations
+    from clinic_agent.store.db import make_engine, session_factory
 
     cfg = load_settings()
     engine = make_engine(cfg.database_url)
-    init_db(engine)
+    migrations.upgrade(engine)
     with session_factory(engine)() as s:
         if repo.list_clinics(s):
             raise SystemExit("database already has a clinic; not seeding")

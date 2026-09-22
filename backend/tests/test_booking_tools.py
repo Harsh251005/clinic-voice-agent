@@ -8,7 +8,8 @@ from livekit.agents import ToolError
 
 from clinic_agent.context import clinic_now
 from clinic_agent.store import repo
-from clinic_agent.store.db import init_db, make_engine, session_factory
+from clinic_agent.store import migrations
+from clinic_agent.store.db import make_engine, session_factory
 from clinic_agent.tools.booking import ClinicLink, booking_tools
 from seeds.demo_clinic import seed_demo
 
@@ -16,7 +17,7 @@ from seeds.demo_clinic import seed_demo
 @pytest.fixture
 def tools(tmp_path):
     engine = make_engine(f"sqlite:///{tmp_path}/tools.db")
-    init_db(engine)
+    migrations.upgrade(engine)
     sessions = session_factory(engine)
     with sessions() as s:
         clinic_id = seed_demo(s)

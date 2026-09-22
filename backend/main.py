@@ -22,6 +22,7 @@ from clinic_agent.prompts import build_instructions
 from clinic_agent.providers import build_llm, build_stt, build_tts
 from clinic_agent.session import build_session
 from clinic_agent.store.db import sessions_for
+from clinic_agent.store.migrations import SchemaOutdated
 from clinic_agent.store.repo import NotFound
 from clinic_agent.tools.booking import ClinicLink, booking_tools
 from clinic_agent.tools.call import end_call_tool
@@ -72,7 +73,7 @@ if __name__ == "__main__":
             f"configuration error: clinic {cfg.clinic_id} is not in {cfg.database_url}. "
             "Create it in the dashboard or run: uv run python -m seeds.demo_clinic"
         )
-    except (ConfigError, ValueError) as err:
+    except (ConfigError, SchemaOutdated, ValueError) as err:
         sys.exit(f"configuration error: {err}")
 
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))

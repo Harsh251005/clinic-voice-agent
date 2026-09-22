@@ -37,12 +37,17 @@ credits. Switching any part is one line in `.env`.
 
 A missing key for a selected provider stops startup with a one-line error.
 
-Create the local database with a fictional demo clinic (real clinics will be
+Create the database schema, then a fictional demo clinic (real clinics are
 set up through the dashboard):
 
 ```bash
-uv run python -m seeds.demo_clinic   # writes data/clinic.db (gitignored)
+uv run python -m clinic_agent.store.migrations   # schema at the latest revision
+uv run python -m seeds.demo_clinic               # writes data/clinic.db (gitignored)
 ```
+
+Run the migrations command again after every pull that changes the schema.
+The agent and dashboard refuse to start on an old schema and print that
+command.
 
 ## Run
 
@@ -91,6 +96,9 @@ uv run streamlit run dashboard/app.py   # run from backend/ — .streamlit/ live
 ```bash
 uv run pytest            # offline: config, providers, session, boot, store, scheduling, dashboard
 uv run pytest -m live    # real OpenAI + ElevenLabs calls — spends credits, never Sarvam's
+
+# every database test against Postgres as well (wiped per test: never real data)
+TEST_POSTGRES_URL=postgresql+psycopg://clinic:clinic-dev@127.0.0.1:5433/clinic_test uv run pytest
 ```
 
 Live tests always use the testing stack (ElevenLabs STT + OpenAI + ElevenLabs
@@ -124,6 +132,8 @@ main.py                 entrypoint — console | dev | start
     │   └── tts.py
     └── store/          clinic data — the only package that imports SQLAlchemy
         ├── db.py       engine + sessions from DATABASE_URL
+        ├── migrations.py  schema upgrades (Alembic); `python -m` runs them
+        ├── alembic/    revisions, one file per schema change
         ├── models.py   clinics, FAQ, doctors, hours, time off, patients, appointments
         └── repo.py     every query the agent and dashboard make
     scheduling.py       free-slot rules — pure functions, no DB, no LiveKit
@@ -184,13 +194,37 @@ write the same tables through `store/repo.py`.
   overlap any booking (ranges, so changing slot length stays safe), and start
   at least 30 minutes from now. Days in the past or beyond the clinic's
   booking window (default 30 days) are refused with a reason the agent can say.
-- Times are stored naive, in the clinic's timezone (`Asia/Kolkata`).
-- Tables are created with `create_all()`, and `store/migrations.py` upgrades
-  older SQLite databases in place on start (backing the file up first as
-  `clinic.db.bak-<time>`). It is a stopgap: Alembic comes before any real
-  clinic's data exists.
-- Moving to Postgres: set `DATABASE_URL=postgresql+psycopg://…` and add the
-  driver. No code changes.
+- Appointment times are stored naive, in the clinic's timezone
+  (`Asia/Kolkata`). Record-keeping timestamps (`created_at`) are naive UTC, so
+  they don't depend on the server's clock. Rows made before 2026-09-22 hold
+  India time there.
+- **Schema changes go through Alembic** (`store/alembic/versions/`).
+  `uv run python -m clinic_agent.store.migrations` is the only thing that
+  changes a schema. The agent and dashboard only check it, so two processes
+  never migrate one database at once. On Postgres an advisory lock makes a
+  second concurrent upgrade wait. SQLite files are backed up first as
+  `clinic.db.bak-<time>`.
+- After changing `models.py`, write a revision, read it, and commit it:
+  `uv run alembic revision --autogenerate --rev-id 0002 -m "what changed"`.
+- A database made before Alembic (by Stage 2's `create_all`) is adopted at
+  revision `0001`, but only if its schema matches the baseline exactly;
+  anything else is refused and left untouched.
+
+### Postgres
+
+Production uses Postgres, and dev can too: set `DATABASE_URL` and run the
+migrations command. No code changes. A local one for development and tests:
+
+```bash
+podman run -d --name clinic-pg -e POSTGRES_USER=clinic -e POSTGRES_PASSWORD=clinic-dev \
+  -e POSTGRES_DB=clinic -p 127.0.0.1:5433:5432 docker.io/library/postgres:17-alpine
+podman exec clinic-pg psql -U clinic -c "create database clinic_test"
+# DATABASE_URL=postgresql+psycopg://clinic:clinic-dev@127.0.0.1:5433/clinic
+```
+
+(`docker` works the same.) Double booking is still refused by the database
+itself: the partial unique index exists on both engines, and the tests
+prove it on both.
 
 ## Swapping a component
 
@@ -238,7 +272,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `TTS_SPEAKER` | provider's | ElevenLabs: a voice ID. The plugin default is not a Hindi voice — pick one in ElevenLabs → Voices → Voice Library (language Hindi, accent Indian), add it to My Voices, copy its ID. Sarvam: any `bulbul:v3` voice, default `suhani`; v2 names such as `anushka` are rejected. |
 | `TTS_CODEC` | provider's | Raw PCM for both (`pcm_24000` / `linear16`) — compressed formats cost a decode per chunk. |
 | `TTS_LANGUAGE` | provider's | ElevenLabs auto-detects, which suits mixed Hindi/English; Sarvam defaults to `en-IN`. |
-| `DATABASE_URL` | `sqlite:///data/clinic.db` | Point at Postgres for production. |
+| `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
 | `CLINIC_ID` | `1` | Which clinic this worker answers for, until telephony routes calls by the dialled number. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
 

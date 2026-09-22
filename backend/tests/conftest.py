@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from clinic_agent import config
@@ -20,13 +22,28 @@ def env(monkeypatch):
     return monkeypatch
 
 
-@pytest.fixture
-def db():
-    """A fresh in-memory database with the demo clinic. Yields (session, clinic_id)."""
-    from clinic_agent.store.db import init_db, make_engine, session_factory
+# Set to run every `db` test against Postgres as well as SQLite, e.g.
+#   TEST_POSTGRES_URL=postgresql+psycopg://clinic:clinic-dev@127.0.0.1:5433/clinic_test
+# The database is wiped before each test: never point it at real data.
+POSTGRES_URL = os.environ.get("TEST_POSTGRES_URL", "").strip()
+
+
+@pytest.fixture(params=["sqlite", "postgres"] if POSTGRES_URL else ["sqlite"])
+def db(request):
+    """A fresh database with the demo clinic. Yields (session, clinic_id)."""
+    from clinic_agent.store import migrations
+    from clinic_agent.store.db import make_engine, session_factory
     from seeds.demo_clinic import seed_demo
 
-    engine = make_engine("sqlite:///:memory:")
-    init_db(engine)
+    if request.param == "postgres":
+        if request.node.get_closest_marker("live"):
+            pytest.skip("live evals grade the LLM, not the database: SQLite is enough")
+        engine = make_engine(POSTGRES_URL)
+        with engine.begin() as conn:
+            conn.exec_driver_sql("DROP SCHEMA public CASCADE; CREATE SCHEMA public")
+    else:
+        engine = make_engine("sqlite:///:memory:")
+    migrations.upgrade(engine)
     with session_factory(engine)() as s:
         yield s, seed_demo(s)
+    engine.dispose()
