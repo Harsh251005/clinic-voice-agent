@@ -19,6 +19,7 @@ from clinic_agent.store.models import (
     Appointment,
     Clinic,
     ClinicFaq,
+    ClinicMember,
     Doctor,
     DoctorHours,
     Patient,
@@ -125,6 +126,48 @@ def update_clinic(s: Session, clinic_id: int, **fields) -> Clinic:
         setattr(clinic, key, value)
     s.commit()
     return clinic
+
+
+# ---------- dashboard access ----------
+
+EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+
+
+def normalise_email(raw: str) -> str:
+    """Lowercased and trimmed; ValueError with a message staff can read."""
+    email = raw.strip().lower()
+    if not EMAIL.fullmatch(email) or len(email) > 254:
+        raise ValueError(f"{raw.strip()!r} doesn't look like an email address.")
+    return email
+
+
+def clinic_ids_for_email(s: Session, email: str) -> set[int]:
+    return set(s.scalars(select(ClinicMember.clinic_id).where(ClinicMember.email == email.strip().lower())))
+
+
+def list_members(s: Session, clinic_id: int) -> list[ClinicMember]:
+    return list(s.scalars(
+        select(ClinicMember).where(ClinicMember.clinic_id == clinic_id).order_by(ClinicMember.email)
+    ))
+
+
+def add_member(s: Session, clinic_id: int, email: str) -> ClinicMember:
+    """Let this Google account open the clinic. Adding one twice is a no-op."""
+    email = normalise_email(email)
+    _get(s, Clinic, clinic_id)
+    existing = s.scalar(select(ClinicMember).where(
+        ClinicMember.clinic_id == clinic_id, ClinicMember.email == email))
+    if existing is not None:
+        return existing
+    member = ClinicMember(clinic_id=clinic_id, email=email)
+    s.add(member)
+    s.commit()
+    return member
+
+
+def remove_member(s: Session, member_id: int) -> None:
+    s.delete(_get(s, ClinicMember, member_id))
+    s.commit()
 
 
 # ---------- FAQ ----------

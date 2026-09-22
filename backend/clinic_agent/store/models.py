@@ -53,6 +53,20 @@ class Clinic(Base):
     )
 
 
+class ClinicMember(Base):
+    """A Google account (by email) that may open this clinic in the dashboard.
+    Emails are stored lowercased. Admins (ADMIN_EMAILS) see every clinic
+    without rows here."""
+
+    __tablename__ = "clinic_members"
+    __table_args__ = (UniqueConstraint("clinic_id", "email"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(ForeignKey("clinics.id", ondelete="CASCADE"))
+    email: Mapped[str] = mapped_column(String(254))
+    added_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
+
+
 class ClinicFaq(Base):
     __tablename__ = "clinic_faq"
 

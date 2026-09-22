@@ -48,3 +48,17 @@ def test_settings_are_immutable(env):
     cfg = load_settings()
     with pytest.raises(dataclasses.FrozenInstanceError):
         cfg.llm_model = "other"
+
+
+def test_dashboard_login_defaults_to_google_and_rejects_typos(env):
+    assert load_settings().dashboard_login == "google"
+    env.setenv("DASHBOARD_LOGIN", "Off")
+    assert load_settings().dashboard_login == "off"
+    env.setenv("DASHBOARD_LOGIN", "none")
+    with pytest.raises(ConfigError, match="DASHBOARD_LOGIN must be one of google, off"):
+        load_settings()
+
+
+def test_admin_emails_are_a_lowercased_set(env):
+    env.setenv("ADMIN_EMAILS", " Harsh@Example.com, ,owner@clinic.in ")
+    assert load_settings().admin_emails == {"harsh@example.com", "owner@clinic.in"}

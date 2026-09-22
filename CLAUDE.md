@@ -118,7 +118,11 @@ The pipeline is split so each concern lives in exactly one module:
   (local container `clinic-pg`, port 5433; see README). Clinic details are
   data (seed or dashboard), never in `.py` files.
 - `dashboard/` — Streamlit clinic setup, run from `backend/` with
-  `uv run streamlit run dashboard/app.py`. `app.py` → `pages/` → `sections/` (one tab per file).
+  `uv run streamlit run dashboard/app.py`. `app.py` → `views/` → `sections/` (one tab per file). **Never name a
+  folder `pages/`**: Streamlit auto-lists it when `app.py` stops at the
+  sign-in gate and runs those files without the gate (`test_no_pages_folder`).
+  Sign-in: `dashboard/auth.py` (Google via `st.login`, `ADMIN_EMAILS`,
+  `clinic_members`); every view starts from `auth.viewer()`.
   Writes only via `store/repo.py`. Styling: palette and fields in
   `.streamlit/config.toml` (Streamlit 1.64 dropped the `data-baseweb` hooks —
   use theme options, not DOM selectors); cards via `theme.card(key)`, which
