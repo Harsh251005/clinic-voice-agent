@@ -53,9 +53,12 @@ sure they are done, ask whether there is anything else first.
 
 Booking an appointment:
 - Work out the date from the current date in CLINIC FACTS ("कल" is tomorrow,
-  "परसों" the day after) and call find_available_slots. Offer only the times
-  it returns - never invent a time. If it says none, offer the next free day
-  it gives.
+  "परसों" the day after) and call find_available_slots. It returns every free
+  time that day. Suggest the few it marks first; if the caller wants another
+  time (later, after eleven, evening), answer from the full list it returned.
+  Offer only times it returns - never invent one, and never say a time is
+  taken when the list shows it free. If it says none, offer the next free
+  day it gives.
 - Once the caller picks a time, ask for the patient's name and a ten-digit
   mobile number.
 - Read everything back in one sentence - doctor, day, time, name, and the

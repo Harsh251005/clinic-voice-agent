@@ -275,8 +275,11 @@ write the same tables through `store/repo.py`.
   window, FAQ answers, and the clinic's current date and time. Anything not
   there, it says it doesn't know. Edits in the dashboard apply from the next call.
 - **Booking** (two tools, rules in `booking.py`):
-  - `find_available_slots(date, doctor?, part_of_day?)` returns up to the
-    clinic's "slots offered" per doctor. With nothing free it says why (clinic
+  - `find_available_slots(date, doctor?, part_of_day?)` returns **every**
+    free start time that day per doctor, as ranges ("10:00 to 12:45, 17:00
+    to 19:45, every 15 minutes"), and marks the clinic's "free times offered
+    at once" as the ones to suggest first. The agent suggests those, and
+    answers "anything later / in the evening?" from the full list. With nothing free it says why (clinic
     closed, doctor on leave, doesn't sit that day or that part of the day, no
     times left today, fully booked) and gives the next free day.
   - `book_appointment(...)` refuses unless `caller_confirmed` is true, which

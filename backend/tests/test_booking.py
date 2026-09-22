@@ -64,17 +64,31 @@ def test_inactive_doctor_is_not_bookable(db):
 
 # ---------- finding slots ----------
 
-def test_finds_the_first_slots_per_doctor(db):
+def test_finds_every_free_time_per_doctor(db):
     out = find(db)
-    assert "Dr. Asha Mehta on Tuesday 22 September 2026: 10:00, 10:15, 10:30." in out
-    # Rohan doesn't sit on Tuesdays: says why and the next free day
+    assert (
+        "Dr. Asha Mehta on Tuesday 22 September 2026: free start times 10:00 to 12:45, 17:00 to 19:45, "
+        "every 15 minutes (24 in all); suggest first 10:00, 10:15, 10:30."
+    ) in out
+    # Rohan doesn't sit on Tuesdays: says why and the next free day, whole
     assert "Dr. Rohan Iyer on Tuesday 22 September 2026: none - doctor does not sit on Tuesdays." in out
-    assert "Next free: Wednesday 23 September 2026, 11:00, 11:20, 11:40." in out
+    assert (
+        "Next free day: Wednesday 23 September 2026, free start times 11:00 to 13:40, every 20 minutes "
+        "(9 in all); suggest first 11:00, 11:20, 11:40."
+    ) in out
+
+
+def test_later_times_are_listed_not_just_the_first_few(db):
+    # The bug: only 10:00, 10:15, 10:30 reached the LLM, so "anything after
+    # eleven?" or "evening?" got "nothing free".
+    out = find(db, doctor_name="Asha")
+    assert "10:00 to 12:45" in out and "17:00 to 19:45" in out
 
 
 def test_part_of_day_and_one_doctor(db):
     assert find(db, doctor_name="Asha", part_of_day="evening") == (
-        "Dr. Asha Mehta on Tuesday 22 September 2026: 17:00, 17:15, 17:30."
+        "Dr. Asha Mehta on Tuesday 22 September 2026: free start times 17:00 to 19:45, "
+        "every 15 minutes (12 in all); suggest first 17:00, 17:15, 17:30."
     )
 
 
@@ -86,7 +100,21 @@ def test_slots_offered_follows_clinic_setting(db):
 
 def test_booked_slot_is_not_offered(db):
     book(db)
-    assert "10:15, 10:30, 10:45" in find(db, doctor_name="Asha")
+    assert "free start times 10:15 to 12:45, 17:00 to 19:45" in find(db, doctor_name="Asha")
+
+
+def test_booked_slots_split_the_ranges(db):
+    book(db, at=time(11, 0))
+    book(db, at=time(11, 15), name="Sunita", phone="9123456780")
+    out = find(db, doctor_name="Asha")
+    assert "free start times 10:00 to 10:45, 11:30 to 12:45, 17:00 to 19:45, every 15 minutes (22 in all)" in out
+
+
+def test_a_lone_free_slot_is_a_time_not_a_range(db):
+    s, clinic_id = db
+    asha = repo.get_clinic(s, clinic_id).doctors[0]
+    repo.set_doctor_hours(s, asha.id, [(1, time(10), time(10, 15))])
+    assert find(db, doctor_name="Asha").endswith("free start times 10:00 (1 in all); suggest first 10:00.")
 
 
 def test_clinic_holiday_gives_reason_and_next_day(db):
@@ -94,7 +122,7 @@ def test_clinic_holiday_gives_reason_and_next_day(db):
     repo.add_time_off(s, clinic_id, TUE, TUE, reason="Ganesh Chaturthi")
     out = find(db, doctor_name="Asha")
     assert "none - clinic closed (Ganesh Chaturthi)" in out
-    assert "Next free: Wednesday 23 September 2026" in out
+    assert "Next free day: Wednesday 23 September 2026" in out
 
 
 def test_doctor_leave(db):
@@ -102,7 +130,7 @@ def test_doctor_leave(db):
     asha = repo.get_clinic(s, clinic_id).doctors[0]
     repo.add_time_off(s, clinic_id, TUE, date(2026, 9, 23), doctor_id=asha.id)
     out = find(db, doctor_name="Asha")
-    assert "none - doctor on leave" in out and "Next free: Thursday 24 September 2026" in out
+    assert "none - doctor on leave" in out and "Next free day: Thursday 24 September 2026" in out
 
 
 def test_after_the_days_last_slot_it_says_none_left_not_fully_booked(db):
@@ -110,7 +138,7 @@ def test_after_the_days_last_slot_it_says_none_left_not_fully_booked(db):
     evening = datetime(2026, 9, 21, 19, 45)  # Asha's last sitting ends at 20:00
     out = booking.find_slots(s, clinic_id, date(2026, 9, 21), evening, doctor_name="Asha")
     assert "none - no times left today." in out and "fully booked" not in out
-    assert "Next free: Tuesday 22 September 2026" in out
+    assert "Next free day: Tuesday 22 September 2026" in out
 
 
 def test_a_part_of_day_the_doctor_never_sits_is_not_fully_booked(db):
@@ -140,7 +168,7 @@ def test_today_skips_times_already_gone(db):
     s, clinic_id = db
     late = datetime(2026, 9, 21, 10, 50)
     out = booking.find_slots(s, clinic_id, date(2026, 9, 21), late, doctor_name="Asha")
-    assert out.endswith("11:30, 11:45, 12:00.")
+    assert "free start times 11:30 to 12:45, 17:00 to 19:45" in out
 
 
 # ---------- booking ----------
@@ -156,7 +184,7 @@ def test_booking_succeeds_and_is_stored(db):
 
 def test_booking_a_taken_slot_offers_others(db):
     book(db)
-    with pytest.raises(BookingError, match=r"not free at 10:00.*Free times that day: 10:15, 10:30, 10:45"):
+    with pytest.raises(BookingError, match=r"not free at 10:00.*That day: free start times 10:15 to 12:45"):
         book(db, name="Sunita", phone="9123456780")
 
 
@@ -180,7 +208,7 @@ def test_race_between_check_and_insert_is_caught(db, monkeypatch):
         return real_book(*args, **kwargs)
 
     monkeypatch.setattr(repo, "book", sneaky)
-    with pytest.raises(BookingError, match="just taken by another caller. Offer: 10:15"):
+    with pytest.raises(BookingError, match="just taken by another caller. That day: free start times 10:15 to 12:45"):
         book(db)
 
 
