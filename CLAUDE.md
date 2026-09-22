@@ -15,9 +15,11 @@ tests always pin that stack. Switch in `.env`, never by commenting code out.
 Current state: **Stage 2 built** (plan:
 `~/.claude/plans/distributed-munching-wall.md`); **Stage 3 production setup in
 progress, no telephony** (plan: `~/.claude/plans/stage-3-production-setup.md`): clinic database, free-slot
-rules, Streamlit dashboard (setup + appointments), agent answering from clinic
-data, booking + cancel/reschedule tools, end-call tool, `console --text`.
-Not yet: dashboard login, telephony (identity is by spoken
+rules, agent answering from clinic data, booking + cancel/reschedule tools,
+end-call tool, `console --text`. Stage 3 so far: Postgres + Alembic, one
+worker for all clinics (dispatch), browser call links (`api/`), Google
+sign-in, and the **Next.js dashboard** (`frontend/`, Stage 3b; Streamlit
+retired). Not yet: Docker/CI (slice 5), telephony (identity is by spoken
 mobile number until caller ID exists). The
 instructions (`clinic_agent/prompts.py`) may only describe what is built: no
 promised checks, holds, messages or callbacks. Add a capability to them in the
@@ -81,8 +83,8 @@ The pipeline is split so each concern lives in exactly one module:
   trusted proxy header (last entry used). Strict CSP; livekit-client pinned
   with SRI. Reads data only via `repo`; fails fast on missing LiveKit
   settings or old schema, like `main.py`.
-- `api/dashboard/` — the dashboard JSON API (Stage 3b: Next.js replaces
-  Streamlit; plan `~/.claude/plans/stage-3b-nextjs-dashboard.md`). FastAPI
+- `api/dashboard/` — the dashboard JSON API for `frontend/` (plan
+  `~/.claude/plans/stage-3b-nextjs-dashboard.md`). FastAPI
   owns Google sign-in (Authlib) and a signed session cookie holding only the
   email; `access.py` has `Viewer`, `current_viewer`, `open_clinic` (404 for
   clinics you can't open), `admin`, `same_site` (CSRF header
@@ -132,17 +134,20 @@ The pipeline is split so each concern lives in exactly one module:
   Tests: `db` fixture also runs on Postgres when `TEST_POSTGRES_URL` is set
   (local container `clinic-pg`, port 5433; see README). Clinic details are
   data (seed or dashboard), never in `.py` files.
-- `dashboard/` — Streamlit clinic setup, run from `backend/` with
-  `uv run streamlit run dashboard/app.py`. `app.py` → `views/` → `sections/` (one tab per file). **Never name a
-  folder `pages/`**: Streamlit auto-lists it when `app.py` stops at the
-  sign-in gate and runs those files without the gate (`test_no_pages_folder`).
-  Sign-in: `dashboard/auth.py` (Google via `st.login`, `ADMIN_EMAILS`,
-  `clinic_members`); every view starts from `auth.viewer()`.
-  Writes only via `store/repo.py`. Styling: palette and fields in
-  `.streamlit/config.toml` (Streamlit 1.64 dropped the `data-baseweb` hooks —
-  use theme options, not DOM selectors); cards via `theme.card(key)`, which
-  the CSS targets as `st-key-card*`. Tests drive it with
-  `streamlit.testing.v1.AppTest`.
+- `frontend/` — the dashboard: Next.js 16 (App Router), Tailwind,
+  shadcn/ui (Radix base). **Screens only**: it calls `/api/*` (forwarded to
+  FastAPI by `next.config.ts` in dev, by Caddy in production) through the
+  typed client in `src/lib/api/` (types generated from FastAPI's OpenAPI,
+  `npm run api:types`; `backend/tests/test_openapi.py` fails when stale).
+  Data hooks in `src/lib/queries.ts`; changes go through `useClinicChange`
+  (toast + refresh). Clinic times are naive clinic-local strings; never
+  convert them through the browser's timezone (`src/lib/dates.ts`). Next 16
+  differs from older versions: read `frontend/node_modules/next/dist/docs/`
+  first (`frontend/AGENTS.md`). The dev server serves scripts only to
+  `localhost` (`allowedDevOrigins` for anything else, e.g. a tunnel).
+  E2E: `npm run test:e2e` (Playwright on installed Chrome, fresh DB via
+  `e2e/start-api.sh`, sign-in off). Visual checks without the extension:
+  `google-chrome --headless=new --screenshot=out.png --window-size=… URL`.
 - `clinic_agent/providers/{stt,llm,tts}.py` — each has a `BUILDERS` registry
   mapping a name to a builder returning LiveKit's base `STT`/`LLM`/`TTS` class.
   Builders own their vendor's defaults (model/voice settings are `None` in
