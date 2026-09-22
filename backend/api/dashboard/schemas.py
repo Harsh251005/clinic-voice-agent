@@ -38,6 +38,7 @@ class Doctor(BaseModel):
     active: bool
     hours: list[Sitting]
     hours_text: str  # how the receptionist describes them
+    upcoming: int  # booked appointments from now on
 
 
 class Faq(BaseModel):
@@ -147,6 +148,13 @@ class Appointment(BaseModel):
     ends_at: datetime
     status: Literal["booked", "cancelled"]
     source: Literal["voice", "dashboard"]
+    # Why a booking can't go ahead as booked (leave, holiday, hours changed,
+    # doctor inactive): staff should call the patient. None when it's fine.
+    problem: str | None = None
+
+
+class TimeOffAdded(TimeOff):
+    clashes: list[Appointment]  # upcoming bookings on those days, to call about
 
 
 class Day(BaseModel):

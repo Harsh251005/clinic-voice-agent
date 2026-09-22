@@ -14,7 +14,7 @@ from datetime import date, datetime, time, timedelta
 from clinic_agent import scheduling
 from clinic_agent.store import repo
 from clinic_agent.store.db import Session
-from clinic_agent.store.models import Clinic, Doctor, TimeOff
+from clinic_agent.store.models import Appointment, Clinic, Doctor, TimeOff
 
 
 class BookingError(Exception):
@@ -71,7 +71,7 @@ def find_slots(
         if slots:
             lines.append(f"{doctor.name} on {_day(day)}: {_times(slots[: clinic.slots_offered])}.")
             continue
-        why = _why_none(doctor, day, time_off, part_of_day)
+        why = _why_none(doctor, day, time_off, now, part_of_day)
         nxt = _next_free(s, doctor, day, last_day, time_off, now, part_of_day)
         tail = (
             f" Next free: {_day(nxt[0].date())}, {_times(nxt[: clinic.slots_offered])}."
@@ -124,11 +124,42 @@ def find_appointments(s: Session, clinic_id: int, patient_phone: str, now: datet
         raise BookingError(
             f"No upcoming appointments booked with mobile {phone}. Check the number with the caller."
         )
-    return " ".join(
-        f"Appointment {a.id}: {a.doctor.name}, {_day(a.starts_at.date())} at {a.starts_at:%H:%M}, "
-        f"for {a.patient.name}."
-        for a in appts
-    )
+    time_off = repo.time_off_overlapping(s, clinic_id, now.date(), appts[-1].starts_at.date())
+    lines = []
+    for a in appts:
+        line = (
+            f"Appointment {a.id}: {a.doctor.name}, {_day(a.starts_at.date())} at {a.starts_at:%H:%M}, "
+            f"for {a.patient.name}."
+        )
+        if problem := appointment_problem(a, time_off):
+            line += f" Problem: {problem}. Tell the caller and offer to move or cancel it."
+        lines.append(line)
+    return " ".join(lines)
+
+
+def appointment_problem(appt: Appointment, time_off: list[TimeOff]) -> str | None:
+    """Why a booked appointment can't go ahead as booked, or None.
+
+    Bookings stay booked when staff later add leave, change hours or
+    deactivate a doctor; this is how the caller and the dashboard find out.
+    """
+    doctor, day = appt.doctor, appt.starts_at.date()
+    for t in time_off:
+        if t.date_from <= day <= t.date_to:
+            if t.doctor_id is None:
+                return f"the clinic is closed that day{f' ({t.reason})' if t.reason else ''}"
+            if t.doctor_id == doctor.id:
+                return f"{doctor.name} is on leave that day"
+    if not doctor.active:
+        return f"{doctor.name} is no longer taking appointments"
+    if not any(
+        h.weekday == day.weekday()
+        and datetime.combine(day, h.start) <= appt.starts_at
+        and appt.ends_at <= datetime.combine(day, h.end)
+        for h in doctor.hours
+    ):
+        return f"{doctor.name} no longer sits at that time"
+    return None
 
 
 def cancel_booking(
@@ -155,6 +186,11 @@ def reschedule_booking(
     appt = _owned(s, clinic_id, appointment_id, patient_phone, now)
     clinic = repo.get_clinic(s, clinic_id)
     doctor = resolve_doctor(clinic, doctor_name) if doctor_name else appt.doctor
+    if not doctor.active:  # resolve_doctor only finds active ones; the booked doctor may not be
+        names = ", ".join(d.name for d in clinic.doctors if d.active) or "none"
+        raise BookingError(
+            f"{doctor.name} is no longer taking appointments. Offer another doctor: {names}."
+        )
     _check_day(day, now, clinic)
 
     old = f"{appt.doctor.name}, {_day(appt.starts_at.date())} at {appt.starts_at:%H:%M}"
@@ -228,15 +264,23 @@ def _day_slots(s, doctor: Doctor, day: date, time_off, now, part_of_day) -> list
     )
 
 
-def _why_none(doctor: Doctor, day: date, time_off: list[TimeOff], part_of_day) -> str:
+def _why_none(doctor: Doctor, day: date, time_off: list[TimeOff], now: datetime, part_of_day) -> str:
     for t in time_off:
         if t.date_from <= day <= t.date_to:
             if t.doctor_id is None:
                 return f"clinic closed{f' ({t.reason})' if t.reason else ''}"
             if t.doctor_id == doctor.id:
                 return "doctor on leave"
-    if not any(h.weekday == day.weekday() for h in doctor.hours):
+    sittings = [(h.start, h.end) for h in doctor.hours if h.weekday == day.weekday()]
+    if not sittings:
         return f"doctor does not sit on {day:%A}s"
+    # "Fully booked" only if bookings are the reason, not the clock or the part of day.
+    def unbooked(at: datetime) -> list[datetime]:
+        return scheduling.free_slots(day, sittings, doctor.slot_minutes, [], at, part_of_day=part_of_day)
+    if not unbooked(datetime.combine(day, time.min) - timedelta(days=1)):
+        return f"doctor does not sit in the {part_of_day} on {day:%A}s"
+    if not unbooked(now):
+        return f"no {f'{part_of_day} ' if part_of_day else ''}times left today"
     return f"fully booked{f' in the {part_of_day}' if part_of_day else ''}"
 
 

@@ -117,7 +117,12 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Doctor
+         * @description Remove a doctor for good (deactivating keeps them). Refused with a
+         *     422 while they have upcoming bookings.
+         */
+        delete: operations["delete_doctor_api_clinics__clinic_id__doctors__doctor_id__delete"];
         options?: never;
         head?: never;
         /** Update Doctor */
@@ -236,7 +241,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add Time Off */
+        /**
+         * Add Time Off
+         * @description Leave or a holiday. Bookings already on those days stay booked; they
+         *     come back as `clashes` so staff can call those patients.
+         */
         post: operations["add_time_off_api_clinics__clinic_id__time_off_post"];
         delete?: never;
         options?: never;
@@ -336,6 +345,8 @@ export interface components {
             patient_name: string;
             /** Patient Phone */
             patient_phone: string;
+            /** Problem */
+            problem?: string | null;
             /**
              * Source
              * @enum {string}
@@ -441,6 +452,8 @@ export interface components {
             slot_minutes: number;
             /** Specialty */
             specialty: string;
+            /** Upcoming */
+            upcoming: number;
         };
         /** DoctorPatch */
         DoctorPatch: {
@@ -575,6 +588,27 @@ export interface components {
         };
         /** TimeOff */
         TimeOff: {
+            /**
+             * Date From
+             * Format: date
+             */
+            date_from: string;
+            /**
+             * Date To
+             * Format: date
+             */
+            date_to: string;
+            /** Doctor Id */
+            doctor_id: number | null;
+            /** Id */
+            id: number;
+            /** Reason */
+            reason: string;
+        };
+        /** TimeOffAdded */
+        TimeOffAdded: {
+            /** Clashes */
+            clashes: components["schemas"]["Appointment"][];
             /**
              * Date From
              * Format: date
@@ -843,6 +877,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Doctor"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_doctor_api_clinics__clinic_id__doctors__doctor_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doctor_id: number;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -1153,7 +1221,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TimeOff"];
+                    "application/json": components["schemas"]["TimeOffAdded"];
                 };
             };
             /** @description Validation Error */

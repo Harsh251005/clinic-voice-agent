@@ -6,6 +6,7 @@ would need a shared store instead.
 
 from __future__ import annotations
 
+import threading
 import time
 from collections import defaultdict, deque
 from collections.abc import Callable
@@ -18,18 +19,21 @@ class RateLimiter:
         self.limit, self.window, self._clock = limit, window, clock
         self._events: dict[str, deque[float]] = defaultdict(deque)
         self._next_sweep = 0.0
+        # FastAPI runs sync routes on a thread pool: requests arrive concurrently.
+        self._lock = threading.Lock()
 
     def allow(self, key: str) -> bool:
-        now = self._clock()
-        if now >= self._next_sweep:
-            self._sweep(now)
-        events = self._events[key]
-        while events and events[0] <= now - self.window:
-            events.popleft()
-        if len(events) >= self.limit:
-            return False
-        events.append(now)
-        return True
+        with self._lock:
+            now = self._clock()
+            if now >= self._next_sweep:
+                self._sweep(now)
+            events = self._events[key]
+            while events and events[0] <= now - self.window:
+                events.popleft()
+            if len(events) >= self.limit:
+                return False
+            events.append(now)
+            return True
 
     def _sweep(self, now: float) -> None:
         """Forget keys with nothing in the window, so memory doesn't grow with

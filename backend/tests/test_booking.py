@@ -105,6 +105,29 @@ def test_doctor_leave(db):
     assert "none - doctor on leave" in out and "Next free: Thursday 24 September 2026" in out
 
 
+def test_after_the_days_last_slot_it_says_none_left_not_fully_booked(db):
+    s, clinic_id = db
+    evening = datetime(2026, 9, 21, 19, 45)  # Asha's last sitting ends at 20:00
+    out = booking.find_slots(s, clinic_id, date(2026, 9, 21), evening, doctor_name="Asha")
+    assert "none - no times left today." in out and "fully booked" not in out
+    assert "Next free: Tuesday 22 September 2026" in out
+
+
+def test_a_part_of_day_the_doctor_never_sits_is_not_fully_booked(db):
+    out = find(db, day=date(2026, 9, 23), doctor_name="Rohan", part_of_day="evening")
+    assert "none - doctor does not sit in the evening on Wednesdays." in out
+
+
+def test_fully_booked_still_says_so(db):
+    s, clinic_id = db
+    rohan = repo.get_clinic(s, clinic_id).doctors[1]
+    wed = date(2026, 9, 23)
+    for h in range(11, 14):
+        for m in (0, 20, 40):
+            repo.book(s, clinic_id, rohan.id, datetime.combine(wed, time(h, m)), f"P{h}{m}", "9876543210")
+    assert "none - fully booked." in find(db, day=wed, doctor_name="Rohan")
+
+
 def test_past_and_far_future_days_are_refused(db):
     with pytest.raises(BookingError, match="in the past"):
         find(db, day=date(2026, 9, 20))
@@ -166,3 +189,26 @@ def test_missing_name_and_bad_phone(db):
         book(db, name="  ")
     with pytest.raises(BookingError, match="not a valid 10-digit"):
         book(db, phone="12345")
+
+
+def test_two_calls_adding_the_same_new_patient_both_book(db, monkeypatch):
+    # The other call inserts "Ravi" after our lookup found nobody: our insert
+    # clashes on the patient, and the booking must retry with their row.
+    s, clinic_id = db
+    asha = repo.get_clinic(s, clinic_id).doctors[0]
+    first = repo.book(s, clinic_id, asha.id, datetime(2026, 9, 22, 11, 0), "Ravi", "9876543210")
+    real_patient, calls = repo._patient, []
+
+    def stale_lookup(s_, clinic_id_, name, phone):
+        calls.append(name)
+        if len(calls) == 1:
+            patient = repo.Patient(clinic_id=clinic_id_, name=name, phone=phone)
+            s_.add(patient)
+            return patient
+        return real_patient(s_, clinic_id_, name, phone)
+
+    monkeypatch.setattr(repo, "_patient", stale_lookup)
+    out = book(db)
+    assert out.startswith("Booked") and len(calls) == 2
+    (appt,) = repo.appointments_on(s, clinic_id, TUE)[:1]
+    assert appt.patient_id == first.patient_id

@@ -1,6 +1,10 @@
 "use client";
 import { useState } from "react";
-import { Pencil, Plus, Power, Stethoscope } from "lucide-react";
+import { Pencil, Plus, Power, Stethoscope, Trash2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +26,9 @@ export function Doctors({ clinic }: { clinic: Schemas["Clinic"] }) {
   const path = (doctorId: number) => ({ params: { path: { clinic_id: clinic.id, doctor_id: doctorId } } });
   const update = useClinicChange(clinic.id, ({ id, body }: { id: number; body: Schemas["DoctorPatch"] }) =>
     unwrap(api.PATCH("/api/clinics/{clinic_id}/doctors/{doctor_id}", { ...path(id), body })),
-    (d) => `${d.name} saved`);
+    (d, { body }) => body.active === false && d.upcoming
+      ? `${d.name} deactivated. Their ${bookings(d.upcoming)} still stand and are flagged on the Appointments page: call those patients.`
+      : `${d.name} saved`);
 
   return (
     <div className="space-y-6">
@@ -48,6 +54,7 @@ export function Doctors({ clinic }: { clinic: Schemas["Clinic"] }) {
               <div className="flex flex-wrap gap-1.5">
                 <Badge variant="secondary">₹{d.fee}</Badge>
                 <Badge variant="secondary">{d.slot_minutes} min slots</Badge>
+                {d.upcoming > 0 && <Badge variant="outline">{bookings(d.upcoming)}</Badge>}
               </div>
               <p className="text-sm text-muted-foreground">{d.hours_text}</p>
               <div className="flex gap-2">
@@ -56,6 +63,7 @@ export function Doctors({ clinic }: { clinic: Schemas["Clinic"] }) {
                   onClick={() => update.mutate({ id: d.id, body: { active: !d.active } })}>
                   <Power /> {d.active ? "Deactivate" : "Activate"}
                 </Button>
+                <RemoveDoctor clinicId={clinic.id} doctor={d} />
               </div>
             </CardContent>
           </Card>
@@ -75,6 +83,46 @@ export function Doctors({ clinic }: { clinic: Schemas["Clinic"] }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function bookings(n: number) {
+  return `${n} upcoming booking${n === 1 ? "" : "s"}`;
+}
+
+function RemoveDoctor({ clinicId, doctor }: { clinicId: number; doctor: Doctor }) {
+  const remove = useClinicChange(clinicId, () =>
+    unwrap(api.DELETE("/api/clinics/{clinic_id}/doctors/{doctor_id}", {
+      params: { path: { clinic_id: clinicId, doctor_id: doctor.id } },
+    })),
+    `${doctor.name} removed`);
+  const blocked = doctor.upcoming > 0;
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground hover:text-destructive" disabled={remove.isPending}>
+          <Trash2 /> Remove
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{blocked ? `${doctor.name} still has bookings` : `Remove ${doctor.name} for good?`}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {blocked
+              ? `They have ${bookings(doctor.upcoming)}. Cancel those on the Appointments page and let the patients know, then remove the doctor. To stop new bookings right away, deactivate them instead.`
+              : "Their hours, leave and past appointment records are deleted too. This can't be undone. To keep the records, deactivate them instead."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{blocked ? "OK" : "Keep them"}</AlertDialogCancel>
+          {!blocked && (
+            <AlertDialogAction onClick={() => remove.mutate(undefined)} className="bg-destructive text-white hover:bg-destructive/90">
+              Yes, remove
+            </AlertDialogAction>
+          )}
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

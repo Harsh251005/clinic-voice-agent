@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Request
 
 from api.dashboard import convert, schemas
 from api.dashboard.access import open_clinic, staff_errors
+from clinic_agent import booking
 from clinic_agent.store import repo
 
 router = APIRouter()
@@ -19,8 +20,13 @@ def day(day: date, request: Request, include_cancelled: bool = False, clinic_id:
         rows = repo.appointments_on(s, clinic_id, day, include_cancelled=include_cancelled)
         booked = [a for a in rows if a.status == "booked"]
         week = sum(len(repo.appointments_on(s, clinic_id, day + timedelta(days=i))) for i in range(7))
+        time_off = repo.time_off_overlapping(s, clinic_id, day, day)
         return schemas.Day(
-            day=day, appointments=[convert.appointment(a) for a in rows], booked=len(booked),
+            day=day, booked=len(booked),
+            appointments=[
+                convert.appointment(a, booking.appointment_problem(a, time_off) if a.status == "booked" else None)
+                for a in rows
+            ],
             booked_on_calls=sum(1 for a in booked if a.source == "voice"), next_7_days=week,
         )
 

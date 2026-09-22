@@ -19,29 +19,30 @@ def hours_text(items: list[schemas.Sitting]) -> str:
     return weekly_hours(SimpleNamespace(hours=items))
 
 
-def doctor(d) -> schemas.Doctor:
+def doctor(d, upcoming: int) -> schemas.Doctor:
     hours = sittings(d.hours)
     return schemas.Doctor(
         id=d.id, name=d.name, specialty=d.specialty, fee=d.fee, slot_minutes=d.slot_minutes,
-        active=d.active, hours=hours, hours_text=hours_text(hours),
+        active=d.active, hours=hours, hours_text=hours_text(hours), upcoming=upcoming,
     )
 
 
-def clinic(c, time_off, public_base_url: str) -> schemas.Clinic:
+def clinic(c, time_off, upcoming: dict[int, int], public_base_url: str) -> schemas.Clinic:
     return schemas.Clinic(
         id=c.id, name=c.name, slug=c.slug, call_link=f"{public_base_url}/call/{c.slug}",
         address=c.address, phone=c.phone, timezone=c.timezone,
         booking_window_days=c.booking_window_days, slots_offered=c.slots_offered,
-        doctors=[doctor(d) for d in c.doctors],
+        doctors=[doctor(d, upcoming.get(d.id, 0)) for d in c.doctors],
         faq=[schemas.Faq(id=f.id, question=f.question, answer=f.answer) for f in c.faq],
         time_off=[schemas.TimeOff(id=t.id, date_from=t.date_from, date_to=t.date_to,
                                   doctor_id=t.doctor_id, reason=t.reason) for t in time_off],
     )
 
 
-def appointment(a) -> schemas.Appointment:
+def appointment(a, problem: str | None = None) -> schemas.Appointment:
     return schemas.Appointment(
         id=a.id, doctor_id=a.doctor_id, doctor_name=a.doctor.name,
         patient_name=a.patient.name, patient_phone=a.patient.phone,
         starts_at=a.starts_at, ends_at=a.ends_at, status=a.status, source=a.source,
+        problem=problem,
     )

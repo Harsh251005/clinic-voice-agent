@@ -204,9 +204,30 @@ def update_doctor(s: Session, doctor_id: int, **fields) -> Doctor:
     return doctor
 
 
-def delete_doctor(s: Session, doctor_id: int) -> None:
-    s.delete(_get(s, Doctor, doctor_id))
+def delete_doctor(s: Session, doctor_id: int, now: datetime) -> None:
+    """Remove a doctor for good: their hours, leave and past appointments go
+    with them. Refused (ValueError, for staff) while they have upcoming
+    bookings, so no patient is left holding an appointment that vanished."""
+    doctor = _get(s, Doctor, doctor_id)
+    upcoming = upcoming_counts(s, doctor.clinic_id, now).get(doctor.id, 0)
+    if upcoming:
+        raise ValueError(
+            f"{doctor.name} has {upcoming} upcoming appointment{'s' if upcoming > 1 else ''}. "
+            "Cancel them on the Appointments page and let the patients know, then remove the doctor."
+        )
+    s.delete(doctor)
     s.commit()
+
+
+def upcoming_counts(s: Session, clinic_id: int, now: datetime) -> dict[int, int]:
+    """Booked appointments from now on, per doctor id (doctors with none are absent)."""
+    rows = s.execute(
+        select(Appointment.doctor_id, func.count())
+        .where(Appointment.clinic_id == clinic_id, Appointment.status == "booked",
+               Appointment.starts_at >= now)
+        .group_by(Appointment.doctor_id)
+    )
+    return {doctor_id: n for doctor_id, n in rows}
 
 
 def set_doctor_hours(
@@ -291,6 +312,26 @@ def booked_intervals(s: Session, doctor_id: int, day: date) -> list[tuple[dateti
     return [(a, b) for a, b in rows]
 
 
+def booked_between(
+    s: Session, clinic_id: int, day_from: date, day_to: date, doctor_id: int | None = None
+) -> list[Appointment]:
+    """Booked appointments on these days (inclusive), for one doctor or all."""
+    query = (
+        select(Appointment)
+        .where(
+            Appointment.clinic_id == clinic_id,
+            Appointment.status == "booked",
+            Appointment.starts_at >= datetime.combine(day_from, time.min),
+            Appointment.starts_at < datetime.combine(day_to + timedelta(days=1), time.min),
+        )
+        .options(selectinload(Appointment.doctor), selectinload(Appointment.patient))
+        .order_by(Appointment.starts_at, Appointment.doctor_id)
+    )
+    if doctor_id is not None:
+        query = query.where(Appointment.doctor_id == doctor_id)
+    return list(s.scalars(query))
+
+
 def appointments_on(
     s: Session, clinic_id: int, day: date, include_cancelled: bool = False
 ) -> list[Appointment]:
@@ -323,25 +364,30 @@ def book(
     doctor = _get(s, Doctor, doctor_id)
     if doctor.clinic_id != clinic_id:
         raise NotFound(f"doctor {doctor_id} is not at clinic {clinic_id}")
+    ends_at = starts_at + timedelta(minutes=doctor.slot_minutes)
 
-    patient = _patient(s, clinic_id, patient_name, patient_phone)
-    appt = Appointment(
-        clinic_id=clinic_id,
-        doctor_id=doctor_id,
-        patient=patient,
-        starts_at=starts_at,
-        ends_at=starts_at + timedelta(minutes=doctor.slot_minutes),
-        source=source,
-    )
-    s.add(appt)
-    try:
-        s.commit()
-    except IntegrityError as err:
-        s.rollback()
-        if _is_slot_clash(err):
-            raise SlotTaken(f"doctor {doctor_id} is already booked at {starts_at}") from None
-        raise
-    return appt
+    for first_try in (True, False):
+        appt = Appointment(
+            clinic_id=clinic_id,
+            doctor_id=doctor_id,
+            patient=_patient(s, clinic_id, patient_name, patient_phone),
+            starts_at=starts_at,
+            ends_at=ends_at,
+            source=source,
+        )
+        s.add(appt)
+        try:
+            s.commit()
+            return appt
+        except IntegrityError as err:
+            s.rollback()
+            if _is_slot_clash(err):
+                raise SlotTaken(f"doctor {doctor_id} is already booked at {starts_at}") from None
+            # Another call added this same new patient between our lookup and
+            # our insert: look again, and this time find theirs.
+            if not (first_try and _is_patient_clash(err)):
+                raise
+    raise AssertionError("unreachable")
 
 
 def upcoming_for_phone(
@@ -422,6 +468,11 @@ def _is_slot_clash(err: IntegrityError) -> bool:
     other constraint that must not be reported to a caller as 'slot taken'."""
     text = str(err.orig)
     return "uq_doctor_slot_booked" in text or "appointments.doctor_id, appointments.starts_at" in text
+
+
+def _is_patient_clash(err: IntegrityError) -> bool:
+    text = str(err.orig)
+    return "uq_patients_clinic_id_phone_name" in text or "patients.clinic_id, patients.phone, patients.name" in text
 
 
 def in_clinic(s: Session, model, row_id: int, clinic_id: int):

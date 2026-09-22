@@ -1,6 +1,6 @@
 "use client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarX2, Phone, PhoneCall, UserRound } from "lucide-react";
+import { CalendarX2, Phone, PhoneCall, TriangleAlert, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -88,6 +88,12 @@ function Row({ clinicId, appt }: { clinicId: number; appt: Appointment }) {
         )}
         {cancelled && <Badge className="bg-warning text-warning-foreground">Cancelled</Badge>}
       </div>
+      {appt.problem && (
+        <p className="flex basis-full items-center gap-1.5 rounded-md bg-warning px-2.5 py-1.5 text-sm text-warning-foreground order-last">
+          <TriangleAlert className="size-4 shrink-0" aria-hidden />
+          Call the patient: {appt.problem}.
+        </p>
+      )}
       <div className="w-24 text-right">
         {!cancelled && (
           <AlertDialog>

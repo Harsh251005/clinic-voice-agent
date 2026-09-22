@@ -177,6 +177,7 @@ def test_only_admins_create_clinics_and_manage_teams(world):
 
 ATTACKS = [
     # (method, path under the attacker's own clinic, body, the row it targets)
+    ("DELETE", "/doctors/{demo_doctor}", None),
     ("DELETE", "/faq/{demo_faq}", None),
     ("DELETE", "/time-off/{demo_off}", None),
     ("PATCH", "/doctors/{demo_doctor}", {"fee": 1}),
@@ -196,7 +197,7 @@ def test_another_clinics_rows_cant_be_reached_through_your_own_clinic(world, met
     _demo_untouched(world)
 
 
-@pytest.mark.parametrize(("method", "path", "body"), ATTACKS[:5])
+@pytest.mark.parametrize(("method", "path", "body"), ATTACKS[:6])
 def test_another_clinics_rows_cant_be_reached_through_its_url(world, method, path, body):
     c = client_as("reception@cure.in")
     r = c.request(method, f"/api/clinics/{world['demo']}" + path.format(**world), json=body)
@@ -315,3 +316,37 @@ def test_admin_creates_a_clinic(world):
     new = c.post("/api/clinics", json={"name": "Sharma Skin Clinic"}).json()
     assert new["slug"] == "sharma-skin-clinic"
     assert "Sharma Skin Clinic" in [x["name"] for x in c.get("/api/me").json()["clinics"]]
+
+
+def test_removing_a_doctor(world):
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}"
+    (doctor,) = c.get(base).json()["doctors"]
+    assert doctor["upcoming"] == 1  # Harsh, 7 December
+    refused = c.delete(f"{base}/doctors/{world['khushboo']}")
+    assert refused.status_code == 422 and "has 1 upcoming appointment" in refused.json()["detail"]
+    (appt,) = c.get(f"{base}/appointments", params={"day": "2026-12-07"}).json()["appointments"]
+    c.post(f"{base}/appointments/{appt['id']}/cancel")
+    assert c.delete(f"{base}/doctors/{world['khushboo']}").status_code == 200
+    assert c.get(base).json()["doctors"] == []
+
+
+def test_leave_over_bookings_names_them_and_flags_them(world):
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}"
+    off = c.post(f"{base}/time-off", json={"date_from": "2026-12-07", "date_to": "2026-12-08",
+                                           "doctor_id": world["khushboo"], "reason": "Leave"}).json()
+    (clash,) = off["clashes"]
+    assert (clash["patient_name"], clash["problem"]) == ("Harsh", "Dr. Khushboo is on leave that day")
+    (appt,) = c.get(f"{base}/appointments", params={"day": "2026-12-07"}).json()["appointments"]
+    assert appt["problem"] == "Dr. Khushboo is on leave that day"
+    none = c.post(f"{base}/time-off", json={"date_from": "2026-12-20", "date_to": "2026-12-20"}).json()
+    assert none["clashes"] == []
+
+
+def test_deactivating_a_doctor_flags_their_bookings(world):
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}"
+    assert c.patch(f"{base}/doctors/{world['khushboo']}", json={"active": False}).json()["upcoming"] == 1
+    (appt,) = c.get(f"{base}/appointments", params={"day": "2026-12-07"}).json()["appointments"]
+    assert appt["problem"] == "Dr. Khushboo is no longer taking appointments"
