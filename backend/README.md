@@ -241,7 +241,8 @@ api/                    call-link server: page + signed join pass (python -m api
     ├── call_limit.py   hard cap on call length: goodbye, then close the room
     ├── booking.py      booking rules: find slots, validate, book — no LiveKit
     ├── tools/booking.py  slots, book, find/cancel/reschedule as LiveKit tools
-    ├── tools/call.py     end_call — LiveKit's EndCallTool, goodbye then hang up
+    ├── tools/call.py     end_call — speaks the model's goodbye, then hangs up
+    ├── tools/speech.py   the "one moment" a tool says while it works
     ├── agent.py        Agent subclass — behaviour only (tools land here)
     ├── session.py      the one place STT + LLM + TTS are combined
     ├── providers/      vendor construction, behind three functions
@@ -298,10 +299,20 @@ write the same tables through `store/repo.py`.
   reveals nothing. A booking with a doctor who has since been deactivated
   can only move to another doctor. **The mobile number is the only proof of identity today** —
   once telephony arrives, match it against the caller's own number.
-- **Ending the call**: `end_call` (LiveKit's `EndCallTool`) speaks one
-  goodbye, shuts the session down after it, and deletes the room — which
-  disconnects a phone caller. It is hidden during the greeting, and the
-  instructions say to ask "anything else?" when unsure rather than hang up.
+- **Ending the call**: `end_call(goodbye)` takes the goodbye as its
+  argument — what was done on the call (the booking's doctor, day and time),
+  then goodbye — speaks it with interruptions off, waits until it has
+  played, then closes the session and deletes the room, which disconnects a
+  phone caller. An empty goodbye gets a stock one; it never hangs up
+  silently. (LiveKit's `EndCallTool` asked for the goodbye in a second model
+  reply after the tool, and the call ended in silence when that reply was
+  empty or interrupted.) Hidden during the greeting; a caller who only says
+  thanks is asked "anything else?" first.
+- **No dead air around a lookup.** The model says a short line ("ठीक है,
+  मैं चेक करके बताती हूँ") in the same reply as a booking tool call, so it
+  plays at once. If it didn't, the tool says one itself in the caller's
+  language (Devanagari in the last caller turn = Hindi), once per reply,
+  while the database work runs (`tools/speech.py`).
 - **It says it is automated.** The first line names the clinic and says it
   is the clinic's automated assistant ("ऑटोमेटेड असिस्टेंट" in Hindi). The
   call page says so too.
