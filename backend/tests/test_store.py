@@ -179,3 +179,30 @@ def test_slug_changes_only_through_set_slug(db):
     s, clinic_id = db
     with pytest.raises(TypeError):
         repo.update_clinic(s, clinic_id, slug="sneaky")
+
+
+# ---------- dashboard access ----------
+
+def test_members_are_per_clinic_and_emails_are_normalised(db):
+    s, clinic_id = db
+    other = repo.create_clinic(s, name="Other Clinic")
+    repo.add_member(s, clinic_id, "  Reception@Example.COM ")
+    repo.add_member(s, clinic_id, "reception@example.com")  # twice: no-op
+    repo.add_member(s, other.id, "reception@example.com")
+    assert [m.email for m in repo.list_members(s, clinic_id)] == ["reception@example.com"]
+    assert repo.clinic_ids_for_email(s, "RECEPTION@example.com") == {clinic_id, other.id}
+    assert repo.clinic_ids_for_email(s, "stranger@example.com") == set()
+
+
+@pytest.mark.parametrize("bad", ["", "not-an-email", "a@b", "two words@example.com"])
+def test_bad_emails_are_refused(db, bad):
+    s, clinic_id = db
+    with pytest.raises(ValueError, match="doesn't look like an email"):
+        repo.add_member(s, clinic_id, bad)
+
+
+def test_removing_a_member_revokes_access(db):
+    s, clinic_id = db
+    member = repo.add_member(s, clinic_id, "reception@example.com")
+    repo.remove_member(s, member.id)
+    assert repo.clinic_ids_for_email(s, "reception@example.com") == set()

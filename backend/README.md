@@ -131,10 +131,43 @@ uv run streamlit run dashboard/app.py   # run from backend/ — .streamlit/ live
 
 - It writes through `store/repo.py`, the same functions the agent uses.
 - Doctors are deactivated, never deleted, so appointment history survives.
-- **No login yet** — local testing only. Add authentication before any clinic
-  uses it.
+- **Sign-in is with Google.** Admins (`ADMIN_EMAILS`) see every clinic,
+  create clinics (**New clinic** in the sidebar) and, on each clinic's
+  **Team** tab, add or remove the Google accounts that may open it. Everyone
+  else sees only the clinics their email was added to. A signed-in account
+  that no clinic added gets a "No clinic yet" screen. Adding someone sends
+  no email: give them the dashboard's address yourself.
+- `DASHBOARD_LOGIN=off` skips sign-in and makes everyone an admin, with a
+  warning in the sidebar. Local development only.
+- Views live in `dashboard/views/`, **never `pages/`**: Streamlit auto-lists
+  a `pages/` folder whenever `app.py` stops at the sign-in gate, and runs
+  those files without the gate. A test fails if one appears.
 - After editing anything under `dashboard/`, restart Streamlit; it does not
   reliably hot-reload imported modules.
+
+### Setting up Google sign-in
+
+Once per deployment, in the Google account that will own the login (about
+ten minutes):
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → create a
+   project (e.g. "Clinic Console").
+2. **Google Auth Platform** → **Branding**: app name and a support email.
+   **Audience**: *External*. While the app is in *Testing*, only the Google
+   accounts listed under **Test users** can sign in (up to 100): add yours and
+   each clinic's. Publishing the app removes that list.
+3. **Clients** → **Create client** → *Web application*. Under **Authorized
+   redirect URIs** add `http://localhost:8501/oauth2callback` (and later
+   `https://<dashboard address>/oauth2callback`). Copy the client ID and
+   secret.
+4. `cp .streamlit/secrets.toml.example .streamlit/secrets.toml` (gitignored),
+   fill in `client_id`, `client_secret`, and a `cookie_secret` from
+   `uv run python -c "import secrets; print(secrets.token_hex(32))"`.
+5. In `.env`: `DASHBOARD_LOGIN=google` and `ADMIN_EMAILS=<your Google email>`.
+   Restart Streamlit.
+
+Google's console moves things around; if a name above has changed, the
+client type is still "OAuth client ID, Web application".
 
 ## Test
 
@@ -190,7 +223,7 @@ api/                    call-link server: page + signed join pass (python -m api
         └── repo.py     every query the agent and dashboard make
     scheduling.py       free-slot rules — pure functions, no DB, no LiveKit
 seeds/demo_clinic.py    fictional clinic for tests and a first run
-dashboard/              Streamlit clinic setup (app.py → pages/ → sections/, one section per file)
+dashboard/              Streamlit clinic setup (app.py → views/ → sections/, one section per file)
 ```
 
 The rules: **only `providers/` imports a vendor package**, and **only `store/`
@@ -346,6 +379,8 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
 | `PUBLIC_BASE_URL` | `http://localhost:8080` | Where the call-link server is reachable; the dashboard builds each clinic's link from it. Your tunnel's https address for a demo from outside. |
 | `MAX_CALL_MINUTES` | `10` | Longest a call may last before a goodbye and hang-up. Guards against forgotten or abused calls spending minutes. |
+| `DASHBOARD_LOGIN` | `google` | `off` skips sign-in (everyone is an admin): local development only. |
+| `ADMIN_EMAILS` | blank | Comma-separated Google emails that see every clinic and manage access. |
 | `API_HOST` / `API_PORT` | `127.0.0.1` / `8080` | Where the call-link server listens. `0.0.0.0` inside a container. |
 | `CLIENT_IP_HEADER` | blank | The header carrying the caller's IP behind a tunnel/proxy (`CF-Connecting-IP`, `X-Forwarded-For`), so rate limits stay per caller. Never trusted unless set. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |

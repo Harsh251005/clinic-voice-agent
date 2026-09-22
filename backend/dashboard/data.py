@@ -26,11 +26,18 @@ def session():
         yield s
 
 
-def clinics() -> list:
+def clinics_for(viewer) -> list:
+    """The clinics this viewer may open: every clinic for an admin."""
     with session() as s:
-        return repo.list_clinics(s)
+        return [c for c in repo.list_clinics(s) if viewer.may_open(c.id)]
 
 
 def current_clinic_id() -> int | None:
-    """The clinic picked in the sidebar, or None if there are no clinics yet."""
-    return st.session_state.get("clinic_id")
+    """The clinic picked in the sidebar, or None if there are no clinics yet.
+    Checked against the viewer on every read, not only when the list is drawn."""
+    from dashboard import auth
+
+    clinic_id = st.session_state.get("clinic_id")
+    if clinic_id is None or not auth.viewer().may_open(clinic_id):
+        return None
+    return clinic_id

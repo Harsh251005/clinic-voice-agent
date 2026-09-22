@@ -10,7 +10,7 @@ dependencies = [
     "psycopg[binary]>=3.3.6",
     "python-dotenv>=1.0.0",
     "sqlalchemy>=2.0",
-    "streamlit>=1.64.0",
+    "streamlit[auth]>=1.64.0",
     "uvicorn>=0.53.0",
 ]
 

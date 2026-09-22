@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+# dashboard login credentials (Google OAuth client, cookie secret)
+.streamlit/secrets.toml
 
 # ---------- Python ----------
 __pycache__/

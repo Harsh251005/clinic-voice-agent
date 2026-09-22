@@ -50,6 +50,10 @@ class Settings:
     # --- calls ---
     max_call_minutes: float  # then a goodbye and hang up
 
+    # --- dashboard ---
+    dashboard_login: str  # "google", or "off" for local development only
+    admin_emails: frozenset[str]  # lowercased; see every clinic and manage access
+
     # --- clinic data ---
     database_url: str
 
@@ -92,6 +96,14 @@ def _number(name: str, default: float | None = None) -> float | None:
         raise ConfigError(f"{name} must be a number, got {raw!r}") from None
 
 
+def _choice(name: str, allowed: tuple[str, ...]) -> str:
+    """One of `allowed`; the first is the default."""
+    value = _text(name, allowed[0]).lower()
+    if value not in allowed:
+        raise ConfigError(f"{name} must be one of {', '.join(allowed)}, got {value!r}")
+    return value
+
+
 def load_settings() -> Settings:
     """Read .env and the environment into a Settings object.
 
@@ -123,6 +135,10 @@ def load_settings() -> Settings:
         tts_codec=_text("TTS_CODEC"),
         min_endpointing_delay=_number("MIN_ENDPOINTING_DELAY", 0.2),
         max_call_minutes=_number("MAX_CALL_MINUTES", 10),
+        dashboard_login=_choice("DASHBOARD_LOGIN", ("google", "off")),
+        admin_emails=frozenset(
+            e.strip().lower() for e in (_text("ADMIN_EMAILS") or "").split(",") if e.strip()
+        ),
         database_url=_text("DATABASE_URL", "sqlite:///data/clinic.db"),
         livekit_url=_text("LIVEKIT_URL", ""),
         livekit_api_key=_text("LIVEKIT_API_KEY", ""),

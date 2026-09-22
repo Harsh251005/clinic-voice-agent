@@ -19,6 +19,7 @@ def db_url(tmp_path, monkeypatch):
     url = f"sqlite:///{tmp_path}/dash.db"
     migrations.upgrade(make_engine(url))  # a deploy step, not the dashboard's job
     monkeypatch.setenv("DATABASE_URL", url)
+    monkeypatch.setenv("DASHBOARD_LOGIN", "off")  # admin view; sign-in has its own tests below
     st.cache_resource.clear()  # the engine is cached per server process
     yield url
     st.cache_resource.clear()
@@ -39,11 +40,12 @@ def run(page: str | None = None):
 
 
 def setup_page():
-    return run("pages/setup.py")
+    return run("views/setup.py")
 
 
 def test_unmigrated_database_shows_what_to_run(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/none.db")
+    monkeypatch.setenv("DASHBOARD_LOGIN", "off")
     st.cache_resource.clear()
     at = AppTest.from_file(APP, default_timeout=30).run()
     st.cache_resource.clear()
@@ -70,7 +72,7 @@ def seeded(db_url):
 
 def test_setup_page_renders_all_sections(seeded):
     at = setup_page()
-    assert [t.label for t in at.tabs] == ["Clinic", "Call link", "Doctors", "Weekly hours", "Time off", "FAQ"]
+    assert [t.label for t in at.tabs] == ["Clinic", "Call link", "Doctors", "Weekly hours", "Time off", "FAQ", "Team"]
     text = " ".join(m.value for m in at.markdown)
     assert "Dr. Asha Mehta" in text and "Is there parking?" in text
 
@@ -168,3 +170,102 @@ def test_invalid_link_name_is_explained_not_saved(seeded):
     assert any("lowercase letters" in e.value for e in at.error)
     with sessions(db_url)() as s:
         assert repo.get_clinic(s, clinic_id).slug == "demo-family-clinic"
+
+
+# ---------- sign-in and access ----------
+
+@pytest.fixture
+def two_clinics(db_url, monkeypatch):
+    """Demo clinic (1) and Cure Dental (2); reception@cure.in may open only 2."""
+    with sessions(db_url)() as s:
+        demo = seed_demo(s)
+        cure = repo.create_clinic(s, name="Cure Dental Clinic").id
+        repo.add_member(s, cure, "reception@cure.in")
+    monkeypatch.setenv("DASHBOARD_LOGIN", "google")
+    monkeypatch.setenv("ADMIN_EMAILS", "harsh@example.com")
+    monkeypatch.setattr("dashboard.auth.login_configured", lambda: True)
+    return demo, cure
+
+
+def signed_in(monkeypatch, email):
+    monkeypatch.setattr("dashboard.auth.google_email", lambda: email)
+
+
+def _text(at):
+    return " ".join(m.value for m in at.markdown) + " ".join(c.value for c in at.caption)
+
+
+def test_login_not_configured_explains_setup(db_url, monkeypatch):
+    monkeypatch.setenv("DASHBOARD_LOGIN", "google")
+    at = AppTest.from_file(APP, default_timeout=30).run()
+    assert not at.exception
+    assert "Sign-in isn't set up" in _text(at)
+    assert not at.sidebar.selectbox  # nothing of any clinic is drawn
+
+
+def test_signed_out_sees_only_sign_in(two_clinics, monkeypatch):
+    signed_in(monkeypatch, None)
+    at = AppTest.from_file(APP, default_timeout=30).run()
+    assert [b.label for b in at.button] == ["Sign in with Google"]
+    assert "Cure Dental" not in _text(at) and "Demo Family" not in _text(at)
+
+
+def test_member_sees_only_their_clinic(two_clinics, monkeypatch):
+    demo, cure = two_clinics
+    signed_in(monkeypatch, "reception@cure.in")
+    at = run()  # AppTest's switch_page runs only the page, so read the sidebar first
+    assert at.sidebar.selectbox[0].options == ["Cure Dental Clinic"]
+    assert "New clinic" not in [b.label for b in at.sidebar.button]
+    assert any("Signed in as reception@cure.in" in c.value for c in at.sidebar.caption)
+    at.switch_page("views/setup.py").run()
+    assert "Team" not in [t.label for t in at.tabs]
+
+
+def test_stranger_is_told_to_ask_for_access(two_clinics, monkeypatch):
+    signed_in(monkeypatch, "stranger@gmail.com")
+    at = AppTest.from_file(APP, default_timeout=30).run()
+    text = _text(at) + " ".join(m.value for m in at.markdown)
+    assert "No clinic yet" in text
+    assert not at.sidebar.selectbox
+
+
+def test_unverified_google_email_is_refused(two_clinics, monkeypatch):
+    from dashboard.auth import Unverified
+
+    def unverified():
+        raise Unverified("reception@cure.in")
+
+    monkeypatch.setattr("dashboard.auth.google_email", unverified)
+    at = AppTest.from_file(APP, default_timeout=30).run()
+    assert "Email not verified" in _text(at)
+    assert not at.sidebar.selectbox
+
+
+def test_admin_sees_every_clinic_and_can_give_access(two_clinics, db_url, monkeypatch):
+    demo, cure = two_clinics
+    signed_in(monkeypatch, "harsh@example.com")
+    at = run()
+    assert at.sidebar.selectbox[0].options == ["Demo Family Clinic", "Cure Dental Clinic"]
+    assert "New clinic" in [b.label for b in at.sidebar.button]
+    at.switch_page("views/setup.py").run()
+    assert "Team" in [t.label for t in at.tabs]
+    next(t for t in at.text_input if t.label == "Google account email").input("Doctor@Demo.in")
+    next(b for b in at.button if b.label == "Give access").click().run()
+    assert not at.exception
+    with sessions(db_url)() as s:
+        assert repo.clinic_ids_for_email(s, "doctor@demo.in") == {demo}
+
+
+def test_viewer_may_open_only_its_clinics():
+    from dashboard.auth import Viewer
+
+    member = Viewer(email="r@cure.in", is_admin=False, clinic_ids=frozenset({2}))
+    assert member.may_open(2) and not member.may_open(1)
+    assert Viewer(email="h@x.in", is_admin=True, clinic_ids=frozenset()).may_open(1)
+
+
+def test_no_pages_folder():
+    # Streamlit auto-lists a folder named pages/ next to app.py whenever app.py
+    # stops before st.navigation (the sign-in gate) and runs those files
+    # without app.py: a signed-out visitor could open /setup directly.
+    assert not (Path(APP).parent / "pages").exists()
