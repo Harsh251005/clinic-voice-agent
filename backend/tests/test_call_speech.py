@@ -2,6 +2,8 @@
 scripted LLM: "one moment" while a lookup runs (unless the model already
 said something), and a spoken goodbye before every hang-up."""
 
+import asyncio
+
 import pytest
 from livekit.agents import AgentSession
 
@@ -10,7 +12,7 @@ from clinic_agent.store import migrations
 from clinic_agent.store.db import make_engine, session_factory
 from clinic_agent.tools.booking import ClinicLink, booking_tools
 from clinic_agent.tools.call import FALLBACK_GOODBYE, end_call_tool
-from clinic_agent.tools.speech import FILLERS
+from clinic_agent.tools.speech import FILLERS, keep_promises
 from seeds.demo_clinic import seed_demo
 from tests.fake_llm import FakeLLM, Reply
 from tests.test_booking_tools import next_working_day
@@ -44,8 +46,14 @@ async def call(link, replies, user_input, greet=False):
 
         session.say = say
         session.on("close", lambda ev: closed.append(ev))
+        keep_promises(session, [t.info.name for t in booking_tools(link)])
         await session.start(agent)
         await session.run(user_input=user_input)
+        for _ in range(100):  # a forced follow-up starts after run() returns
+            if not fake.replies:
+                break
+            await asyncio.sleep(0.02)
+        await asyncio.sleep(0.1)
         await session.aclose()
     return spoken, fake, closed
 
@@ -80,6 +88,33 @@ async def test_two_lookups_in_one_reply_say_it_once(link):
     other = ("find_available_slots", {"date": DAY, "doctor_name": "Rohan"})
     spoken, _, _ = await call(link, [Reply(calls=[FIND, other]), Reply("...")], "कल किसी का भी टाइम?")
     assert len(spoken) == 1
+
+
+# ---------- a promise to check is kept ----------
+
+async def test_saying_it_will_check_without_a_tool_forces_the_tool(link):
+    # Seen live: "मैं कल के स्लॉट्स चेक कर लेती हूँ", no tool call, then silence.
+    replies = [Reply("जी, मैं कल के खाली स्लॉट्स चेक कर लेती हूँ।"), Reply(calls=[FIND]), Reply("कल नौ बजे खाली है।")]
+    spoken, fake, _ = await call(link, replies, "मुझे ठीक से दिख नहीं रहा, कल दिखाना है")
+    assert fake.replies == [], "the follow-up and the answer after the tool never ran"
+    assert "free start times" in fake.requests[2].items[-1].output
+    assert spoken == []  # the promise itself was the "one moment": no second filler
+
+
+@pytest.mark.parametrize("line", [
+    "क्या मैं कल के स्लॉट्स चेक करूँ?",   # a question: the caller answers next
+    "आँखों का चेकअप कल सुबह होता है।",      # a check-up, not a promise
+    "कल डॉक्टर उपलब्ध हैं, कौन सा टाइम चाहिए?",
+])
+async def test_other_replies_are_left_alone(link, line):
+    _, fake, _ = await call(link, [Reply(line), Reply("SHOULD NOT RUN")], "कल?")
+    assert len(fake.requests) == 1 and fake.replies == [Reply("SHOULD NOT RUN")]
+
+
+async def test_a_forced_follow_up_is_not_forced_again(link):
+    promise = Reply("मैं चेक करके बताती हूँ।")
+    _, fake, _ = await call(link, [promise, promise, Reply("SHOULD NOT RUN")], "कल?")
+    assert len(fake.requests) == 2
 
 
 # ---------- goodbye before hanging up ----------

@@ -312,7 +312,12 @@ write the same tables through `store/repo.py`.
   मैं चेक करके बताती हूँ") in the same reply as a booking tool call, so it
   plays at once. If it didn't, the tool says one itself in the caller's
   language (Devanagari in the last caller turn = Hindi), once per reply,
-  while the database work runs (`tools/speech.py`).
+  while the database work runs (`tools/speech.py`). If the model says it
+  will check but calls no tool (seen live: "मैं कल के स्लॉट्स चेक कर लेती
+  हूँ", then silence), `keep_promises` notices when that reply ends and
+  makes it call a booking tool at once (`tool_choice="required"`). A
+  question ("चेक करूँ?") or "चेकअप" doesn't count, and a forced follow-up is
+  never forced again.
 - **It says it is automated.** The first line names the clinic and says it
   is the clinic's automated assistant ("ऑटोमेटेड असिस्टेंट" in Hindi). The
   call page says so too.
