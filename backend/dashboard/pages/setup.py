@@ -4,7 +4,7 @@ import streamlit as st
 
 from clinic_agent.store import repo
 from dashboard import data, theme
-from dashboard.sections import clinic_info, doctors, faq, hours, new_clinic, time_off
+from dashboard.sections import call_link, clinic_info, doctors, faq, hours, new_clinic, time_off
 
 theme.show_flash()
 
@@ -21,14 +21,16 @@ theme.header(
     "Everything the receptionist says about this clinic comes from these details.",
 )
 
-tabs = st.tabs(["Clinic", "Doctors", "Weekly hours", "Time off", "FAQ"])
+tabs = st.tabs(["Clinic", "Call link", "Doctors", "Weekly hours", "Time off", "FAQ"])
 with tabs[0]:
     clinic_info.render(clinic)
 with tabs[1]:
-    doctors.render(clinic)
+    call_link.render(clinic)
 with tabs[2]:
-    hours.render(clinic)
+    doctors.render(clinic)
 with tabs[3]:
-    time_off.render(clinic)
+    hours.render(clinic)
 with tabs[4]:
+    time_off.render(clinic)
+with tabs[5]:
     faq.render(clinic)

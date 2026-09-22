@@ -137,3 +137,45 @@ def test_deleting_a_doctor_removes_their_hours(db):
     repo.delete_doctor(s, doctor.id)
     s.expire_all()
     assert [d.name for d in repo.get_clinic(s, clinic_id).doctors] == ["Dr. Asha Mehta"]
+
+
+# ---------- call-link slugs ----------
+
+@pytest.mark.parametrize(("name", "slug"), [
+    ("Sharma Skin Clinic", "sharma-skin-clinic"),
+    ("  Dr. Mehta's  Clinic & Lab ", "dr-mehta-s-clinic-lab"),
+    ("Café Dental", "cafe-dental"),
+    ("शर्मा क्लिनिक", "clinic"),  # no Latin letters: a placeholder the clinic renames
+])
+def test_slugify(name, slug):
+    assert repo.slugify(name) == slug
+
+
+def test_new_clinics_get_a_free_slug_and_can_be_found_by_it(db):
+    s, clinic_id = db
+    first = repo.create_clinic(s, name="Sharma Skin Clinic")
+    second = repo.create_clinic(s, name="Sharma Skin Clinic")
+    assert (first.slug, second.slug) == ("sharma-skin-clinic", "sharma-skin-clinic-2")
+    assert repo.get_clinic_by_slug(s, "sharma-skin-clinic-2").id == second.id
+    with pytest.raises(repo.NotFound):
+        repo.get_clinic_by_slug(s, "no-such-clinic")
+
+
+@pytest.mark.parametrize("bad", ["ab", "Sharma", "sharma skin", "sharma--skin", "-sharma", "x" * 61])
+def test_invalid_slugs_are_refused(db, bad):
+    s, clinic_id = db
+    with pytest.raises(ValueError, match="3-60 characters"):
+        repo.set_slug(s, clinic_id, bad)
+
+
+def test_a_taken_slug_is_refused(db):
+    s, clinic_id = db
+    other = repo.create_clinic(s, name="Other Clinic")
+    with pytest.raises(ValueError, match="already taken"):
+        repo.set_slug(s, other.id, repo.get_clinic(s, clinic_id).slug)
+
+
+def test_slug_changes_only_through_set_slug(db):
+    s, clinic_id = db
+    with pytest.raises(TypeError):
+        repo.update_clinic(s, clinic_id, slug="sneaky")

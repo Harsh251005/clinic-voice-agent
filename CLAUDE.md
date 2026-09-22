@@ -100,6 +100,9 @@ The pipeline is split so each concern lives in exactly one module:
   `python -m clinic_agent.store.migrations` changes a schema; running code
   calls `migrations.check()` and refuses an old schema, never migrates.
   `created_at` is naive UTC (`utc_now`); appointment times are clinic-local.
+  SQLite revisions run with foreign keys OFF (`_upgrade_sqlite`): a batch
+  table rebuild with them on cascade-deletes child rows. Clinics have a
+  unique `slug` (call link); change it only via `repo.set_slug`.
   Tests: `db` fixture also runs on Postgres when `TEST_POSTGRES_URL` is set
   (local container `clinic-pg`, port 5433; see README). Clinic details are
   data (seed or dashboard), never in `.py` files.

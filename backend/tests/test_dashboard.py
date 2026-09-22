@@ -70,7 +70,7 @@ def seeded(db_url):
 
 def test_setup_page_renders_all_sections(seeded):
     at = setup_page()
-    assert [t.label for t in at.tabs] == ["Clinic", "Doctors", "Weekly hours", "Time off", "FAQ"]
+    assert [t.label for t in at.tabs] == ["Clinic", "Call link", "Doctors", "Weekly hours", "Time off", "FAQ"]
     text = " ".join(m.value for m in at.markdown)
     assert "Dr. Asha Mehta" in text and "Is there parking?" in text
 
@@ -145,3 +145,26 @@ def test_cancel_needs_a_second_click(seeded):
 def test_empty_day(seeded):
     at = run()
     assert any("No appointments on" in m.value for m in at.markdown)
+
+
+def test_call_link_is_shown_and_its_name_can_change(seeded, monkeypatch):
+    db_url, clinic_id = seeded
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://calls.example.in/")
+    at = setup_page()
+    assert any(c.value == "https://calls.example.in/call/demo-family-clinic" for c in at.code)
+
+    next(t for t in at.text_input if t.label == "Link name").input("demo-clinic")
+    next(b for b in at.button if b.label == "Save link name").click().run()
+    assert not at.exception
+    with sessions(db_url)() as s:
+        assert repo.get_clinic(s, clinic_id).slug == "demo-clinic"
+
+
+def test_invalid_link_name_is_explained_not_saved(seeded):
+    db_url, clinic_id = seeded
+    at = setup_page()
+    next(t for t in at.text_input if t.label == "Link name").input("Demo Clinic!")
+    next(b for b in at.button if b.label == "Save link name").click().run()
+    assert any("lowercase letters" in e.value for e in at.error)
+    with sessions(db_url)() as s:
+        assert repo.get_clinic(s, clinic_id).slug == "demo-family-clinic"
