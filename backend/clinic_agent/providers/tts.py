@@ -45,6 +45,7 @@ def _elevenlabs(cfg: Settings) -> tts.TTS:
     )
 
 
+# Allowed vendors are Sarvam (production) and ElevenLabs. Don't add others.
 BUILDERS: dict[str, Callable[[Settings], tts.TTS]] = {
     "sarvam": _sarvam,
     "elevenlabs": _elevenlabs,

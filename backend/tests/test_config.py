@@ -8,10 +8,9 @@ from clinic_agent.config import ConfigError, load_settings
 def test_defaults(env):
     cfg = load_settings()
     assert (cfg.stt_provider, cfg.llm_provider, cfg.tts_provider) == ("sarvam",) * 3
-    assert cfg.stt_model == "saaras:v4"
-    assert cfg.stt_language == "unknown"
     assert cfg.min_endpointing_delay == 0.2
     # Model and voice defaults belong to each provider's builder.
+    assert (cfg.stt_model, cfg.stt_language) == (None, None)
     assert cfg.llm_model is None
     assert (cfg.tts_model, cfg.tts_speaker, cfg.tts_codec) == (None, None, None)
 
@@ -35,7 +34,7 @@ def test_blank_value_falls_back_to_default(env):
     env.setenv("STT_MODEL", "")
     env.setenv("TTS_SPEAKER", "  ")
     cfg = load_settings()
-    assert cfg.stt_model == "saaras:v4"
+    assert cfg.stt_model is None
     assert cfg.tts_speaker is None
 
 

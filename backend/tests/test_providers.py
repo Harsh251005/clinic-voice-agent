@@ -20,6 +20,8 @@ def test_stt_is_streaming(env):
 
 def test_sarvam_defaults(env):
     cfg = load_settings()
+    s = build_stt(cfg)
+    assert (s.model, s._opts.language) == ("saaras:v4", "unknown")
     assert build_llm(cfg).model == "sarvam-105b-conversations"
     t = build_tts(cfg)
     assert (t.model, t._opts.speaker, t._opts.output_audio_codec) == ("bulbul:v3", "suhani", "linear16")
@@ -65,6 +67,36 @@ def test_elevenlabs_tts(env):
     assert t.sample_rate == 24000
 
 
+def test_elevenlabs_stt(env):
+    env.setenv("STT_PROVIDER", "elevenlabs")
+    env.setenv("ELEVENLABS_API_KEY", "el-test")
+    s = build_stt(load_settings())
+    assert isinstance(s, stt.STT)
+    # Streaming, so turn detection can trust its end of speech as with Sarvam.
+    assert s.model == "scribe_v2_realtime"
+    assert s.capabilities.streaming
+    assert s._opts.language_code is None  # auto-detect
+
+
+@pytest.mark.parametrize(("value", "expected"), [("unknown", None), ("hi", "hi")])
+def test_elevenlabs_stt_language(env, value, expected):
+    # Sarvam's "unknown" means auto-detect here too, so switching the
+    # provider needs no other .env change.
+    env.setenv("STT_PROVIDER", "elevenlabs")
+    env.setenv("ELEVENLABS_API_KEY", "el-test")
+    env.setenv("STT_LANGUAGE", value)
+    assert build_stt(load_settings())._opts.language_code == expected
+
+
+def test_only_the_allowed_vendors_are_registered():
+    # Harsh's rule: speech is Sarvam or ElevenLabs, the LLM Sarvam or OpenAI.
+    from clinic_agent.providers import llm as llm_mod, stt as stt_mod, tts as tts_mod
+
+    assert set(stt_mod.BUILDERS) == {"sarvam", "elevenlabs"}
+    assert set(tts_mod.BUILDERS) == {"sarvam", "elevenlabs"}
+    assert set(llm_mod.BUILDERS) == {"sarvam", "openai"}
+
+
 @pytest.mark.parametrize(
     ("provider_var", "provider", "key", "build"),
     [
@@ -73,6 +105,7 @@ def test_elevenlabs_tts(env):
         ("TTS_PROVIDER", "sarvam", "SARVAM_API_KEY", build_tts),
         ("LLM_PROVIDER", "openai", "OPENAI_API_KEY", build_llm),
         ("TTS_PROVIDER", "elevenlabs", "ELEVENLABS_API_KEY", build_tts),
+        ("STT_PROVIDER", "elevenlabs", "ELEVENLABS_API_KEY", build_stt),
     ],
 )
 def test_selected_provider_requires_its_key(env, provider_var, provider, key, build):
@@ -83,13 +116,15 @@ def test_selected_provider_requires_its_key(env, provider_var, provider, key, bu
 
 
 def test_unselected_vendor_needs_no_key(env):
-    # OpenAI + ElevenLabs selected: no Sarvam key needed for them.
+    # The OpenAI + ElevenLabs testing stack runs with no Sarvam key at all.
     env.delenv("SARVAM_API_KEY")
+    env.setenv("STT_PROVIDER", "elevenlabs")
     env.setenv("LLM_PROVIDER", "openai")
     env.setenv("OPENAI_API_KEY", "sk-test")
     env.setenv("TTS_PROVIDER", "elevenlabs")
     env.setenv("ELEVENLABS_API_KEY", "el-test")
     cfg = load_settings()
+    build_stt(cfg)
     build_llm(cfg)
     build_tts(cfg)
 
@@ -97,7 +132,7 @@ def test_unselected_vendor_needs_no_key(env):
 @pytest.mark.parametrize(
     ("var", "build", "available"),
     [
-        ("STT_PROVIDER", build_stt, "['sarvam']"),
+        ("STT_PROVIDER", build_stt, "['elevenlabs', 'sarvam']"),
         ("LLM_PROVIDER", build_llm, "['openai', 'sarvam']"),
         ("TTS_PROVIDER", build_tts, "['elevenlabs', 'sarvam']"),
     ],
