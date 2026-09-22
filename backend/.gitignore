@@ -2,7 +2,7 @@
 .env
 .env.*
 !.env.example
-# dashboard login credentials (Google OAuth client, cookie secret)
+# the retired Streamlit dashboard's credentials: delete the file if you still have it
 .streamlit/secrets.toml
 
 # ---------- Python ----------

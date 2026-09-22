@@ -6,7 +6,8 @@ ElevenLabs for the voice. Sarvam can do all three — switch in `.env`.
 
 Stage 2: the agent answers from each clinic's own data, books appointments
 and hangs up when the caller is done; clinic staff set everything up and see
-bookings in a Streamlit dashboard. No telephony yet.
+bookings in the dashboard (Next.js, `../frontend/`, over the API here). No
+telephony yet: patients call from a browser link.
 
 ## Setup
 
@@ -115,7 +116,7 @@ only allow the microphone on https or `localhost`.
 ## Dashboard API (for the Next.js dashboard)
 
 The same server (`uv run python -m api`) serves the dashboard's JSON API
-under `/api`. The Next.js dashboard (being built, Stage 3b) is only
+under `/api`. The Next.js dashboard (`../frontend/`, see its README) is only
 screens; every rule and access check lives here, in `api/dashboard/`, and
 in `repo.py`.
 
@@ -137,49 +138,36 @@ in `repo.py`.
 - Rule violations come back as 422 with a message staff can read (bad link
   name, overlapping sittings); rows outside the clinic as 404.
 
-## Dashboard (Streamlit, being replaced)
+## Dashboard (what staff can do)
 
-Two pages for clinic staff:
+The screens are in `../frontend/` (run instructions in its README); every
+action below is an `/api` endpoint here.
 
-- **Appointments** (the landing page) — one day at a time, grouped by doctor,
-  each tagged *Call* (booked by the agent) or *Staff*. Counters for the day,
-  bookings from calls, and the next seven days. Cancelling takes two clicks
-  (Cancel → Yes, cancel); cancelled slots become bookable again. Lists page
-  at 25 rows.
-- **Clinic setup** — details, booking rules, doctors, weekly hours (split
-  shifts), leave and holidays, and FAQ answers. Everything the agent knows
-  about a clinic is entered here.
-- **A new doctor starts with hours**, not an empty week: *Starting hours* on
-  the add form defaults to Mon–Sat, 10 am–1 pm and 5–8 pm (or another
-  pattern, a colleague's hours, or none). They are bookable at once, so the
-  confirmation says to check them.
-- **Weekly hours** is one row per day: an *Open* switch, a sitting, and an
-  optional second sitting. *Fill the week* applies a pattern or a colleague's
-  week, and *Copy Monday to all open days* fills the rest. Nothing is saved
-  until *Save hours*: an *Unsaved changes* badge shows, and *Discard
-  changes* reverts. A preview shows exactly how the receptionist will
-  describe the hours. Overlapping sittings are refused, by the form and by
-  `repo.set_doctor_hours`. Patterns live in `dashboard/schedules.py`.
-
-```bash
-uv run streamlit run dashboard/app.py   # run from backend/ — .streamlit/ lives here
-```
-
-- It writes through `store/repo.py`, the same functions the agent uses.
+- **Appointments**, one day at a time, grouped by doctor, each tagged
+  *Call* (booked by the agent) or *Staff*. Counters for the day, bookings
+  from calls, and the next seven days. Cancelling asks first; cancelled slots
+  become bookable again.
+- **Clinic setup**: details, booking rules, the call link, doctors, weekly
+  hours (split shifts), leave and holidays, FAQ answers, and (admins) the
+  team. Everything the agent knows about a clinic is entered here.
+- **A new doctor starts with hours**, not an empty week: *Starting hours*
+  defaults to Mon–Sat, 10 am–1 pm and 5–8 pm (or another pattern, a
+  colleague's hours, or none). They are bookable at once, so the confirmation
+  says to check them. Patterns live in `api/dashboard/patterns.py`.
+- **Weekly hours** is one row per day: *Open*, a sitting, and an optional
+  second sitting. *Fill the week* applies a pattern or a colleague's week;
+  *Copy Monday to all open days* fills the rest. Nothing is saved until *Save
+  hours*. The preview is the receptionist's own description
+  (`prompts.weekly_hours`, via `/api/hours/preview`). Overlapping sittings
+  are refused, by the form and by `repo.check_sittings`.
 - Doctors are deactivated, never deleted, so appointment history survives.
 - **Sign-in is with Google.** Admins (`ADMIN_EMAILS`) see every clinic,
-  create clinics (**New clinic** in the sidebar) and, on each clinic's
-  **Team** tab, add or remove the Google accounts that may open it. Everyone
-  else sees only the clinics their email was added to. A signed-in account
-  that no clinic added gets a "No clinic yet" screen. Adding someone sends
+  create clinics and, on each clinic's **Team** tab, choose the Google
+  accounts that may open it. Everyone else sees only their clinics; an
+  account no clinic added gets a "No clinic yet" screen. Adding someone sends
   no email: give them the dashboard's address yourself.
 - `DASHBOARD_LOGIN=off` skips sign-in and makes everyone an admin, with a
   warning in the sidebar. Local development only.
-- Views live in `dashboard/views/`, **never `pages/`**: Streamlit auto-lists
-  a `pages/` folder whenever `app.py` stops at the sign-in gate, and runs
-  those files without the gate. A test fails if one appears.
-- After editing anything under `dashboard/`, restart Streamlit; it does not
-  reliably hot-reload imported modules.
 
 ### Setting up Google sign-in
 
@@ -193,14 +181,13 @@ ten minutes):
    accounts listed under **Test users** can sign in (up to 100): add yours and
    each clinic's. Publishing the app removes that list.
 3. **Clients** → **Create client** → *Web application*. Under **Authorized
-   redirect URIs** add `http://localhost:8501/oauth2callback` (and later
-   `https://<dashboard address>/oauth2callback`). Copy the client ID and
-   secret.
-4. `cp .streamlit/secrets.toml.example .streamlit/secrets.toml` (gitignored),
-   fill in `client_id`, `client_secret`, and a `cookie_secret` from
-   `uv run python -c "import secrets; print(secrets.token_hex(32))"`.
-5. In `.env`: `DASHBOARD_LOGIN=google` and `ADMIN_EMAILS=<your Google email>`.
-   Restart Streamlit.
+   redirect URIs** add `http://localhost:3000/api/auth/callback` (and later
+   `https://<dashboard address>/api/auth/callback`): `DASHBOARD_URL` +
+   `/api/auth/callback`. Copy the client ID and secret.
+4. In `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, a `SESSION_SECRET`
+   from `uv run python -c "import secrets; print(secrets.token_hex(32))"`,
+   `DASHBOARD_URL`, `DASHBOARD_LOGIN=google` and
+   `ADMIN_EMAILS=<your Google email>`. Restart `python -m api`.
 
 Google's console moves things around; if a name above has changed, the
 client type is still "OAuth client ID, Web application".
@@ -208,7 +195,7 @@ client type is still "OAuth client ID, Web application".
 ## Test
 
 ```bash
-uv run pytest            # offline: config, providers, session, boot, store, scheduling, dashboard
+uv run pytest            # offline: config, providers, session, boot, store, scheduling, API (incl. access attacks)
 uv run pytest -m live    # real OpenAI + ElevenLabs calls — spends credits, never Sarvam's
 
 # every database test against Postgres as well (wiped per test: never real data)
@@ -259,7 +246,7 @@ api/                    call-link server: page + signed join pass (python -m api
         └── repo.py     every query the agent and dashboard make
     scheduling.py       free-slot rules — pure functions, no DB, no LiveKit
 seeds/demo_clinic.py    fictional clinic for tests and a first run
-dashboard/              Streamlit clinic setup (app.py → views/ → sections/, one section per file)
+../frontend/            the dashboard (Next.js): screens only, over /api
 ```
 
 The rules: **only `providers/` imports a vendor package**, and **only `store/`
