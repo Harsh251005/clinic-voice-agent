@@ -17,13 +17,23 @@ cp .env.example .env
 ```
 
 Fill in the keys for the providers selected in `.env` — only those are
-checked:
+checked. Two vendors are allowed per part, and nothing else:
 
-| Provider | Used for | Key | Cost |
-|---|---|---|---|
-| Sarvam | STT (always, for now) | `SARVAM_API_KEY` from [dashboard.sarvam.ai](https://dashboard.sarvam.ai) | paid per use |
-| OpenAI | LLM | `OPENAI_API_KEY` from [platform.openai.com](https://platform.openai.com/api-keys) | paid per use |
-| ElevenLabs | TTS | `ELEVENLABS_API_KEY` from [elevenlabs.io](https://elevenlabs.io/app/settings/api-keys) | free monthly quota |
+| Part | Sarvam (production, the default) | Alternative |
+|---|---|---|
+| STT | `sarvam` | `elevenlabs` |
+| LLM | `sarvam` | `openai` |
+| TTS | `sarvam` | `elevenlabs` |
+
+A blank `*_PROVIDER` means Sarvam. The `.env.example` stack is the current
+testing one (ElevenLabs STT + OpenAI + ElevenLabs TTS), chosen to save Sarvam
+credits. Switching any part is one line in `.env`.
+
+| Provider | Key | Cost |
+|---|---|---|
+| Sarvam | `SARVAM_API_KEY` from [dashboard.sarvam.ai](https://dashboard.sarvam.ai) | paid per use |
+| OpenAI | `OPENAI_API_KEY` from [platform.openai.com](https://platform.openai.com/api-keys) | paid per use |
+| ElevenLabs | `ELEVENLABS_API_KEY` from [elevenlabs.io](https://elevenlabs.io/app/settings/api-keys) | free monthly quota |
 
 A missing key for a selected provider stops startup with a one-line error.
 
@@ -80,14 +90,19 @@ uv run streamlit run dashboard/app.py   # run from backend/ — .streamlit/ live
 
 ```bash
 uv run pytest            # offline: config, providers, session, boot, store, scheduling, dashboard
-uv run pytest -m live    # real API calls to the selected providers — spends credits
+uv run pytest -m live    # real OpenAI + ElevenLabs calls — spends credits, never Sarvam's
 ```
+
+Live tests always use the testing stack (ElevenLabs STT + OpenAI + ElevenLabs
+TTS, each with its default model and voice), whatever `.env` selects. Only the
+two keys come from `.env`. Nothing tests the Sarvam path automatically; check
+it by hand before a production release.
 
 Offline tests prove the wiring, not the conversation. Live tests are evals:
 an LLM judge grades each reply against a stated intent (greets first, refuses
 medicine, escalates chest pain, never states a fee, never confirms a booking,
-answers Hinglish in Hinglish), and a TTS → STT round trip proves both halves of
-the audio path. They do not measure end-to-end latency — only a spoken
+answers Hinglish in Hinglish), and a TTS → STT round trip, streamed as a call
+streams it, proves both halves of the audio path. They do not measure end-to-end latency — only a spoken
 `console` call does that.
 
 ## How it fits together
@@ -197,13 +212,17 @@ Two steps. Nothing else in the codebase changes.
    TTS_PROVIDER=elevenlabs
    ```
 
-An unknown name fails at startup and lists what is registered. Registered
-today: STT `sarvam`; LLM `sarvam`, `openai`; TTS `sarvam`, `elevenlabs`.
+An unknown name fails at startup and lists what is registered. Registered:
+STT `sarvam`, `elevenlabs`; LLM `sarvam`, `openai`; TTS `sarvam`, `elevenlabs`.
+That list is deliberate: no other vendors (a test enforces it).
 
 Each builder owns its defaults and asks for its own key with
 `require_key(...)`, so an unused vendor needs nothing set. Model and voice
-settings left blank in `.env` get the selected provider's default — clear them
-when switching, since `TTS_SPEAKER=suhani` means nothing to ElevenLabs.
+settings left blank in `.env` get the selected provider's default. Leave them
+blank and switching is just the `*_PROVIDER` line; a value you set is
+vendor-specific (`TTS_SPEAKER=suhani` means nothing to ElevenLabs), so clear it
+when switching. `STT_LANGUAGE=unknown` is the one exception: both STTs read it
+as auto-detect.
 
 ## Configuration
 
@@ -211,8 +230,9 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 
 | Setting | Default | Why you would change it |
 |---|---|---|
-| `STT_LANGUAGE` | `unknown` | Auto-detects per utterance. Pin to `hi-IN` or `en-IN` only to debug. |
-| `STT_MODE` | `transcribe` | `transcribe` returns Hindi in Devanagari, which matches the prompt's rule that Hindi replies are written in Devanagari — the script the voice engine pronounces correctly. |
+| `STT_MODEL` | provider's | Sarvam: `saaras:v4`. ElevenLabs: `scribe_v2_realtime`, its only streaming model; turn detection needs a streaming STT, so keep it. |
+| `STT_LANGUAGE` | auto-detect | Sarvam's `unknown` / ElevenLabs' blank. Pin (`hi-IN` for Sarvam, `hi` for ElevenLabs) only to debug. |
+| `STT_MODE` | `transcribe` | Sarvam only. `transcribe` returns Hindi in Devanagari, which matches the prompt's rule that Hindi replies are written in Devanagari — the script the voice engine pronounces correctly. |
 | `LLM_MODEL` | provider's | OpenAI: `gpt-4.1-mini` — no reasoning step, so replies start fast. Reasoning models (`gpt-5*`, `o*`) work too: the builder sets `reasoning_effort="none"`, which OpenAI requires for tools on Chat Completions. Sarvam: `sarvam-105b-conversations` (fall back to `sarvam-105b`). |
 | `TTS_MODEL` | provider's | ElevenLabs: `eleven_v3_conversational`, the most expressive; use `eleven_multilingual_v2` if your plan rejects it, or `eleven_flash_v2_5` for the lowest latency. Sarvam: `bulbul:v3`. |
 | `TTS_SPEAKER` | provider's | ElevenLabs: a voice ID. The plugin default is not a Hindi voice — pick one in ElevenLabs → Voices → Voice Library (language Hindi, accent Indian), add it to My Voices, copy its ID. Sarvam: any `bulbul:v3` voice, default `suhani`; v2 names such as `anushka` are rejected. |
@@ -258,5 +278,7 @@ on our side.
   default under `start`. So interruptions you test locally are handled by a
   model production does not run.
 - Sarvam credits are consumption-based and shared across STT, LLM and TTS.
-  With the default testing stack only STT spends them — every second the
-  mic is open in `console`.
+  The testing stack spends none of them.
+- **ElevenLabs STT ends a turn after 1.5 s of silence** (its server-side
+  default), slower than Sarvam. Expected on the testing stack; production is
+  Sarvam.

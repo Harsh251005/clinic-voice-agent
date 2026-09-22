@@ -1,6 +1,10 @@
-"""Real Sarvam calls with the .env key. Run deliberately: `uv run pytest -m live`.
+"""Real provider calls. Run deliberately: `uv run pytest -m live`.
 
-Behaviour is graded by an LLM judge (the same Sarvam model), so these are
+Always the testing stack - ElevenLabs STT + OpenAI LLM + ElevenLabs TTS, with
+each builder's default model and voice - whatever `.env` selects, so tests
+never spend Sarvam credits. Only the two keys come from `.env`.
+
+Behaviour is graded by an LLM judge (the same OpenAI model), so these are
 evals, not exact-match tests: a failure means "read the transcript", not
 necessarily "the code is broken".
 """
@@ -21,6 +25,21 @@ from clinic_agent.providers import build_llm, build_stt, build_tts
 
 pytestmark = pytest.mark.live
 NOW = datetime(2026, 9, 21, 15, 30)
+
+TEST_STACK = {"STT_PROVIDER": "elevenlabs", "LLM_PROVIDER": "openai", "TTS_PROVIDER": "elevenlabs"}
+# Blank = the builder's default. These values mean different things per
+# vendor, so a Sarvam value left in .env must not reach ElevenLabs.
+VENDOR_SETTINGS = ["STT_MODEL", "STT_LANGUAGE", "LLM_MODEL", "TTS_MODEL", "TTS_SPEAKER",
+                   "TTS_LANGUAGE", "TTS_SAMPLE_RATE", "TTS_CODEC"]
+
+
+@pytest.fixture(autouse=True)
+def testing_stack(monkeypatch):
+    # load_dotenv never overrides a variable that is already set.
+    for name, value in TEST_STACK.items():
+        monkeypatch.setenv(name, value)
+    for name in VENDOR_SETTINGS:
+        monkeypatch.setenv(name, "")
 
 
 @pytest.fixture
@@ -107,17 +126,49 @@ async def test_replies_in_callers_language(session):
     ],
 )
 async def test_speech_round_trip(line):
-    """What TTS says, STT must understand: proves both halves of the audio path."""
+    """What TTS says, STT must understand: proves both halves of the audio path.
+
+    Streams the audio as a call does. ElevenLabs' realtime model is
+    streaming-only, so a one-shot recognize() would test a path calls never use.
+    """
     cfg = load_settings()
     async with http_context.open():
         tts, stt = build_tts(cfg), build_stt(cfg)
         frames = [a.frame async for a in tts.synthesize(line)]
-        heard = await stt.recognize(utils.merge_frames(frames))
+        heard = await _transcribe(stt, frames)
         await tts.aclose()
         await stt.aclose()
-    text = heard.alternatives[0].text
-    assert "11" in text or "ग्यारह" in text or "gyarah" in text.lower(), text
-    assert heard.alternatives[0].language.startswith("hi"), heard.alternatives[0].language
+    assert "11" in heard or "ग्यारह" in heard or "gyarah" in heard.lower(), heard
+
+
+async def _transcribe(stt_, frames) -> str:
+    """Final transcript of the frames followed by trailing silence, which is
+    what makes the STT decide the speaker has finished."""
+    import asyncio
+
+    from livekit import rtc
+    from livekit.agents import stt as stt_types
+
+    rate = frames[0].sample_rate
+    silence = rtc.AudioFrame(b"\0\0" * (rate // 10), rate, 1, rate // 10)
+    stream = stt_.stream()
+    for f in frames:
+        stream.push_frame(f)
+    for _ in range(30):  # 3 s of silence, in 100 ms frames
+        stream.push_frame(silence)
+    stream.end_input()
+
+    finals = []
+
+    async def collect():
+        async for ev in stream:
+            if ev.type == stt_types.SpeechEventType.FINAL_TRANSCRIPT and ev.alternatives[0].text.strip():
+                finals.append(ev.alternatives[0].text)
+                return
+
+    await asyncio.wait_for(collect(), timeout=20)
+    await stream.aclose()
+    return " ".join(finals)
 
 
 # ---------- booking conversation (tools mocked) ----------

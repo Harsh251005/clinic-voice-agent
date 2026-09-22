@@ -5,12 +5,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A Hindi/Hinglish voice receptionist for Indian clinics. All code lives in
-`backend/`: a LiveKit Agents worker. Testing stack: Sarvam STT, OpenAI LLM,
-ElevenLabs TTS (switched from all-Sarvam to save Sarvam credits; Sarvam
-builders stay registered — switch back in `.env`, don't comment code out).
+`backend/`: a LiveKit Agents worker. **Allowed vendors only:** STT and TTS
+are `sarvam` or `elevenlabs`, the LLM `sarvam` or `openai` — never add others
+(`test_only_the_allowed_vendors_are_registered` enforces it). Sarvam is the
+production stack and the default for all three. Testing stack today:
+ElevenLabs STT + OpenAI LLM + ElevenLabs TTS, to save Sarvam credits; live
+tests always pin that stack. Switch in `.env`, never by commenting code out.
 
 Current state: **Stage 2 built** (plan:
-`~/.claude/plans/distributed-munching-wall.md`): clinic database, free-slot
+`~/.claude/plans/distributed-munching-wall.md`); **Stage 3 production setup in
+progress, no telephony** (plan: `~/.claude/plans/stage-3-production-setup.md`): clinic database, free-slot
 rules, Streamlit dashboard (setup + appointments), agent answering from clinic
 data, booking + cancel/reschedule tools, end-call tool, `console --text`.
 Not yet: dashboard login, migrations, telephony (identity is by spoken
@@ -39,7 +43,7 @@ monthly quota; Sarvam and OpenAI are paid per use).
 
 ```bash
 uv run pytest                    # offline tests: config, providers, session, boot
-uv run pytest -m live            # calls the selected providers for real; spends credits
+uv run pytest -m live            # OpenAI + ElevenLabs for real (never Sarvam); spends credits
 ```
 
 No linter or formatter is configured.

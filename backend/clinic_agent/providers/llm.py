@@ -39,6 +39,7 @@ def _reasons(model: str) -> bool:
     return model.startswith(("gpt-5", "o1", "o3", "o4"))
 
 
+# Allowed vendors are Sarvam (production) and OpenAI. Don't add others.
 BUILDERS: dict[str, Callable[[Settings], llm.LLM]] = {
     "sarvam": _sarvam,
     "openai": _openai,

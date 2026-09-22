@@ -28,10 +28,10 @@ class Settings:
     llm_provider: str
     tts_provider: str
 
-    # --- speech to text ---
-    stt_model: str
-    stt_language: str
-    stt_mode: str
+    # --- speech to text (None = the selected provider's default) ---
+    stt_model: str | None
+    stt_language: str | None
+    stt_mode: str  # Sarvam only
     stt_sample_rate: int
 
     # --- language model (None = the selected provider's default) ---
@@ -91,11 +91,12 @@ def load_settings() -> Settings:
         sarvam_api_key=_text("SARVAM_API_KEY", ""),
         openai_api_key=_text("OPENAI_API_KEY", ""),
         elevenlabs_api_key=_text("ELEVENLABS_API_KEY", ""),
+        # Sarvam is the production stack, so it is the default for all three.
         stt_provider=_text("STT_PROVIDER", "sarvam"),
         llm_provider=_text("LLM_PROVIDER", "sarvam"),
         tts_provider=_text("TTS_PROVIDER", "sarvam"),
-        stt_model=_text("STT_MODEL", "saaras:v4"),
-        stt_language=_text("STT_LANGUAGE", "unknown"),
+        stt_model=_text("STT_MODEL"),
+        stt_language=_text("STT_LANGUAGE"),
         stt_mode=_text("STT_MODE", "transcribe"),
         stt_sample_rate=int(_number("STT_SAMPLE_RATE", 16000)),
         llm_model=_text("LLM_MODEL"),
