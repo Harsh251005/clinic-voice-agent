@@ -142,8 +142,9 @@ dashboard/              Streamlit clinic setup (app.py → pages/ → sections/,
 ```
 
 The rules: **only `providers/` imports a vendor package**, and **only `store/`
-imports SQLAlchemy.** Everything else deals in LiveKit's base classes and in
-`repo` functions.
+imports SQLAlchemy** (or Alembic). Everything else deals in LiveKit's base
+classes and in `repo` functions; type hints use `Session` / `Sessions` from
+`store/db.py`. `tests/test_boundaries.py` fails the build if either rule breaks.
 
 ## Clinic data
 

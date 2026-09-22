@@ -11,10 +11,9 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, time, timedelta
 
-from sqlalchemy.orm import Session
-
 from clinic_agent import scheduling
 from clinic_agent.store import repo
+from clinic_agent.store.db import Session
 from clinic_agent.store.models import Clinic, Doctor, TimeOff
 
 

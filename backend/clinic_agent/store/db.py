@@ -1,4 +1,8 @@
-"""Engine and sessions, built from DATABASE_URL."""
+"""Engine and sessions, built from DATABASE_URL.
+
+`Session` and `Sessions` are re-exported for type hints, so code outside
+`store/` never imports SQLAlchemy itself.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,10 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from clinic_agent.store import migrations
+
+__all__ = ["Session", "Sessions", "make_engine", "session_factory", "sessions_for"]
+
+Sessions = sessionmaker[Session]  # a session factory: `with sessions() as s:`
 
 
 def make_engine(url: str) -> Engine:
@@ -28,12 +36,12 @@ def make_engine(url: str) -> Engine:
     return engine
 
 
-def session_factory(engine: Engine) -> sessionmaker[Session]:
+def session_factory(engine: Engine) -> Sessions:
     return sessionmaker(engine, expire_on_commit=False)
 
 
 @lru_cache
-def sessions_for(url: str) -> sessionmaker[Session]:
+def sessions_for(url: str) -> Sessions:
     """One engine per database URL per process, shared by every call.
 
     Raises migrations.SchemaOutdated if the database isn't at the latest
