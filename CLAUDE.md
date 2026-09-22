@@ -33,7 +33,8 @@ cp .env.example .env             # then set the keys for the selected providers
 uv run python -m clinic_agent.store.migrations  # schema up to date (after every pull)
 uv run python main.py console    # talk over the local mic — spends no LiveKit minutes
 uv run python main.py console --text  # typed, LLM-only: no STT/TTS built or billed
-uv run python main.py dev        # join a LiveKit room, reloads on save
+uv run python main.py console --clinic 2  # pick a clinic when there are several
+uv run python main.py dev        # join rooms it is dispatched to, reloads on save
 uv run python main.py start      # production worker
 ```
 
@@ -54,10 +55,15 @@ No linter or formatter is configured.
 The pipeline is split so each concern lives in exactly one module:
 
 - `main.py` — validates config *before* `cli.run_app` starts the worker
-  (a `ConfigError`, unknown provider, missing key or missing `CLINIC_ID` exits
-  with a one-line message, not a traceback). Each job loads the clinic
-  (`context.load_clinic`, off the event loop), builds instructions, builds a
-  session and starts `ClinicAgent` in the room.
+  (a `ConfigError`, unknown provider, missing key, old schema or, in console,
+  a missing clinic exits with a one-line message, not a traceback). **One
+  worker serves every clinic:** it registers as `dispatch.AGENT_NAME`
+  (explicit dispatch) and each job reads its clinic from the dispatch
+  metadata (`dispatch.clinic_id_from`); no clinic or an unknown one → job
+  refused, never guessed. Console has no dispatch: `--clinic N` (console-only;
+  stripped from argv before LiveKit's CLI) or the only clinic. Each job loads
+  the clinic (`context.load_clinic`, off the event loop), builds instructions,
+  builds a session and starts `ClinicAgent` in the room.
 - `clinic_agent/config.py` — the **only** place that reads `os.environ`.
   Frozen `Settings` dataclass; a new setting means a field, a line in
   `load_settings()`, and an entry in `.env.example`.

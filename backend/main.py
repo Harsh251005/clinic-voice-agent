@@ -3,8 +3,12 @@
     uv run python main.py console   talk to it locally (no LiveKit minutes)
     uv run python main.py console --text
                                     type to it: LLM only, no STT/TTS cost
-    uv run python main.py dev       join a LiveKit room, reload on save
+    uv run python main.py dev       join LiveKit rooms it is dispatched to, reload on save
     uv run python main.py start     production worker
+
+One worker answers for every clinic: each call's dispatch names its clinic
+(see clinic_agent/dispatch.py). Console has no dispatch, so it takes
+`--clinic <id>`, or uses the only clinic in the database.
 """
 
 from __future__ import annotations
@@ -17,7 +21,8 @@ from livekit.agents import JobContext, WorkerOptions, cli
 
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.config import ConfigError, load_settings
-from clinic_agent.context import clinic_now, load_clinic
+from clinic_agent.context import clinic_now, load_clinic, local_clinic
+from clinic_agent.dispatch import AGENT_NAME, NoClinic, clinic_id_from
 from clinic_agent.prompts import build_instructions
 from clinic_agent.providers import build_llm, build_stt, build_tts
 from clinic_agent.session import build_session
@@ -29,9 +34,27 @@ from clinic_agent.tools.call import end_call_tool
 
 logger = logging.getLogger("clinic-agent")
 
+CONSOLE = sys.argv[1:2] == ["console"]
 # `console --text` is the cheap testing mode: no speech providers are built.
 # Console jobs run in this same process, so the entrypoint can read it.
-TEXT_ONLY = sys.argv[1:2] == ["console"] and "--text" in sys.argv
+TEXT_ONLY = CONSOLE and "--text" in sys.argv
+# The clinic a console call is for, set at boot. Always None under dev and
+# start: those calls run in child processes and must name their clinic.
+LOCAL_CLINIC: int | None = None
+
+
+def _take_clinic_flag(argv: list[str]) -> int | None:
+    """Remove `--clinic N` from argv (LiveKit's CLI rejects unknown flags)."""
+    for i, arg in enumerate(argv):
+        if arg == "--clinic" or arg.startswith("--clinic="):
+            value = arg.partition("=")[2] or (argv[i + 1] if i + 1 < len(argv) else "")
+            del argv[i : i + (1 if "=" in arg else 2)]
+            if not value.isdigit():
+                raise ValueError(f"--clinic needs a clinic id, got {value!r}")
+            if not CONSOLE:
+                raise ValueError("--clinic is for console only; dev and start calls name their clinic")
+            return int(value)
+    return None
 
 
 async def entrypoint(ctx: JobContext) -> None:
@@ -41,12 +64,19 @@ async def entrypoint(ctx: JobContext) -> None:
     else:
         logger.info(
             "starting session: stt=%s/%s llm=%s/%s tts=%s/%s speaker=%s",
-            cfg.stt_provider, cfg.stt_model,
+            cfg.stt_provider, cfg.stt_model or "default",
             cfg.llm_provider, cfg.llm_model or "default",
             cfg.tts_provider, cfg.tts_model or "default", cfg.tts_speaker or "default",
         )
 
-    clinic, time_off = await asyncio.to_thread(load_clinic, cfg)
+    try:
+        clinic_id = clinic_id_from(ctx.job.metadata, fallback=LOCAL_CLINIC)
+        clinic, time_off = await asyncio.to_thread(load_clinic, cfg, clinic_id)
+    except (NoClinic, NotFound) as err:
+        # Never answer as a guessed clinic: wrong name, wrong doctors, wrong bookings.
+        logger.error("refusing call in room %s: %s", ctx.room.name, err)
+        ctx.shutdown(reason=f"no clinic: {err}")
+        return
     logger.info("clinic %s: %s", clinic.id, clinic.name)
     instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone))
     link = ClinicLink(clinic.id, clinic.timezone, sessions_for(cfg.database_url))
@@ -61,19 +91,20 @@ if __name__ == "__main__":
     # it as a one-line setup error instead of a traceback. Building the
     # providers here is what catches an unknown *_PROVIDER name; the session
     # itself needs a running event loop, so it is left to the entrypoint.
-    # Loading the clinic here catches a CLINIC_ID missing from the database.
+    # Opening the database here catches an old schema; console also resolves
+    # its clinic, since it has no dispatch to name one.
     try:
+        requested = _take_clinic_flag(sys.argv)
         cfg = load_settings()
         build_llm(cfg)
         if not TEXT_ONLY:
             build_stt(cfg), build_tts(cfg)
-        load_clinic(cfg)
-    except NotFound:
-        sys.exit(
-            f"configuration error: clinic {cfg.clinic_id} is not in {cfg.database_url}. "
-            "Create it in the dashboard or run: uv run python -m seeds.demo_clinic"
-        )
+        sessions_for(cfg.database_url)
+        if CONSOLE:
+            LOCAL_CLINIC = local_clinic(cfg, requested)
+    except NotFound as err:
+        sys.exit(f"configuration error: {err}")
     except (ConfigError, SchemaOutdated, ValueError) as err:
         sys.exit(f"configuration error: {err}")
 
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
+    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, agent_name=AGENT_NAME))
