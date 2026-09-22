@@ -17,7 +17,7 @@ Current state: **Stage 2 built** (plan:
 progress, no telephony** (plan: `~/.claude/plans/stage-3-production-setup.md`): clinic database, free-slot
 rules, Streamlit dashboard (setup + appointments), agent answering from clinic
 data, booking + cancel/reschedule tools, end-call tool, `console --text`.
-Not yet: dashboard login, migrations, telephony (identity is by spoken
+Not yet: dashboard login, telephony (identity is by spoken
 mobile number until caller ID exists). The
 instructions (`clinic_agent/prompts.py`) may only describe what is built: no
 promised checks, holds, messages or callbacks. Add a capability to them in the
@@ -30,6 +30,7 @@ Run from `backend/` (Python ≥3.13, managed with `uv`, `package = false`):
 ```bash
 uv sync                          # install
 cp .env.example .env             # then set the keys for the selected providers
+uv run python -m clinic_agent.store.migrations  # schema up to date (after every pull)
 uv run python main.py console    # talk over the local mic — spends no LiveKit minutes
 uv run python main.py console --text  # typed, LLM-only: no STT/TTS built or billed
 uv run python main.py dev        # join a LiveKit room, reloads on save
@@ -87,9 +88,15 @@ The pipeline is split so each concern lives in exactly one module:
   SQLAlchemy.** Double booking is prevented by a partial unique index, not by
   code; only that index's violation may become `SlotTaken` (`_is_slot_clash`).
   Patients are unique on (clinic, phone, name): families share phones, and a
-  new name must never rename an existing patient. Schema changes to existing
-  tables need a step in `store/migrations.py` (idempotent, backs up the file)
-  until Alembic replaces it. Clinic details are data (seed or dashboard), never in `.py` files.
+  new name must never rename an existing patient. **Schema changes = an
+  Alembic revision** (`store/alembic/versions/`, `uv run alembic revision
+  --autogenerate --rev-id 000N`), read and committed. Only
+  `python -m clinic_agent.store.migrations` changes a schema; running code
+  calls `migrations.check()` and refuses an old schema, never migrates.
+  `created_at` is naive UTC (`utc_now`); appointment times are clinic-local.
+  Tests: `db` fixture also runs on Postgres when `TEST_POSTGRES_URL` is set
+  (local container `clinic-pg`, port 5433; see README). Clinic details are
+  data (seed or dashboard), never in `.py` files.
 - `dashboard/` — Streamlit clinic setup, run from `backend/` with
   `uv run streamlit run dashboard/app.py`. `app.py` → `pages/` → `sections/` (one tab per file).
   Writes only via `store/repo.py`. Styling: palette and fields in

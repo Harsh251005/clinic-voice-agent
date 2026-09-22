@@ -7,7 +7,8 @@ import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 from clinic_agent.store import repo
-from clinic_agent.store.db import init_db, make_engine, session_factory
+from clinic_agent.store import migrations
+from clinic_agent.store.db import make_engine, session_factory
 from seeds.demo_clinic import seed_demo
 
 APP = str(Path(__file__).resolve().parents[1] / "dashboard" / "app.py")
@@ -16,6 +17,7 @@ APP = str(Path(__file__).resolve().parents[1] / "dashboard" / "app.py")
 @pytest.fixture
 def db_url(tmp_path, monkeypatch):
     url = f"sqlite:///{tmp_path}/dash.db"
+    migrations.upgrade(make_engine(url))  # a deploy step, not the dashboard's job
     monkeypatch.setenv("DATABASE_URL", url)
     st.cache_resource.clear()  # the engine is cached per server process
     yield url
@@ -24,7 +26,7 @@ def db_url(tmp_path, monkeypatch):
 
 def sessions(url):
     engine = make_engine(url)
-    init_db(engine)
+    migrations.upgrade(engine)
     return session_factory(engine)
 
 
@@ -38,6 +40,15 @@ def run(page: str | None = None):
 
 def setup_page():
     return run("pages/setup.py")
+
+
+def test_unmigrated_database_shows_what_to_run(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/none.db")
+    st.cache_resource.clear()
+    at = AppTest.from_file(APP, default_timeout=30).run()
+    st.cache_resource.clear()
+    assert not at.exception
+    assert any("python -m clinic_agent.store.migrations" in e.value for e in at.error)
 
 
 def test_first_run_creates_a_clinic(db_url):

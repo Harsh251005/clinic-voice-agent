@@ -1,20 +1,34 @@
 """Tables. Every row belongs to a clinic, directly or through its doctor.
 
-Times are naive and in the clinic's own timezone (`Clinic.timezone`); every
-clinic today is in India, and a naive local time is what staff and callers
-mean by "eleven o'clock".
+Appointment times are naive and in the clinic's own timezone
+(`Clinic.timezone`); every clinic today is in India, and a naive local time is
+what staff and callers mean by "eleven o'clock". Record-keeping timestamps
+(`created_at`) are naive UTC.
 """
 
 from __future__ import annotations
 
-from datetime import date, datetime, time
+from datetime import UTC, date, datetime, time
 
-from sqlalchemy import ForeignKey, Index, String, UniqueConstraint, text
+from sqlalchemy import ForeignKey, Index, MetaData, String, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
-    pass
+    # Named constraints, so a later migration can find and change them;
+    # Alembic can't reliably alter an unnamed one (SQLite especially).
+    metadata = MetaData(naming_convention={
+        "ix": "ix_%(table_name)s_%(column_0_N_name)s",
+        "uq": "uq_%(table_name)s_%(column_0_N_name)s",
+        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+        "pk": "pk_%(table_name)s",
+    })
+
+
+def utc_now() -> datetime:
+    """Naive UTC. Record-keeping timestamps are UTC, not the server's clock:
+    a server in UTC would otherwise file them 5.5 hours off India time."""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class Clinic(Base):
@@ -126,7 +140,7 @@ class Appointment(Base):
     ends_at: Mapped[datetime]
     status: Mapped[str] = mapped_column(String(20), default="booked")  # booked | cancelled
     source: Mapped[str] = mapped_column(String(20), default="voice")  # voice | dashboard
-    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+    created_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
 
     doctor: Mapped[Doctor] = relationship()
     patient: Mapped[Patient] = relationship()
