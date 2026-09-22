@@ -190,3 +190,14 @@ def test_rate_limiter_forgets_idle_keys():
     now[0] = 200
     limit.allow("new")
     assert set(limit._events) == {"new"}
+
+
+def test_rate_limiter_is_safe_across_threads():
+    from concurrent.futures import ThreadPoolExecutor
+
+    from api.limits import RateLimiter
+
+    limiter = RateLimiter(100, 60)
+    with ThreadPoolExecutor(16) as pool:
+        allowed = list(pool.map(lambda i: limiter.allow("same-ip"), range(1000)))
+    assert allowed.count(True) == 100

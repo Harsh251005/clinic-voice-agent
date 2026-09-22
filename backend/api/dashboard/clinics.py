@@ -18,8 +18,9 @@ def load(request: Request, clinic_id: int) -> schemas.Clinic:
     with request.app.state.sessions() as s:
         clinic = repo.get_clinic(s, clinic_id)
         today = clinic_now(clinic.timezone).date()
-        upcoming = repo.time_off_overlapping(s, clinic_id, today, today + timedelta(days=5 * 366))
-        return convert.clinic(clinic, upcoming, request.app.state.cfg.public_base_url)
+        time_off = repo.time_off_overlapping(s, clinic_id, today, today + timedelta(days=5 * 366))
+        upcoming = repo.upcoming_counts(s, clinic_id, clinic_now(clinic.timezone))
+        return convert.clinic(clinic, time_off, upcoming, request.app.state.cfg.public_base_url)
 
 
 @router.get("/api/clinics/{clinic_id}", response_model=schemas.Clinic)

@@ -144,3 +144,35 @@ def test_one_phone_lists_every_family_members_bookings(booked):
     out = booking.find_appointments(s, clinic_id, PHONE, NOW)
     assert f"Appointment {appt_id}: Dr. Asha Mehta, Tuesday 22 September 2026 at 10:00, for Ravi." in out
     assert "at 10:15, for Priya." in out
+
+
+# ---------- bookings staff have since made impossible ----------
+
+def test_move_is_refused_when_the_doctor_no_longer_takes_bookings(booked):
+    s, clinic_id, appt_id = booked
+    asha = repo.get_appointment(s, appt_id).doctor
+    repo.update_doctor(s, asha.id, active=False)
+    with pytest.raises(BookingError, match="Dr. Asha Mehta is no longer taking appointments. Offer another doctor: Dr. Rohan Iyer."):
+        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, WED, time(11), NOW)
+    out = booking.reschedule_booking(s, clinic_id, appt_id, PHONE, WED, time(11), NOW, doctor_name="Rohan")
+    assert out.endswith("to Dr. Rohan Iyer, Wednesday 23 September 2026 at 11:00.")
+
+
+def test_finding_flags_an_appointment_on_leave(booked):
+    s, clinic_id, appt_id = booked
+    asha = repo.get_appointment(s, appt_id).doctor
+    repo.add_time_off(s, clinic_id, TUE, TUE, doctor_id=asha.id)
+    out = booking.find_appointments(s, clinic_id, PHONE, NOW)
+    assert "Problem: Dr. Asha Mehta is on leave that day. Tell the caller and offer to move or cancel it." in out
+
+
+def test_problems_staff_can_cause(booked):
+    s, clinic_id, appt_id = booked
+    appt = repo.get_appointment(s, appt_id)
+    assert booking.appointment_problem(appt, []) is None
+    holiday = repo.add_time_off(s, clinic_id, TUE, TUE, reason="Diwali")
+    assert booking.appointment_problem(appt, [holiday]) == "the clinic is closed that day (Diwali)"
+    repo.set_doctor_hours(s, appt.doctor_id, [(1, time(17), time(20))])  # Tuesdays evenings only now
+    assert booking.appointment_problem(appt, []) == "Dr. Asha Mehta no longer sits at that time"
+    repo.update_doctor(s, appt.doctor_id, active=False)
+    assert booking.appointment_problem(appt, []) == "Dr. Asha Mehta is no longer taking appointments"

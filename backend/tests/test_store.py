@@ -131,12 +131,30 @@ def test_invalid_schedule_and_time_off_are_rejected(db):
         repo.add_time_off(s, clinic_id, date(2026, 10, 5), date(2026, 10, 1))
 
 
-def test_deleting_a_doctor_removes_their_hours(db):
+def test_deleting_a_doctor_removes_them_with_hours_leave_and_history(db):
     s, clinic_id = db
     doctor = repo.get_clinic(s, clinic_id).doctors[1]
-    repo.delete_doctor(s, doctor.id)
+    past = repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 14, 11, 0), "Ravi", "9876543210").id
+    repo.add_time_off(s, clinic_id, date(2026, 10, 5), date(2026, 10, 6), doctor_id=doctor.id)
+    repo.delete_doctor(s, doctor.id, now=datetime(2026, 9, 21, 9, 0))
     s.expire_all()
     assert [d.name for d in repo.get_clinic(s, clinic_id).doctors] == ["Dr. Asha Mehta"]
+    assert repo.time_off_overlapping(s, clinic_id, date(2026, 10, 1), date(2026, 10, 31)) == []
+    with pytest.raises(repo.NotFound):
+        repo.get_appointment(s, past)
+
+
+def test_a_doctor_with_upcoming_bookings_cant_be_deleted(db):
+    s, clinic_id = db
+    doctor = repo.get_clinic(s, clinic_id).doctors[1]
+    appt = repo.book(s, clinic_id, doctor.id, datetime(2026, 9, 23, 11, 0), "Ravi", "9876543210")
+    now = datetime(2026, 9, 21, 9, 0)
+    with pytest.raises(ValueError, match="Dr. Rohan Iyer has 1 upcoming appointment. Cancel them"):
+        repo.delete_doctor(s, doctor.id, now)
+    assert repo.upcoming_counts(s, clinic_id, now) == {doctor.id: 1}
+    repo.cancel_appointment(s, appt.id)
+    repo.delete_doctor(s, doctor.id, now)
+    assert repo.upcoming_counts(s, clinic_id, now) == {}
 
 
 # ---------- call-link slugs ----------

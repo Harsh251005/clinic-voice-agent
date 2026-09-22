@@ -50,6 +50,18 @@ test("a new doctor starts with the common week", async ({ page }) => {
   await expect(card).toContainText("Monday to Saturday 10:00-13:00 and 17:00-20:00; Sunday not available");
 });
 
+test("a doctor can be removed for good, after a warning", async ({ page }) => {
+  await page.goto(`${SETUP}?tab=doctors`);
+  await page.getByLabel("Name", { exact: true }).fill("Dr. Temp Locum");
+  await page.getByRole("button", { name: "Add doctor" }).click();
+  const card = page.locator('[data-slot="card"]').filter({ has: page.getByText("Dr. Temp Locum", { exact: true }) });
+  await card.getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText("Remove Dr. Temp Locum for good?");
+  await page.getByRole("button", { name: "Yes, remove" }).click();
+  await expect(page.getByText("Dr. Temp Locum removed")).toBeVisible();
+  await expect(card).toBeHidden();
+});
+
 test("weekly hours: apply a pattern, see it described, save", async ({ page }) => {
   await page.goto(`${SETUP}?tab=hours`);
   await pick(page, "Doctor", "Dr. Rohan Iyer");

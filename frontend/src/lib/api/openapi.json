@@ -28,6 +28,17 @@
             "title": "Patient Phone",
             "type": "string"
           },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
           "source": {
             "enum": [
               "voice",
@@ -278,6 +289,10 @@
           "specialty": {
             "title": "Specialty",
             "type": "string"
+          },
+          "upcoming": {
+            "title": "Upcoming",
+            "type": "integer"
           }
         },
         "required": [
@@ -288,7 +303,8 @@
           "slot_minutes",
           "active",
           "hours",
-          "hours_text"
+          "hours_text",
+          "upcoming"
         ],
         "title": "Doctor",
         "type": "object"
@@ -685,6 +701,56 @@
         "title": "TimeOff",
         "type": "object"
       },
+      "TimeOffAdded": {
+        "properties": {
+          "clashes": {
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            },
+            "title": "Clashes",
+            "type": "array"
+          },
+          "date_from": {
+            "format": "date",
+            "title": "Date From",
+            "type": "string"
+          },
+          "date_to": {
+            "format": "date",
+            "title": "Date To",
+            "type": "string"
+          },
+          "doctor_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doctor Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date_from",
+          "date_to",
+          "doctor_id",
+          "reason",
+          "clashes"
+        ],
+        "title": "TimeOffAdded",
+        "type": "object"
+      },
       "TimeOffIn": {
         "properties": {
           "date_from": {
@@ -1071,6 +1137,55 @@
       }
     },
     "/api/clinics/{clinic_id}/doctors/{doctor_id}": {
+      "delete": {
+        "description": "Remove a doctor for good (deactivating keeps them). Refused with a\n422 while they have upcoming bookings.",
+        "operationId": "delete_doctor_api_clinics__clinic_id__doctors__doctor_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "doctor_id",
+            "required": true,
+            "schema": {
+              "title": "Doctor Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Doctor Api Clinics  Clinic Id  Doctors  Doctor Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Doctor"
+      },
       "patch": {
         "operationId": "update_doctor_api_clinics__clinic_id__doctors__doctor_id__patch",
         "parameters": [
@@ -1476,6 +1591,7 @@
     },
     "/api/clinics/{clinic_id}/time-off": {
       "post": {
+        "description": "Leave or a holiday. Bookings already on those days stay booked; they\ncome back as `clashes` so staff can call those patients.",
         "operationId": "add_time_off_api_clinics__clinic_id__time_off_post",
         "parameters": [
           {
@@ -1503,7 +1619,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TimeOff"
+                  "$ref": "#/components/schemas/TimeOffAdded"
                 }
               }
             },

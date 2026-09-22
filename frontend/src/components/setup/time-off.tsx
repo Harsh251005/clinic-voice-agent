@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
 import { CalendarOff, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
-import { todayIn } from "@/lib/dates";
+import { clockTime, todayIn } from "@/lib/dates";
 import { useClinicChange } from "@/lib/queries";
 import { Field } from "./field";
 import { Section } from "./section";
@@ -27,8 +28,7 @@ export function TimeOff({ clinic }: { clinic: Schemas["Clinic"] }) {
   const [reason, setReason] = useState("");
   const names = new Map(clinic.doctors.map((d) => [d.id, d.name]));
   const add = useClinicChange(clinic.id, (body: Schemas["TimeOffIn"]) =>
-    unwrap(api.POST("/api/clinics/{clinic_id}/time-off", { params: { path: { clinic_id: clinic.id } }, body })),
-    "Added. The receptionist won't offer those days.");
+    unwrap(api.POST("/api/clinics/{clinic_id}/time-off", { params: { path: { clinic_id: clinic.id } }, body })));
   const remove = useClinicChange(clinic.id, (id: number) =>
     unwrap(api.DELETE("/api/clinics/{clinic_id}/time-off/{time_off_id}", { params: { path: { clinic_id: clinic.id, time_off_id: id } } })),
     "Removed");
@@ -64,7 +64,16 @@ export function TimeOff({ clinic }: { clinic: Schemas["Clinic"] }) {
           e.preventDefault();
           add.mutate(
             { doctor_id: who === WHOLE_CLINIC ? null : Number(who), date_from: from, date_to: to, reason: reason.trim() },
-            { onSuccess: () => setReason("") },
+            {
+              onSuccess: ({ clashes }) => {
+                setReason("");
+                if (!clashes.length) return toast.success("Added. The receptionist won't offer those days.");
+                // Bookings already on those days stay booked: staff must call these patients.
+                const who = clashes.map((a) => `${a.patient_name} (${span(a.starts_at.slice(0, 10), a.starts_at.slice(0, 10))}, ${clockTime(a.starts_at)})`);
+                toast.warning(`Added, but ${clashes.length} booked appointment${clashes.length === 1 ? " falls" : "s fall"} on those days: ${who.join(", ")}. They're flagged on the Appointments page. Call the patients to move or cancel.`,
+                  { duration: 20_000 });
+              },
+            },
           );
         }}>
           <Field id="who" label="Who">

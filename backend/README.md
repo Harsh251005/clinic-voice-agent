@@ -160,7 +160,17 @@ action below is an `/api` endpoint here.
   hours*. The preview is the receptionist's own description
   (`prompts.weekly_hours`, via `/api/hours/preview`). Overlapping sittings
   are refused, by the form and by `repo.check_sittings`.
-- Doctors are deactivated, never deleted, so appointment history survives.
+- **Deactivate or remove a doctor.** *Deactivate* stops new bookings and
+  keeps their records. *Remove* deletes them for good, with their hours,
+  leave and past appointments. It asks first, and it is refused while they
+  have upcoming bookings (each doctor card shows how many): cancel those and
+  tell the patients first.
+- **Bookings that can no longer go ahead are flagged.** Existing bookings
+  stay booked when staff add leave or a holiday, change a doctor's hours or
+  deactivate them. The Appointments page marks each one *Call the patient:*
+  with the reason, and adding leave lists the clashing bookings at once.
+  The agent sees the same flag when a caller looks their bookings up, and
+  offers to move or cancel.
 - **Sign-in is with Google.** Admins (`ADMIN_EMAILS`) see every clinic,
   create clinics and, on each clinic's **Team** tab, choose the Google
   accounts that may open it. Everyone else sees only their clinics; an
@@ -267,8 +277,8 @@ write the same tables through `store/repo.py`.
 - **Booking** (two tools, rules in `booking.py`):
   - `find_available_slots(date, doctor?, part_of_day?)` returns up to the
     clinic's "slots offered" per doctor. With nothing free it says why (clinic
-    closed, doctor on leave, doesn't sit that day, fully booked) and gives the
-    next free day.
+    closed, doctor on leave, doesn't sit that day or that part of the day, no
+    times left today, fully booked) and gives the next free day.
   - `book_appointment(...)` refuses unless `caller_confirmed` is true, which
     the instructions tie to reading every detail back first. It re-checks the
     slot, validates a 10-digit Indian mobile (+91 / 0 / spaces accepted), and
@@ -282,7 +292,8 @@ write the same tables through `store/repo.py`.
   update: the appointment keeps its number, and the double-booking index
   still refuses a taken slot, so it is never half-moved. A wrong number, an
   unknown id and another clinic's id all get the same answer, so guessing
-  reveals nothing. **The mobile number is the only proof of identity today** —
+  reveals nothing. A booking with a doctor who has since been deactivated
+  can only move to another doctor. **The mobile number is the only proof of identity today** —
   once telephony arrives, match it against the caller's own number.
 - **Ending the call**: `end_call` (LiveKit's `EndCallTool`) speaks one
   goodbye, shuts the session down after it, and deletes the room — which
