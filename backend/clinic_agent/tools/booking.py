@@ -46,7 +46,12 @@ def booking_tools(link: ClinicLink) -> list:
         doctor_name: str = "",
         part_of_day: Literal["any", "morning", "afternoon", "evening"] = "any",
     ) -> str:
-        """Find free appointment times on one day. Offer the caller only times this returns.
+        """Find every free appointment time on one day. Offer the caller only times this returns.
+
+        It lists all free start times as ranges ("10:00 to 12:45, every 15
+        minutes") and which few to suggest first. Suggest those, and answer
+        "anything later / after eleven / in the evening?" from the full list
+        without calling again. Call again only for another day or doctor.
 
         Args:
             date: The day as YYYY-MM-DD. Work out words like aaj, kal, parson or

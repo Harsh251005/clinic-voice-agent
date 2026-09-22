@@ -69,12 +69,12 @@ def find_slots(
     for doctor in doctors:
         slots = _day_slots(s, doctor, day, time_off, now, part_of_day)
         if slots:
-            lines.append(f"{doctor.name} on {_day(day)}: {_times(slots[: clinic.slots_offered])}.")
+            lines.append(f"{doctor.name} on {_day(day)}: {_free(slots, doctor, clinic)}.")
             continue
         why = _why_none(doctor, day, time_off, now, part_of_day)
         nxt = _next_free(s, doctor, day, last_day, time_off, now, part_of_day)
         tail = (
-            f" Next free: {_day(nxt[0].date())}, {_times(nxt[: clinic.slots_offered])}."
+            f" Next free day: {_day(nxt[0].date())}, {_free(nxt, doctor, clinic)}."
             if nxt else f" Nothing free up to {_day(last_day)}."
         )
         lines.append(f"{doctor.name} on {_day(day)}: none - {why}.{tail}")
@@ -102,14 +102,14 @@ def book_slot(
     time_off = repo.time_off_overlapping(s, clinic.id, day, day)
     free = _day_slots(s, doctor, day, time_off, now, None)
     if starts_at not in free:
-        offer = f" Free times that day: {_times(free[: clinic.slots_offered])}." if free else ""
+        offer = f" That day: {_free(free, doctor, clinic)}." if free else ""
         raise BookingError(f"{doctor.name} is not free at {start:%H:%M} on {_day(day)}.{offer}")
 
     try:
         appt = repo.book(s, clinic.id, doctor.id, starts_at, patient_name.strip(), phone, source="voice")
     except repo.SlotTaken:
         free = _day_slots(s, doctor, day, time_off, now, None)
-        offer = f" Offer: {_times(free[: clinic.slots_offered])}." if free else ""
+        offer = f" That day: {_free(free, doctor, clinic)}." if free else ""
         raise BookingError(f"That time was just taken by another caller.{offer}") from None
     return (
         f"Booked, appointment number {appt.id}: {doctor.name}, {_day(day)} at {start:%H:%M}, "
@@ -201,7 +201,7 @@ def reschedule_booking(
     time_off = repo.time_off_overlapping(s, clinic.id, day, day)
     free = _day_slots(s, doctor, day, time_off, now, None)
     if starts_at not in free:
-        offer = f" Free times that day: {_times(free[: clinic.slots_offered])}." if free else ""
+        offer = f" That day: {_free(free, doctor, clinic)}." if free else ""
         raise BookingError(f"{doctor.name} is not free at {start:%H:%M} on {_day(day)}.{offer}")
 
     try:
@@ -299,6 +299,28 @@ def _day(d: date) -> str:
 
 def _times(slots: list[datetime]) -> str:
     return ", ".join(f"{t:%H:%M}" for t in slots)
+
+
+def _free(slots: list[datetime], doctor: Doctor, clinic: Clinic) -> str:
+    """Every free start time, as runs, plus the few to suggest first.
+
+    The whole day goes to the LLM, not just the first few times, so "anything
+    after eleven?" or "evening?" is answered from what is really free rather
+    than from a sample. Runs keep it short: a free morning is one range.
+    """
+    step = timedelta(minutes=doctor.slot_minutes)
+    runs: list[list[datetime]] = []
+    for t in slots:
+        if runs and t - runs[-1][-1] == step:
+            runs[-1].append(t)
+        else:
+            runs.append([t])
+    parts = [f"{r[0]:%H:%M}" if len(r) == 1 else f"{r[0]:%H:%M} to {r[-1]:%H:%M}" for r in runs]
+    every = f", every {doctor.slot_minutes} minutes" if any(len(r) > 1 for r in runs) else ""
+    return (
+        f"free start times {', '.join(parts)}{every} ({len(slots)} in all); "
+        f"suggest first {_times(slots[: clinic.slots_offered])}"
+    )
 
 
 def _name_key(name: str) -> str:

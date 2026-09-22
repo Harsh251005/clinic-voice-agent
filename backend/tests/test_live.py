@@ -190,7 +190,10 @@ async def _transcribe(stt_, frames) -> str:
 
 # ---------- booking conversation (tools mocked) ----------
 
-SLOTS = "Dr. Asha Mehta on Tuesday 22 September 2026: 17:00, 17:15, 17:30."
+SLOTS = (
+    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times 17:00 to 19:45, "
+    "every 15 minutes (12 in all); suggest first 17:00, 17:15, 17:30."
+)
 
 
 def _calls(result, name):
