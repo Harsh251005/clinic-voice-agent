@@ -64,7 +64,9 @@ The pipeline is split so each concern lives in exactly one module:
   refused, never guessed. Console has no dispatch: `--clinic N` (console-only;
   stripped from argv before LiveKit's CLI) or the only clinic. Each job loads
   the clinic (`context.load_clinic`, off the event loop), builds instructions,
-  builds a session and starts `ClinicAgent` in the room.
+  builds a session and starts `ClinicAgent` in the room, then starts
+  `call_limit.end_after` (`MAX_CALL_MINUTES`), cancelled on job shutdown.
+  The prompt's opening rule makes the agent say it is an automated assistant.
 - `api/` — FastAPI call-link server (browser calls until telephony).
   `/call/<slug>` page; `POST /call/<slug>/pass` signs a LiveKit token for a
   fresh room whose `RoomConfiguration` dispatches `AGENT_NAME` with

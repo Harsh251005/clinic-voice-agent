@@ -172,6 +172,7 @@ api/                    call-link server: page + signed join pass (python -m api
     ├── prompts.py      persona rules + clinic facts built from the database per call
     ├── context.py      loads the call's clinic and its local time
     ├── dispatch.py     which clinic a call is for: the agent name + metadata format
+    ├── call_limit.py   hard cap on call length: goodbye, then close the room
     ├── booking.py      booking rules: find slots, validate, book — no LiveKit
     ├── tools/booking.py  slots, book, find/cancel/reschedule as LiveKit tools
     ├── tools/call.py     end_call — LiveKit's EndCallTool, goodbye then hang up
@@ -231,6 +232,12 @@ write the same tables through `store/repo.py`.
   goodbye, shuts the session down after it, and deletes the room — which
   disconnects a phone caller. It is hidden during the greeting, and the
   instructions say to ask "anything else?" when unsure rather than hang up.
+- **It says it is automated.** The first line names the clinic and says it
+  is the clinic's automated assistant ("ऑटोमेटेड असिस्टेंट" in Hindi). The
+  call page says so too.
+- **Calls have a time limit** (`MAX_CALL_MINUTES`, default 10). At the limit
+  the receptionist apologises, says goodbye (it can't be interrupted), and
+  closes the room, which disconnects the caller.
 - **`console` refuses to start** if its clinic isn't in the database (or there
   are several and no `--clinic`), naming the fix.
 
@@ -338,6 +345,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `TTS_LANGUAGE` | provider's | ElevenLabs auto-detects, which suits mixed Hindi/English; Sarvam defaults to `en-IN`. |
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
 | `PUBLIC_BASE_URL` | `http://localhost:8080` | Where the call-link server is reachable; the dashboard builds each clinic's link from it. Your tunnel's https address for a demo from outside. |
+| `MAX_CALL_MINUTES` | `10` | Longest a call may last before a goodbye and hang-up. Guards against forgotten or abused calls spending minutes. |
 | `API_HOST` / `API_PORT` | `127.0.0.1` / `8080` | Where the call-link server listens. `0.0.0.0` inside a container. |
 | `CLIENT_IP_HEADER` | blank | The header carrying the caller's IP behind a tunnel/proxy (`CF-Connecting-IP`, `X-Forwarded-For`), so rate limits stay per caller. Never trusted unless set. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
