@@ -90,6 +90,7 @@ def book_slot(
     patient_name: str,
     patient_phone: str,
     now: datetime,
+    reason: str = "",
 ) -> str:
     if not patient_name.strip():
         raise BookingError("The caller's name is missing. Ask for it.")
@@ -106,7 +107,10 @@ def book_slot(
         raise BookingError(f"{doctor.name} is not free at {start:%H:%M} on {_day(day)}.{offer}")
 
     try:
-        appt = repo.book(s, clinic.id, doctor.id, starts_at, patient_name.strip(), phone, source="voice")
+        appt = repo.book(
+            s, clinic.id, doctor.id, starts_at, patient_name.strip(), phone,
+            source="voice", reason=_reason(reason),
+        )
     except repo.SlotTaken:
         free = _day_slots(s, doctor, day, time_off, now, None)
         offer = f" That day: {_free(free, doctor, clinic)}." if free else ""
@@ -129,7 +133,7 @@ def find_appointments(s: Session, clinic_id: int, patient_phone: str, now: datet
     for a in appts:
         line = (
             f"Appointment {a.id}: {a.doctor.name}, {_day(a.starts_at.date())} at {a.starts_at:%H:%M}, "
-            f"for {a.patient.name}."
+            f"for {a.patient.name}{f' ({a.reason})' if a.reason else ''}."
         )
         if problem := appointment_problem(a, time_off):
             line += f" Problem: {problem}. Tell the caller and offer to move or cancel it."
@@ -152,6 +156,8 @@ def appointment_problem(appt: Appointment, time_off: list[TimeOff]) -> str | Non
                 return f"{doctor.name} is on leave that day"
     if not doctor.active:
         return f"{doctor.name} is no longer taking appointments"
+    if appt.source == "dashboard":
+        return None  # staff may book outside hours on purpose
     if not any(
         h.weekday == day.weekday()
         and datetime.combine(day, h.start) <= appt.starts_at
@@ -216,7 +222,83 @@ def reschedule_booking(
     )
 
 
+# ---------- staff (dashboard) ----------
+#
+# Staff have the final say: they may book or move to any time, including
+# outside hours, on leave or off the slot grid (a walk-in squeezed in at
+# 10:05). The one thing refused is overlapping another booking of the same
+# doctor, which would be a real double booking. Messages are for staff.
+
+def free_times(s: Session, clinic_id: int, doctor_id: int, day: date, now: datetime) -> list[datetime]:
+    """The doctor's free slots that day by the usual rules (hours, leave,
+    bookings), as quick picks for staff. No lead time: a walk-in can be
+    booked for right now."""
+    doctor = repo.in_clinic(s, Doctor, doctor_id, clinic_id)
+    time_off = repo.time_off_overlapping(s, clinic_id, day, day)
+    return _day_slots(s, doctor, day, time_off, now, None, lead_minutes=0)
+
+
+def staff_book(
+    s: Session, clinic_id: int, doctor_id: int, starts_at: datetime,
+    patient_name: str, patient_phone: str, reason: str = "",
+) -> Appointment:
+    doctor = repo.in_clinic(s, Doctor, doctor_id, clinic_id)
+    name, phone = _staff_patient(patient_name, patient_phone)
+    _refuse_overlap(s, doctor, starts_at)
+    try:
+        return repo.book(s, clinic_id, doctor.id, starts_at, name, phone, source="dashboard", reason=_reason(reason))
+    except repo.SlotTaken:
+        raise BookingError(f"{doctor.name} is already booked at {starts_at:%H:%M} that day.") from None
+
+
+def staff_change(
+    s: Session, clinic_id: int, appointment_id: int, *,
+    doctor_id: int, starts_at: datetime, patient_name: str, patient_phone: str, reason: str,
+) -> Appointment:
+    """Everything about a booking at once, as the edit form sends it: who,
+    why, and (for a booking still on) which doctor and when."""
+    appt = repo.in_clinic(s, Appointment, appointment_id, clinic_id)
+    doctor = repo.in_clinic(s, Doctor, doctor_id, clinic_id)
+    name, phone = _staff_patient(patient_name, patient_phone)
+    if (doctor.id, starts_at) != (appt.doctor_id, appt.starts_at):
+        if appt.status != "booked":
+            raise BookingError("This appointment is cancelled. Book a new one instead of moving it.")
+        _refuse_overlap(s, doctor, starts_at, exclude_id=appt.id)
+        try:
+            repo.move_appointment(s, appt.id, doctor.id, starts_at)
+        except repo.SlotTaken:
+            raise BookingError(f"{doctor.name} is already booked at {starts_at:%H:%M} that day.") from None
+    return repo.update_appointment_details(s, appt.id, name, phone, _reason(reason))
+
+
+def _staff_patient(name: str, phone: str) -> tuple[str, str]:
+    if not name.strip():
+        raise BookingError("Enter the patient's name.")
+    try:
+        return name.strip(), normalise_phone(phone)
+    except BookingError:
+        raise BookingError(f"'{phone}' isn't a 10-digit Indian mobile number.") from None
+
+
+def _refuse_overlap(s: Session, doctor: Doctor, starts_at: datetime, exclude_id: int | None = None) -> None:
+    ends_at = starts_at + timedelta(minutes=doctor.slot_minutes)
+    if clash := repo.overlapping(s, doctor.id, starts_at, ends_at, exclude_id):
+        a = clash[0]
+        raise BookingError(
+            f"{doctor.name} already has {a.patient.name} from {a.starts_at:%H:%M} to {a.ends_at:%H:%M}. "
+            "Pick a time that doesn't overlap, or move that booking first."
+        )
+
+
 # ---------- helpers ----------
+
+REASON_MAX = 300
+
+
+def _reason(text: str) -> str:
+    """One line, trimmed to fit the column."""
+    return " ".join(text.split())[:REASON_MAX]
+
 
 def _owned(s: Session, clinic_id: int, appointment_id: int, patient_phone: str, now: datetime):
     """The caller's own upcoming booking, or a BookingError.
@@ -252,7 +334,7 @@ def _off_pairs(time_off: list[TimeOff]):
     return [(t.doctor_id, t.date_from, t.date_to) for t in time_off]
 
 
-def _day_slots(s, doctor: Doctor, day: date, time_off, now, part_of_day) -> list[datetime]:
+def _day_slots(s, doctor: Doctor, day: date, time_off, now, part_of_day, lead_minutes: int = 30) -> list[datetime]:
     if scheduling.is_off(day, doctor.id, _off_pairs(time_off)):
         return []
     sittings = [(h.start, h.end) for h in doctor.hours if h.weekday == day.weekday()]
@@ -260,7 +342,7 @@ def _day_slots(s, doctor: Doctor, day: date, time_off, now, part_of_day) -> list
         return []
     return scheduling.free_slots(
         day, sittings, doctor.slot_minutes, repo.booked_intervals(s, doctor.id, day),
-        now, part_of_day=part_of_day,
+        now, lead_minutes=lead_minutes, part_of_day=part_of_day,
     )
 
 

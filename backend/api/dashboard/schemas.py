@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import date, datetime, time
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ClinicSummary(BaseModel):
@@ -148,9 +148,30 @@ class Appointment(BaseModel):
     ends_at: datetime
     status: Literal["booked", "cancelled"]
     source: Literal["voice", "dashboard"]
+    reason: str  # why the patient is coming; "" if not given
     # Why a booking can't go ahead as booked (leave, holiday, hours changed,
     # doctor inactive): staff should call the patient. None when it's fine.
     problem: str | None = None
+
+
+class AppointmentIn(BaseModel):
+    """A booking as staff enter it; also the whole edit form (PUT)."""
+    doctor_id: int
+    starts_at: datetime  # clinic-local, no timezone: "2026-12-07T10:05:00"
+    patient_name: str = Field(min_length=1, max_length=200)
+    patient_phone: str = Field(max_length=20)
+    reason: str = Field(default="", max_length=300)
+
+    @field_validator("starts_at")
+    @classmethod
+    def _clinic_local(cls, v: datetime) -> datetime:
+        if v.tzinfo is not None:
+            raise ValueError("send the clinic's local time, without a timezone")
+        return v.replace(second=0, microsecond=0)
+
+
+class FreeTimes(BaseModel):
+    times: list[time]  # the doctor's free slots that day, as quick picks
 
 
 class TimeOffAdded(TimeOff):

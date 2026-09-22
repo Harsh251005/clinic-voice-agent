@@ -1,10 +1,12 @@
 "use client";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/app/page-header";
+import { AppointmentDialog } from "@/components/appointments/appointment-form";
 import { AppointmentList } from "@/components/appointments/appointment-list";
 import { DayControls } from "@/components/appointments/day-controls";
 import { Stats } from "@/components/appointments/stats";
@@ -24,6 +26,7 @@ function Appointments() {
   const day = isDay(asked) ? asked : today;
   const showCancelled = search.get("cancelled") === "1";
   const data = useDay(clinicId, day ?? "", showCancelled);
+  const [adding, setAdding] = useState(false);
 
   // The day and toggle live in the URL: back/forward and bookmarks work.
   const go = (next: { day?: string; cancelled?: boolean }) => {
@@ -38,7 +41,16 @@ function Appointments() {
 
   return (
     <>
-      <PageHeader title="Appointments" description="Bookings made on calls appear here as soon as they are confirmed." />
+      <PageHeader
+        title="Appointments"
+        description="Bookings from calls appear as soon as they are confirmed. Staff can add, move, change or cancel any of them."
+        actions={clinic.data && day && (
+          <>
+            <Button onClick={() => setAdding(true)}><Plus /> New appointment</Button>
+            <AppointmentDialog clinic={clinic.data} day={day} open={adding} onOpenChange={setAdding} />
+          </>
+        )}
+      />
       {!day || !today ? (
         <Skeleton className="h-10 w-96 max-w-full" />
       ) : (
@@ -60,7 +72,7 @@ function Appointments() {
           ) : (
             <>
               <Stats booked={data.data.booked} onCalls={data.data.booked_on_calls} week={data.data.next_7_days} />
-              <AppointmentList clinicId={clinicId} day={data.data.day} appointments={data.data.appointments} />
+              {clinic.data && <AppointmentList clinic={clinic.data} day={data.data.day} appointments={data.data.appointments} />}
             </>
           )}
         </div>

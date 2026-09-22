@@ -66,6 +66,24 @@ export interface paths {
         /** Day */
         get: operations["day_api_clinics__clinic_id__appointments_get"];
         put?: never;
+        /** Book */
+        post: operations["book_api_clinics__clinic_id__appointments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clinics/{clinic_id}/appointments/{appointment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change */
+        put: operations["change_api_clinics__clinic_id__appointments__appointment_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -127,6 +145,23 @@ export interface paths {
         head?: never;
         /** Update Doctor */
         patch: operations["update_doctor_api_clinics__clinic_id__doctors__doctor_id__patch"];
+        trace?: never;
+    };
+    "/api/clinics/{clinic_id}/doctors/{doctor_id}/free": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Free */
+        get: operations["free_api_clinics__clinic_id__doctors__doctor_id__free_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/clinics/{clinic_id}/doctors/{doctor_id}/hours": {
@@ -347,6 +382,8 @@ export interface components {
             patient_phone: string;
             /** Problem */
             problem?: string | null;
+            /** Reason */
+            reason: string;
             /**
              * Source
              * @enum {string}
@@ -362,6 +399,28 @@ export interface components {
              * @enum {string}
              */
             status: "booked" | "cancelled";
+        };
+        /**
+         * AppointmentIn
+         * @description A booking as staff enter it; also the whole edit form (PUT).
+         */
+        AppointmentIn: {
+            /** Doctor Id */
+            doctor_id: number;
+            /** Patient Name */
+            patient_name: string;
+            /** Patient Phone */
+            patient_phone: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
         };
         /** Clinic */
         Clinic: {
@@ -483,6 +542,11 @@ export interface components {
             answer: string;
             /** Question */
             question: string;
+        };
+        /** FreeTimes */
+        FreeTimes: {
+            /** Times */
+            times: string[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -823,6 +887,77 @@ export interface operations {
             };
         };
     };
+    book_api_clinics__clinic_id__appointments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_api_clinics__clinic_id__appointments__appointment_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: number;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cancel_api_clinics__clinic_id__appointments__appointment_id__cancel_post: {
         parameters: {
             query?: never;
@@ -947,6 +1082,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Doctor"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    free_api_clinics__clinic_id__doctors__doctor_id__free_get: {
+        parameters: {
+            query: {
+                day: string;
+            };
+            header?: never;
+            path: {
+                doctor_id: number;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreeTimes"];
                 };
             };
             /** @description Validation Error */

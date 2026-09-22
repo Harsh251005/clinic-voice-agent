@@ -359,6 +359,7 @@ def book(
     patient_name: str,
     patient_phone: str,
     source: str = "voice",
+    reason: str = "",
 ) -> Appointment:
     """Book a slot. Raises SlotTaken if the doctor is already booked then."""
     doctor = _get(s, Doctor, doctor_id)
@@ -374,6 +375,7 @@ def book(
             starts_at=starts_at,
             ends_at=ends_at,
             source=source,
+            reason=reason,
         )
         s.add(appt)
         try:
@@ -433,6 +435,38 @@ def move_appointment(
         raise
     s.refresh(appt)
     return appt
+
+
+def update_appointment_details(
+    s: Session, appointment_id: int, patient_name: str, patient_phone: str, reason: str
+) -> Appointment:
+    """Who the booking is for and why. A changed name or number points the
+    booking at that patient (found or new), so the patient's other bookings
+    keep theirs: never a rename, as with booking."""
+    appt = _get(s, Appointment, appointment_id)
+    appt.patient = _patient(s, appt.clinic_id, patient_name, patient_phone)
+    appt.reason = reason
+    s.commit()
+    return appt
+
+
+def overlapping(
+    s: Session, doctor_id: int, starts_at: datetime, ends_at: datetime, exclude_id: int | None = None
+) -> list[Appointment]:
+    """The doctor's booked appointments that overlap [starts_at, ends_at)."""
+    query = (
+        select(Appointment)
+        .where(
+            Appointment.doctor_id == doctor_id,
+            Appointment.status == "booked",
+            Appointment.starts_at < ends_at,
+            Appointment.ends_at > starts_at,
+        )
+        .options(selectinload(Appointment.patient))
+    )
+    if exclude_id is not None:
+        query = query.where(Appointment.id != exclude_id)
+    return list(s.scalars(query))
 
 
 def cancel_appointment(s: Session, appointment_id: int) -> Appointment:

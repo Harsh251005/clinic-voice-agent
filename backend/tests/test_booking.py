@@ -240,3 +240,47 @@ def test_two_calls_adding_the_same_new_patient_both_book(db, monkeypatch):
     assert out.startswith("Booked") and len(calls) == 2
     (appt,) = repo.appointments_on(s, clinic_id, TUE)[:1]
     assert appt.patient_id == first.patient_id
+
+
+# ---------- the visit reason and staff bookings ----------
+
+def test_a_call_booking_keeps_the_reason(db):
+    s, clinic_id = db
+    booking.book_slot(s, clinic_id, "Asha", TUE, time(10), "Ravi", "9876543210", NOW, reason="  बुखार   और खाँसी ")
+    (appt,) = repo.appointments_on(s, clinic_id, TUE)
+    assert appt.reason == "बुखार और खाँसी"
+    assert booking.find_appointments(s, clinic_id, "9876543210", NOW).endswith("for Ravi (बुखार और खाँसी).")
+
+
+def test_staff_change_points_the_booking_at_the_right_patient(db):
+    s, clinic_id = db
+    asha = repo.get_clinic(s, clinic_id).doctors[0]
+    a = booking.staff_book(s, clinic_id, asha.id, datetime(2026, 9, 22, 10), "Ravi", "9876543210")
+    b = booking.staff_book(s, clinic_id, asha.id, datetime(2026, 9, 22, 11), "Ravi", "9876543210")
+    booking.staff_change(s, clinic_id, a.id, doctor_id=asha.id, starts_at=a.starts_at,
+                         patient_name="Ravi Kumar", patient_phone="9876543210", reason="")
+    s.expire_all()
+    assert repo.get_appointment(s, a.id).patient.name == "Ravi Kumar"
+    assert repo.get_appointment(s, b.id).patient.name == "Ravi"  # never a rename
+
+
+def test_staff_cant_move_a_cancelled_booking_but_can_fix_its_details(db):
+    s, clinic_id = db
+    asha = repo.get_clinic(s, clinic_id).doctors[0]
+    a = booking.staff_book(s, clinic_id, asha.id, datetime(2026, 9, 22, 10), "Ravi", "9876543210")
+    repo.cancel_appointment(s, a.id)
+    with pytest.raises(BookingError, match="cancelled. Book a new one"):
+        booking.staff_change(s, clinic_id, a.id, doctor_id=asha.id, starts_at=datetime(2026, 9, 22, 12),
+                             patient_name="Ravi", patient_phone="9876543210", reason="")
+    out = booking.staff_change(s, clinic_id, a.id, doctor_id=asha.id, starts_at=a.starts_at,
+                               patient_name="Ravi", patient_phone="9876543210", reason="follow-up")
+    assert out.reason == "follow-up"
+
+
+def test_moving_within_its_own_slot_is_not_an_overlap_with_itself(db):
+    s, clinic_id = db
+    asha = repo.get_clinic(s, clinic_id).doctors[0]
+    a = booking.staff_book(s, clinic_id, asha.id, datetime(2026, 9, 22, 10), "Ravi", "9876543210")
+    out = booking.staff_change(s, clinic_id, a.id, doctor_id=asha.id, starts_at=datetime(2026, 9, 22, 10, 5),
+                               patient_name="Ravi", patient_phone="9876543210", reason="")
+    assert out.starts_at == datetime(2026, 9, 22, 10, 5)

@@ -1,6 +1,7 @@
 "use client";
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarX2, Phone, PhoneCall, TriangleAlert, UserRound } from "lucide-react";
+import { CalendarX2, Pencil, Phone, PhoneCall, TriangleAlert, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -14,17 +15,18 @@ import { clockTime, longDay } from "@/lib/dates";
 import { formatPhone } from "@/lib/phone";
 import { keys } from "@/lib/queries";
 import { cn } from "@/lib/utils";
+import { AppointmentDialog } from "./appointment-form";
 
 type Appointment = Schemas["Appointment"];
 
-export function AppointmentList({ clinicId, day, appointments }: { clinicId: number; day: string; appointments: Appointment[] }) {
+export function AppointmentList({ clinic, day, appointments }: { clinic: Schemas["Clinic"]; day: string; appointments: Appointment[] }) {
   if (!appointments.length) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
           <CalendarX2 className="size-8 text-muted-foreground" aria-hidden />
           <p className="font-medium">No appointments on {longDay(day)}</p>
-          <p className="text-sm text-muted-foreground">Bookings made on calls or by staff will show up here.</p>
+          <p className="text-sm text-muted-foreground">Bookings made on calls show up here. Add walk-ins and phone bookings with New appointment.</p>
         </CardContent>
       </Card>
     );
@@ -48,7 +50,7 @@ export function AppointmentList({ clinicId, day, appointments }: { clinicId: num
             </CardTitle>
           </CardHeader>
           <CardContent className="divide-y px-0">
-            {rows.map((a) => <Row key={a.id} clinicId={clinicId} appt={a} />)}
+            {rows.map((a) => <Row key={a.id} clinic={clinic} appt={a} />)}
           </CardContent>
         </Card>
       ))}
@@ -56,8 +58,10 @@ export function AppointmentList({ clinicId, day, appointments }: { clinicId: num
   );
 }
 
-function Row({ clinicId, appt }: { clinicId: number; appt: Appointment }) {
+function Row({ clinic, appt }: { clinic: Schemas["Clinic"]; appt: Appointment }) {
+  const clinicId = clinic.id;
   const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
   const cancelled = appt.status === "cancelled";
   const cancel = useMutation({
     mutationFn: () =>
@@ -79,6 +83,7 @@ function Row({ clinicId, appt }: { clinicId: number; appt: Appointment }) {
         <a href={`tel:${appt.patient_phone}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <Phone className="size-3" aria-hidden /> {formatPhone(appt.patient_phone)}
         </a>
+        {appt.reason && <p className="mt-0.5 text-sm text-foreground/80">{appt.reason}</p>}
       </div>
       <div className="flex items-center gap-1.5">
         {appt.source === "voice" ? (
@@ -94,7 +99,11 @@ function Row({ clinicId, appt }: { clinicId: number; appt: Appointment }) {
           Call the patient: {appt.problem}.
         </p>
       )}
-      <div className="w-24 text-right">
+      <div className="flex w-40 justify-end gap-1">
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setEditing(true)}>
+          <Pencil /> Edit
+        </Button>
+        <AppointmentDialog clinic={clinic} day={appt.starts_at.slice(0, 10)} editing={appt} open={editing} onOpenChange={setEditing} />
         {!cancelled && (
           <AlertDialog>
             <AlertDialogTrigger asChild>

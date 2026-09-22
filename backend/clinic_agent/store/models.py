@@ -157,6 +157,9 @@ class Appointment(Base):
     ends_at: Mapped[datetime]
     status: Mapped[str] = mapped_column(String(20), default="booked")  # booked | cancelled
     source: Mapped[str] = mapped_column(String(20), default="voice")  # voice | dashboard
+    # Why the patient is coming, in the caller's or staff's words ("आँखों से
+    # धुंधला दिखता है"). Health information: shown to the clinic, never logged.
+    reason: Mapped[str] = mapped_column(String(300), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
 
     doctor: Mapped[Doctor] = relationship()

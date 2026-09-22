@@ -39,6 +39,37 @@ test("cancelling asks first, then frees the slot", async ({ page }) => {
   await expect(page.getByText("Cancelled", { exact: true })).toBeVisible();
 });
 
+test("staff book a walk-in, then change it", async ({ page }) => {
+  await page.goto("/clinics/1/appointments");
+  await page.getByRole("button", { name: "New appointment" }).click();
+  await expect(page.getByRole("dialog")).toContainText("New appointment");
+  await page.getByLabel("Patient name").fill("Meena Joshi");
+  await page.getByLabel("Mobile number").fill("98190 22222");
+  await page.getByLabel("Reason for visit (optional)").fill("Tooth pain since Monday");
+  await page.getByLabel("Time", { exact: true }).fill("11:05");  // off the grid: a walk-in
+  await page.getByRole("button", { name: "Book appointment" }).click();
+  await expect(page.getByText(/^Booked: Meena Joshi with Dr. Asha Mehta/)).toBeVisible();
+  await expect(page.getByText("Tooth pain since Monday")).toBeVisible();
+  await expect(page.getByText("Staff", { exact: true })).toBeVisible();
+
+  const row = page.locator("div").filter({ hasText: /^11:05 am/ }).first();
+  await row.getByRole("button", { name: "Edit" }).click();
+  await page.getByLabel("Patient name").fill("Meena R Joshi");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText(/^Saved: Meena R Joshi/)).toBeVisible();
+  await expect(page.getByText("Meena R Joshi")).toBeVisible();
+});
+
+test("a double booking is refused with a reason", async ({ page }) => {
+  await page.goto("/clinics/1/appointments");
+  await page.getByRole("button", { name: "New appointment" }).click();
+  await page.getByLabel("Patient name").fill("Someone Else");
+  await page.getByLabel("Mobile number").fill("9819033333");
+  await page.getByLabel("Time", { exact: true }).fill("11:05");
+  await page.getByRole("button", { name: "Book appointment" }).click();
+  await expect(page.getByText(/already has .* from 11:05 to 11:20/)).toBeVisible();
+});
+
 test("a new doctor starts with the common week", async ({ page }) => {
   await page.goto(`${SETUP}?tab=doctors`);
   await page.getByLabel("Name", { exact: true }).fill("Dr. Neha Kulkarni");
