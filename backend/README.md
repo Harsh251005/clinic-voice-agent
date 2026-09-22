@@ -326,8 +326,8 @@ Each builder owns its defaults and asks for its own key with
 settings left blank in `.env` get the selected provider's default. Leave them
 blank and switching is just the `*_PROVIDER` line; a value you set is
 vendor-specific (`TTS_SPEAKER=suhani` means nothing to ElevenLabs), so clear it
-when switching. `STT_LANGUAGE=unknown` is the one exception: both STTs read it
-as auto-detect.
+when switching. `STT_LANGUAGE=unknown` is the one exception: it works for
+both (auto-detect on Sarvam, Hindi on ElevenLabs).
 
 ## Configuration
 
@@ -336,7 +336,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | Setting | Default | Why you would change it |
 |---|---|---|
 | `STT_MODEL` | provider's | Sarvam: `saaras:v4`. ElevenLabs: `scribe_v2_realtime`, its only streaming model; turn detection needs a streaming STT, so keep it. |
-| `STT_LANGUAGE` | auto-detect | Sarvam's `unknown` / ElevenLabs' blank. Pin (`hi-IN` for Sarvam, `hi` for ElevenLabs) only to debug. |
+| `STT_LANGUAGE` | provider's | Sarvam: `unknown` auto-detects per utterance. ElevenLabs: always `hi` when blank or `unknown`. Its auto-detect locks onto the wrong language during the greeting's silence (Cyrillic, Chinese) and then commits empty transcripts, so the agent never hears the caller. Pinned `hi` still transcribes English as English and Hinglish as Hinglish. |
 | `STT_MODE` | `transcribe` | Sarvam only. `transcribe` returns Hindi in Devanagari, which matches the prompt's rule that Hindi replies are written in Devanagari — the script the voice engine pronounces correctly. |
 | `LLM_MODEL` | provider's | OpenAI: `gpt-4.1-mini` — no reasoning step, so replies start fast. Reasoning models (`gpt-5*`, `o*`) work too: the builder sets `reasoning_effort="none"`, which OpenAI requires for tools on Chat Completions. Sarvam: `sarvam-105b-conversations` (fall back to `sarvam-105b`). |
 | `TTS_MODEL` | provider's | ElevenLabs: `eleven_v3_conversational`, the most expressive; use `eleven_multilingual_v2` if your plan rejects it, or `eleven_flash_v2_5` for the lowest latency. Sarvam: `bulbul:v3`. |
@@ -389,4 +389,10 @@ on our side.
   The testing stack spends none of them.
 - **ElevenLabs STT ends a turn after 1.5 s of silence** (its server-side
   default), slower than Sarvam. Expected on the testing stack; production is
-  Sarvam.
+  Sarvam. It must run with `server_vad` (commit on silence): in its default
+  manual-commit mode a sentence is only finalised when the stream is
+  flushed, which LiveKit never does on a live call. The agent greeted and
+  then never heard a word.
+- **The live speech test feeds audio like a call**: real time, faint room
+  noise first, stream left open. The old instant, silent, stream-ending
+  version passed with both ElevenLabs bugs present.

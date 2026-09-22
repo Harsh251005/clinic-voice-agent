@@ -75,13 +75,15 @@ def test_elevenlabs_stt(env):
     # Streaming, so turn detection can trust its end of speech as with Sarvam.
     assert s.model == "scribe_v2_realtime"
     assert s.capabilities.streaming
-    assert s._opts.language_code is None  # auto-detect
+    assert s._opts.language_code == "hi"  # auto-detect breaks on live calls
+    # Commits on silence. Manual commits would wait for a flush a live call never sends.
+    assert s._opts.server_vad == {}  # given, so commit_strategy=vad
 
 
-@pytest.mark.parametrize(("value", "expected"), [("unknown", None), ("hi", "hi")])
+@pytest.mark.parametrize(("value", "expected"), [("unknown", "hi"), ("", "hi"), ("en", "en")])
 def test_elevenlabs_stt_language(env, value, expected):
-    # Sarvam's "unknown" means auto-detect here too, so switching the
-    # provider needs no other .env change.
+    # Sarvam's "unknown" (auto-detect) becomes Hindi here, so switching the
+    # provider needs no other .env change and never turns auto-detect on.
     env.setenv("STT_PROVIDER", "elevenlabs")
     env.setenv("ELEVENLABS_API_KEY", "el-test")
     env.setenv("STT_LANGUAGE", value)

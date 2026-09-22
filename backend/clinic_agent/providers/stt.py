@@ -31,15 +31,25 @@ def _elevenlabs(cfg: Settings) -> stt.STT:
     # scribe_v2_realtime is the only streaming Scribe model, and streaming is
     # what lets turn detection trust the STT's end of speech, as with Sarvam;
     # the batch models would leave the session with no end-of-turn signal.
-    # Without a language it auto-detects; "unknown" (Sarvam's word for that)
-    # means the same here, so switching STT_PROVIDER needs no other change.
-    language = cfg.stt_language if cfg.stt_language not in (None, "unknown") else None
-    options = {"language_code": language} if language else {}
+    #
+    # Language is pinned to Hindi. Auto-detect breaks on a live call: the
+    # stream starts with the greeting's silence, detection settles on the
+    # wrong language (Cyrillic, Chinese) and the commit comes back empty, so
+    # the agent never hears the caller. Pinned "hi" still transcribes English
+    # as English and Hinglish as Hinglish (checked with all three). Adding
+    # secondary_languages=["en"] made commits empty again, so it's left off.
+    # Blank or "unknown" (Sarvam's auto-detect) therefore mean "hi" here.
+    language = cfg.stt_language if cfg.stt_language not in (None, "unknown") else "hi"
+    # server_vad switches ElevenLabs from manual commits to committing on
+    # silence. Without it, a transcript is only finalised when the stream is
+    # flushed, which LiveKit never does on a live call: the agent greeted
+    # and then never heard a word. Empty = ElevenLabs' own VAD defaults.
     return elevenlabs.STT(
         model=cfg.stt_model or "scribe_v2_realtime",
+        server_vad={},
+        language_code=language,
         sample_rate=cfg.stt_sample_rate,
         api_key=require_key(cfg.elevenlabs_api_key, "ELEVENLABS_API_KEY"),
-        **options,
     )
 
 
