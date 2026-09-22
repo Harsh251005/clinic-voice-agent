@@ -25,7 +25,7 @@ def seeded_db(tmp_path) -> str:
 def run_main(tmp_path, *args, **overrides):
     # load_dotenv searches upward from config.py's own folder, so the code is
     # copied out of the repo; otherwise the developer's real .env is found.
-    env = {k: v for k, v in os.environ.items() if not k.endswith(("_PROVIDER", "DATABASE_URL", "CLINIC_ID"))}
+    env = {k: v for k, v in os.environ.items() if not k.endswith(("_PROVIDER", "DATABASE_URL"))}
     env.pop("SARVAM_API_KEY", None)
     env.update(overrides)
     shutil.copy(BACKEND / "main.py", tmp_path)
@@ -60,15 +60,52 @@ def test_unmigrated_database_exits_with_one_line(tmp_path):
     assert "python -m clinic_agent.store.migrations" in r.stderr
 
 
-def test_missing_clinic_exits_with_one_line(tmp_path):
+def _two_clinics(tmp_path) -> str:
+    from clinic_agent.store import repo
+    from clinic_agent.store.db import make_engine, session_factory
+
+    url = seeded_db(tmp_path)
+    with session_factory(make_engine(url))() as s:
+        repo.create_clinic(s, name="Cure Dental Clinic")
+    return url
+
+
+def test_console_with_no_clinics_says_how_to_make_one(tmp_path):
     from clinic_agent.store import migrations
     from clinic_agent.store.db import make_engine
 
     migrations.upgrade(make_engine(f"sqlite:///{tmp_path}/empty.db"))
-    r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=f"sqlite:///{tmp_path}/empty.db")
+    r = run_main(tmp_path, "console", "--help", SARVAM_API_KEY="x", DATABASE_URL=f"sqlite:///{tmp_path}/empty.db")
     assert r.returncode == 1
-    assert r.stderr.strip().startswith("configuration error: clinic 1 is not in sqlite:///")
+    assert r.stderr.strip().startswith("configuration error: no clinics in sqlite:///")
     assert "seeds.demo_clinic" in r.stderr
+
+
+def test_console_with_several_clinics_asks_which(tmp_path):
+    r = run_main(tmp_path, "console", "--help", SARVAM_API_KEY="x", DATABASE_URL=_two_clinics(tmp_path))
+    assert r.returncode == 1
+    assert r.stderr.strip() == (
+        "configuration error: several clinics, pick one with --clinic <id> "
+        "(1 = Demo Family Clinic, 2 = Cure Dental Clinic)"
+    )
+
+
+def test_console_clinic_flag_picks_one(tmp_path):
+    r = run_main(tmp_path, "console", "--clinic", "2", "--help", SARVAM_API_KEY="x", DATABASE_URL=_two_clinics(tmp_path))
+    assert r.returncode == 0, r.stderr
+
+
+def test_console_unknown_clinic_exits_with_one_line(tmp_path):
+    r = run_main(tmp_path, "console", "--clinic=9", "--help", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
+    assert r.returncode == 1
+    assert r.stderr.strip() == "configuration error: no clinic with id 9"
+
+
+def test_clinic_flag_is_console_only(tmp_path):
+    # dev and start calls run in child processes and must name their clinic.
+    r = run_main(tmp_path, "start", "--clinic", "1", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
+    assert r.returncode == 1
+    assert "--clinic is for console only" in r.stderr
 
 
 def test_valid_config_reaches_the_cli(tmp_path):

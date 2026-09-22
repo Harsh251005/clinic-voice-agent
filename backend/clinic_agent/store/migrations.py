@@ -23,6 +23,9 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import Engine, create_engine, inspect, text
 
 logger = logging.getLogger("clinic-agent.migrations")
+# Alembic logs its setup ("Context impl ...") every time it looks at a
+# database, which the agent does per call. Our own lines say what happened.
+logging.getLogger("alembic.runtime").setLevel(logging.WARNING)
 
 SCRIPTS = Path(__file__).with_name("alembic")
 BASELINE = "0001"
@@ -137,7 +140,6 @@ if __name__ == "__main__":
     from clinic_agent.store.db import make_engine
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    logging.getLogger("alembic").setLevel(logging.WARNING)  # our own lines say what happened
     url = load_settings().database_url
     try:
         upgrade(make_engine(url))

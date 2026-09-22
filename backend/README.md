@@ -54,9 +54,20 @@ command.
 ```bash
 uv run python main.py console   # talk over your mic — no LiveKit minutes used
 uv run python main.py console --text   # type instead: LLM only, no STT/TTS cost
-uv run python main.py dev       # join a LiveKit room, reloads on save
+uv run python main.py console --clinic 2   # which clinic, when there are several
+uv run python main.py dev       # join LiveKit rooms it is dispatched to, reloads on save
 uv run python main.py start     # production worker
 ```
+
+**One worker answers for every clinic.** It registers as
+`clinic-receptionist` (explicit dispatch), so it joins only rooms it is
+dispatched to, and each dispatch carries the clinic in its metadata:
+`{"clinic_id": 2}`. The format lives in `clinic_agent/dispatch.py`, and
+anything that starts a call (the browser call link, later a phone number)
+uses it. A call that names no clinic, or an unknown one, is refused (logged,
+job ended): the agent never answers as a guessed clinic. `console` has no
+dispatch, so it takes `--clinic <id>` or uses the only clinic in the
+database. `--clinic` is console-only: `dev` behaves like `start`.
 
 **Use `console --text` for testing conversations, tools and bookings.** It
 builds no speech providers at all, so it spends only LLM tokens and needs no
@@ -120,7 +131,8 @@ main.py                 entrypoint — console | dev | start
 └── clinic_agent/
     ├── config.py       every env var, read once, fails loudly at startup
     ├── prompts.py      persona rules + clinic facts built from the database per call
-    ├── context.py      loads the call's clinic (CLINIC_ID) and its local time
+    ├── context.py      loads the call's clinic and its local time
+    ├── dispatch.py     which clinic a call is for: the agent name + metadata format
     ├── booking.py      booking rules: find slots, validate, book — no LiveKit
     ├── tools/booking.py  slots, book, find/cancel/reschedule as LiveKit tools
     ├── tools/call.py     end_call — LiveKit's EndCallTool, goodbye then hang up
@@ -180,8 +192,8 @@ write the same tables through `store/repo.py`.
   goodbye, shuts the session down after it, and deletes the room — which
   disconnects a phone caller. It is hidden during the greeting, and the
   instructions say to ask "anything else?" when unsure rather than hang up.
-- **Startup refuses to run** if `CLINIC_ID` isn't in the database, naming the
-  fix (create it in the dashboard, or seed the demo clinic).
+- **`console` refuses to start** if its clinic isn't in the database (or there
+  are several and no `--clinic`), naming the fix.
 
 - **Double booking is impossible at the database level** — a partial unique
   index on (doctor, start time) for booked appointments. A second booking
@@ -274,7 +286,6 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `TTS_CODEC` | provider's | Raw PCM for both (`pcm_24000` / `linear16`) — compressed formats cost a decode per chunk. |
 | `TTS_LANGUAGE` | provider's | ElevenLabs auto-detects, which suits mixed Hindi/English; Sarvam defaults to `en-IN`. |
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
-| `CLINIC_ID` | `1` | Which clinic this worker answers for, until telephony routes calls by the dialled number. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
 
 ## Troubleshooting
