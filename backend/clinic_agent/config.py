@@ -47,6 +47,9 @@ class Settings:
     # --- turn taking ---
     min_endpointing_delay: float
 
+    # --- calls ---
+    max_call_minutes: float  # then a goodbye and hang up
+
     # --- clinic data ---
     database_url: str
 
@@ -119,6 +122,7 @@ def load_settings() -> Settings:
         tts_sample_rate=int(tts_rate) if tts_rate is not None else None,
         tts_codec=_text("TTS_CODEC"),
         min_endpointing_delay=_number("MIN_ENDPOINTING_DELAY", 0.2),
+        max_call_minutes=_number("MAX_CALL_MINUTES", 10),
         database_url=_text("DATABASE_URL", "sqlite:///data/clinic.db"),
         livekit_url=_text("LIVEKIT_URL", ""),
         livekit_api_key=_text("LIVEKIT_API_KEY", ""),

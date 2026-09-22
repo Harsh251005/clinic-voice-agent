@@ -69,3 +69,11 @@ def test_unknown_doctor_rule(db):
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW)
     assert "Never answer about one\n  doctor as if they were another" in text
+
+
+def test_the_receptionist_says_it_is_automated(db):
+    # Callers must know they aren't talking to a person (the call page says it too).
+    s, clinic_id = db
+    text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW)
+    opening = text[text.index("Opening the call:"):text.index("How you speak:")]
+    assert "automated assistant" in opening and "ऑटोमेटेड असिस्टेंट" in opening

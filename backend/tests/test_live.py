@@ -66,7 +66,7 @@ async def test_speaks_first(agent):
         result = await s.start(agent, capture_run=True)
         await (
             result.expect.next_event(type="message")
-            .judge(llm, intent="greets the caller, names Demo Family Clinic, and offers help")
+            .judge(llm, intent="greets the caller, names Demo Family Clinic, says it is an automated assistant, and offers help")
         )
 
 

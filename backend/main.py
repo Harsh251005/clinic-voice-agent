@@ -20,6 +20,7 @@ import sys
 from livekit.agents import JobContext, WorkerOptions, cli
 
 from clinic_agent.agent import ClinicAgent
+from clinic_agent.call_limit import end_after
 from clinic_agent.config import ConfigError, load_settings
 from clinic_agent.context import clinic_now, load_clinic, local_clinic
 from clinic_agent.dispatch import AGENT_NAME, NoClinic, clinic_id_from
@@ -84,6 +85,13 @@ async def entrypoint(ctx: JobContext) -> None:
 
     session = build_session(cfg, text_only=TEXT_ONLY)
     await session.start(agent=ClinicAgent(instructions, tools), room=ctx.room)
+
+    limit = asyncio.create_task(end_after(session, ctx, cfg.max_call_minutes * 60))
+
+    async def _stop_limit() -> None:
+        limit.cancel()
+
+    ctx.add_shutdown_callback(_stop_limit)
 
 
 if __name__ == "__main__":
