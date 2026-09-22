@@ -7,7 +7,7 @@ appointment history. Inactive doctors are never offered to callers.
 import streamlit as st
 
 from clinic_agent.store import repo
-from dashboard import data, theme
+from dashboard import data, schedules, theme
 
 
 def render(clinic) -> None:
@@ -34,10 +34,10 @@ def render(clinic) -> None:
             with st.expander("Edit"):
                 _doctor_form(f"edit_{doc.id}", doc)
 
-    _doctor_form("add_doctor", None, clinic.id, title="Add a doctor")
+    _doctor_form("add_doctor", None, clinic.id, title="Add a doctor", colleagues=clinic.doctors)
 
 
-def _doctor_form(key: str, doc, clinic_id: int | None = None, title: str = "") -> None:
+def _doctor_form(key: str, doc, clinic_id: int | None = None, title: str = "", colleagues=()) -> None:
     with st.form(key, clear_on_submit=doc is None, border=doc is None):
         if title:
             st.markdown(f'<p class="card-title">{title}</p>', unsafe_allow_html=True)
@@ -48,6 +48,16 @@ def _doctor_form(key: str, doc, clinic_id: int | None = None, title: str = "") -
         slot = right.number_input(
             "Slot length (minutes)", min_value=5, max_value=120, step=5, value=doc.slot_minutes if doc else 15
         )
+        starting = {}
+        if doc is None:
+            # A new doctor starts with a full week to adjust, not an empty one.
+            starting = dict(schedules.PRESETS)
+            starting.update({f"Same as {d.name}": schedules.same_as(d) for d in colleagues if d.hours})
+            starting[schedules.NONE] = []
+            start_with = st.selectbox(
+                "Starting hours", list(starting), index=0,
+                help="Adjust them afterwards on the Weekly hours tab.",
+            )
         if st.form_submit_button("Save doctor" if doc else "Add doctor"):
             if not name.strip():
                 st.error("The doctor needs a name.")
@@ -57,6 +67,11 @@ def _doctor_form(key: str, doc, clinic_id: int | None = None, title: str = "") -
                 if doc:
                     repo.update_doctor(s, doc.id, **fields)
                 else:
-                    repo.add_doctor(s, clinic_id, **fields)
-            theme.flash(f"{fields['name']} saved")
+                    new = repo.add_doctor(s, clinic_id, **fields)
+                    repo.set_doctor_hours(s, new.id, starting[start_with])
+            if doc or not starting[start_with]:
+                theme.flash(f"{fields['name']} saved")
+            else:
+                # Assumed hours become bookable at once, so say so.
+                theme.flash(f"{fields['name']} added with {start_with}. Check them on the Weekly hours tab.")
             st.rerun()
