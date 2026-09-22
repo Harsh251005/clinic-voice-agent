@@ -32,6 +32,7 @@ from clinic_agent.store.migrations import SchemaOutdated
 from clinic_agent.store.repo import NotFound
 from clinic_agent.tools.booking import ClinicLink, booking_tools
 from clinic_agent.tools.call import end_call_tool
+from clinic_agent.tools.speech import keep_promises
 
 logger = logging.getLogger("clinic-agent")
 
@@ -84,6 +85,7 @@ async def entrypoint(ctx: JobContext) -> None:
     tools = [*booking_tools(link), end_call_tool()]
 
     session = build_session(cfg, text_only=TEXT_ONLY)
+    keep_promises(session, [t.info.name for t in tools if t.info.name != "end_call"])
     await session.start(agent=ClinicAgent(instructions, tools), room=ctx.room)
 
     limit = asyncio.create_task(end_after(session, ctx, cfg.max_call_minutes * 60))
