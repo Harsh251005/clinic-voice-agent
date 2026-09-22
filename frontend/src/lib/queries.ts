@@ -1,6 +1,7 @@
 "use client";
 // Data hooks: one place that knows the API's paths and cache keys.
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api, ApiError, unwrap, type Schemas } from "@/lib/api/client";
 
 export const keys = {
@@ -40,5 +41,34 @@ export function useDay(clinicId: number, day: string, includeCancelled: boolean)
       })),
     placeholderData: (previous) => previous, // keep the last day on screen while the next loads
     refetchInterval: 30_000, // bookings from calls appear without a reload
+  });
+}
+
+export function usePatterns() {
+  return useQuery({
+    queryKey: ["hour-patterns"],
+    queryFn: () => unwrap(api.GET("/api/hours/patterns")),
+    staleTime: Infinity, // fixed in code
+  });
+}
+
+/** A change to a clinic: toast on success, the API's own message on failure,
+ *  then refresh the clinic (and the viewer's clinic list, for renames). */
+export function useClinicChange<TArgs, TResult>(
+  clinicId: number,
+  change: (args: TArgs) => Promise<TResult>,
+  success?: string | ((result: TResult, args: TArgs) => string),
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: change,
+    onSuccess: (result, args) => {
+      if (success) toast.success(typeof success === "string" ? success : success(result, args));
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: keys.clinic(clinicId) }),
+        queryClient.invalidateQueries({ queryKey: keys.me }),
+      ]);
+    },
+    onError: (err) => toast.error(err.message),
   });
 }
