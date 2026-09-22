@@ -50,8 +50,19 @@ class Settings:
     # --- clinic data ---
     database_url: str
 
+    # --- LiveKit (the worker's CLI reads these itself; the call-link server
+    # signs join passes with them) ---
+    livekit_url: str
+    livekit_api_key: str
+    livekit_api_secret: str
+
     # --- call links ---
     public_base_url: str  # where the call-link server is reachable, no trailing slash
+    api_host: str
+    api_port: int
+    # Header carrying the caller's real IP when behind a proxy or tunnel
+    # (e.g. CF-Connecting-IP). Blank = the socket address; never trusted otherwise.
+    client_ip_header: str | None
 
 
 def require_key(value: str, name: str) -> str:
@@ -109,5 +120,11 @@ def load_settings() -> Settings:
         tts_codec=_text("TTS_CODEC"),
         min_endpointing_delay=_number("MIN_ENDPOINTING_DELAY", 0.2),
         database_url=_text("DATABASE_URL", "sqlite:///data/clinic.db"),
+        livekit_url=_text("LIVEKIT_URL", ""),
+        livekit_api_key=_text("LIVEKIT_API_KEY", ""),
+        livekit_api_secret=_text("LIVEKIT_API_SECRET", ""),
         public_base_url=_text("PUBLIC_BASE_URL", "http://localhost:8080").rstrip("/"),
+        api_host=_text("API_HOST", "127.0.0.1"),
+        api_port=int(_number("API_PORT", 8080)),
+        client_ip_header=_text("CLIENT_IP_HEADER"),
     )

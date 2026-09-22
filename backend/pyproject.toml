@@ -5,11 +5,13 @@ description = "Hindi/Hinglish voice receptionist for Indian clinics"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.20.0",
+    "fastapi>=0.141.1",
     "livekit-agents[sarvam,openai,elevenlabs]>=1.8.2",
     "psycopg[binary]>=3.3.6",
     "python-dotenv>=1.0.0",
     "sqlalchemy>=2.0",
     "streamlit>=1.64.0",
+    "uvicorn>=0.53.0",
 ]
 
 [tool.uv]
@@ -17,6 +19,7 @@ package = false
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
 ]

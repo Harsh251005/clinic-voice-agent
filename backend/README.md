@@ -78,6 +78,40 @@ Use plain `console` when you need to hear the voice.
 `LIVEKIT_*` values in `.env` and spend from the free tier's 1,000 agent-session
 minutes per month. `console` spends none of them.
 
+## Call links (browser calls)
+
+Until there are phone numbers, patients reach the receptionist through a link
+per clinic, shown on the dashboard's **Call link** tab:
+`PUBLIC_BASE_URL/call/<link name>`. It needs the worker running (`dev` or
+`start`) and the link server:
+
+```bash
+uv run python -m api     # serves /call/<link name> on API_HOST:API_PORT (default 127.0.0.1:8080)
+```
+
+1. The patient opens the link. The page shows the clinic and a call button.
+2. Tapping it asks the server for a **join pass**. The server looks the
+   clinic up by its link name and signs a short-lived LiveKit token for a new
+   private room (`call-<link name>-<random>`). The token lets the caller
+   publish only a microphone, allows 2 participants (caller + receptionist),
+   and dispatches `clinic-receptionist` with `{"clinic_id": N}`. The
+   signature is made with `LIVEKIT_API_SECRET`, so a caller can't change the
+   clinic.
+3. The browser joins with the pass, and LiveKit sends the receptionist in for
+   that clinic. If it hasn't joined within 20 s, the page says so.
+
+Limits against a shared or leaked link: 5 calls per caller per 10 minutes and
+30 per clinic per hour (`api/app.py`, in memory). Behind a tunnel or proxy
+every request looks like `127.0.0.1`, so set `CLIENT_IP_HEADER`
+(`CF-Connecting-IP` for Cloudflare Tunnel), otherwise all patients share one
+limit. The page pins the LiveKit client version with an integrity hash, and a
+strict Content-Security-Policy only allows our own origin and our LiveKit
+project.
+
+To let someone outside your machine call (a demo, a pilot), expose port 8080
+with a tunnel and set `PUBLIC_BASE_URL` to its https address. Browsers
+only allow the microphone on https or `localhost`.
+
 ## Dashboard
 
 Two pages for clinic staff:
@@ -128,6 +162,11 @@ streams it, proves both halves of the audio path. They do not measure end-to-end
 
 ```
 main.py                 entrypoint — console | dev | start
+api/                    call-link server: page + signed join pass (python -m api)
+├── app.py              routes, rate limits, security headers
+├── passes.py           the LiveKit join pass: room, grants, clinic dispatch
+├── limits.py           in-memory rate limiter
+├── templates/ static/  the call page (no build step; LiveKit client from a pinned CDN)
 └── clinic_agent/
     ├── config.py       every env var, read once, fails loudly at startup
     ├── prompts.py      persona rules + clinic facts built from the database per call
@@ -299,6 +338,8 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `TTS_LANGUAGE` | provider's | ElevenLabs auto-detects, which suits mixed Hindi/English; Sarvam defaults to `en-IN`. |
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
 | `PUBLIC_BASE_URL` | `http://localhost:8080` | Where the call-link server is reachable; the dashboard builds each clinic's link from it. Your tunnel's https address for a demo from outside. |
+| `API_HOST` / `API_PORT` | `127.0.0.1` / `8080` | Where the call-link server listens. `0.0.0.0` inside a container. |
+| `CLIENT_IP_HEADER` | blank | The header carrying the caller's IP behind a tunnel/proxy (`CF-Connecting-IP`, `X-Forwarded-For`), so rate limits stay per caller. Never trusted unless set. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
 
 ## Troubleshooting

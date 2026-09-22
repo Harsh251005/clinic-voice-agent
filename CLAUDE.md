@@ -36,6 +36,7 @@ uv run python main.py console --text  # typed, LLM-only: no STT/TTS built or bil
 uv run python main.py console --clinic 2  # pick a clinic when there are several
 uv run python main.py dev        # join rooms it is dispatched to, reloads on save
 uv run python main.py start      # production worker
+uv run python -m api             # call-link server: /call/<slug> page + join passes
 ```
 
 Prefer `console` for testing. `dev`/`start` need the three `LIVEKIT_*` values
@@ -64,6 +65,14 @@ The pipeline is split so each concern lives in exactly one module:
   stripped from argv before LiveKit's CLI) or the only clinic. Each job loads
   the clinic (`context.load_clinic`, off the event loop), builds instructions,
   builds a session and starts `ClinicAgent` in the room.
+- `api/` — FastAPI call-link server (browser calls until telephony).
+  `/call/<slug>` page; `POST /call/<slug>/pass` signs a LiveKit token for a
+  fresh room whose `RoomConfiguration` dispatches `AGENT_NAME` with
+  `dispatch.metadata_for(clinic_id)`: mic-only, 2 participants, 5-min TTL.
+  In-memory rate limits (per IP, per clinic); `CLIENT_IP_HEADER` names the
+  trusted proxy header (last entry used). Strict CSP; livekit-client pinned
+  with SRI. Reads data only via `repo`; fails fast on missing LiveKit
+  settings or old schema, like `main.py`.
 - `clinic_agent/config.py` — the **only** place that reads `os.environ`.
   Frozen `Settings` dataclass; a new setting means a field, a line in
   `load_settings()`, and an entry in `.env.example`.
