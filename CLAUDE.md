@@ -115,6 +115,9 @@ The pipeline is split so each concern lives in exactly one module:
 works against LiveKit's base classes. Swapping a vendor = add a builder to the
 matching `BUILDERS` dict + set `STT_PROVIDER` / `LLM_PROVIDER` /
 `TTS_PROVIDER` in `.env`. Unknown names fail at startup listing what exists.
+Both import rules (vendors → `providers/`, SQLAlchemy/Alembic → `store/`) are
+enforced by `tests/test_boundaries.py`; outside `store/`, type-hint sessions
+with `Session` / `Sessions` from `store/db.py`.
 
 ## Deliberate choices — don't "fix" these
 

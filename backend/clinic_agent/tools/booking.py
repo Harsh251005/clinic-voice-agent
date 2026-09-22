@@ -14,10 +14,10 @@ from datetime import date, time
 from typing import Literal
 
 from livekit.agents import ToolError, function_tool
-from sqlalchemy.orm import Session, sessionmaker
 
 from clinic_agent import booking
 from clinic_agent.context import clinic_now
+from clinic_agent.store.db import Sessions
 
 
 @dataclass(frozen=True)
@@ -26,7 +26,7 @@ class ClinicLink:
 
     clinic_id: int
     timezone: str
-    sessions: sessionmaker[Session]
+    sessions: Sessions
 
 
 def booking_tools(link: ClinicLink) -> list:

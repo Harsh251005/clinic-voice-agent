@@ -7,9 +7,8 @@ from __future__ import annotations
 
 from datetime import time
 
-from sqlalchemy.orm import Session
-
 from clinic_agent.store import repo
+from clinic_agent.store.db import Session
 
 MORNING = (time(10, 0), time(13, 0))
 EVENING = (time(17, 0), time(20, 0))
