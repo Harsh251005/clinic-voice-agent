@@ -16,12 +16,12 @@ import { TimeOff } from "@/components/setup/time-off";
 import { useClinic, useMe } from "@/lib/queries";
 
 const TABS = [
-  { id: "clinic", label: "Clinic", Panel: ClinicDetails },
-  { id: "link", label: "Call link", Panel: CallLink },
+  { id: "clinic", label: "Clinic details", Panel: ClinicDetails },
+  { id: "link", label: "Receptionist link", Panel: CallLink },
   { id: "doctors", label: "Doctors", Panel: Doctors },
   { id: "hours", label: "Weekly hours", Panel: Hours },
-  { id: "time-off", label: "Time off", Panel: TimeOff },
-  { id: "faq", label: "FAQ", Panel: Faq },
+  { id: "time-off", label: "Leave & holidays", Panel: TimeOff },
+  { id: "faq", label: "Common questions", Panel: Faq },
   { id: "team", label: "Team", Panel: Team, adminOnly: true },
 ] as const;
 
@@ -38,7 +38,7 @@ function Setup() {
 
   return (
     <>
-      <PageHeader title={clinic.data?.name ?? "Clinic setup"}
+      <PageHeader title={clinic.data?.name ?? "Clinic settings"}
         description="Everything the receptionist says about this clinic comes from these details." />
       {clinic.isError ? (
         <Alert variant="destructive"><AlertCircle /><AlertDescription>Couldn&apos;t load the clinic: {clinic.error.message}</AlertDescription></Alert>

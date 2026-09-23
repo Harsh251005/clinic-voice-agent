@@ -45,9 +45,9 @@ function problems(week: Day[]): string[] {
   return week.flatMap((d, i) => {
     if (!d.open) return [];
     const out: string[] = [];
-    if (d.e1 <= d.s1) out.push(`${DAYS[i]}: the sitting must end after it starts.`);
-    if (d.two && d.e2 <= d.s2) out.push(`${DAYS[i]}: the second sitting must end after it starts.`);
-    else if (d.two && d.s2 < d.e1) out.push(`${DAYS[i]}: the second sitting starts before the first one ends.`);
+    if (d.e1 <= d.s1) out.push(`${DAYS[i]}: the session must end after it starts.`);
+    if (d.two && d.e2 <= d.s2) out.push(`${DAYS[i]}: the second session must end after it starts.`);
+    else if (d.two && d.s2 < d.e1) out.push(`${DAYS[i]}: the second session starts before the first one ends.`);
     return out;
   });
 }
@@ -123,10 +123,10 @@ function WeekEditor({ clinic, doctor }: { clinic: Schemas["Clinic"]; doctor: Sch
       <Section title={`${doctor.name}'s week`}
         action={dirty ? <Badge className="bg-warning text-warning-foreground">Unsaved changes</Badge> : undefined}>
         {extra && (
-          <Alert className="mb-4"><TriangleAlert /><AlertDescription>Some days have more than two sittings. This table shows and saves the first two.</AlertDescription></Alert>
+          <Alert className="mb-4"><TriangleAlert /><AlertDescription>Some days have more than two sessions. This table shows and saves the first two.</AlertDescription></Alert>
         )}
         <div className="hidden grid-cols-[8rem_4rem_1fr_1fr_7rem_1fr_1fr] gap-3 pb-2 text-xs font-medium text-muted-foreground md:grid">
-          <span>Day</span><span>Open</span><span>From</span><span>To</span><span>Second sitting</span><span>From</span><span>To</span>
+          <span>Day</span><span>Open</span><span>From</span><span>To</span><span>Second session</span><span>From</span><span>To</span>
         </div>
         <div className="divide-y md:divide-y-0">
           {week.map((d, i) => (
@@ -138,8 +138,8 @@ function WeekEditor({ clinic, doctor }: { clinic: Schemas["Clinic"]; doctor: Sch
               <Time label={`${DAYS[i]} from`} value={d.s1} disabled={!d.open} onChange={(s1) => setDay(i, { s1 })} />
               <Time label={`${DAYS[i]} to`} value={d.e1} disabled={!d.open} onChange={(e1) => setDay(i, { e1 })} />
               <div className="col-span-2 flex items-center gap-2 md:col-span-1">
-                <Switch checked={d.two} disabled={!d.open} onCheckedChange={(two) => setDay(i, { two })} aria-label={`${DAYS[i]} second sitting`} />
-                <span className="text-sm text-muted-foreground md:hidden">Second sitting</span>
+                <Switch checked={d.two} disabled={!d.open} onCheckedChange={(two) => setDay(i, { two })} aria-label={`${DAYS[i]} second session`} />
+                <span className="text-sm text-muted-foreground md:hidden">Second session</span>
               </div>
               <Time label={`${DAYS[i]} second from`} value={d.s2} disabled={!d.open || !d.two} onChange={(s2) => setDay(i, { s2 })}
                 hidden={!d.open || !d.two} />

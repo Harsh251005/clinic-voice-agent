@@ -14,7 +14,7 @@ export function CallLink({ clinic }: { clinic: Schemas["Clinic"] }) {
   const [slug, setSlug] = useState(clinic.slug);
   const rename = useClinicChange(clinic.id, (next: string) =>
     unwrap(api.PUT("/api/clinics/{clinic_id}/slug", { params: { path: { clinic_id: clinic.id } }, body: { slug: next } })),
-    "Link name saved. The old link no longer works.",
+    "Web address saved. The old link no longer works.",
   );
 
   const copy = async () => {
@@ -32,7 +32,7 @@ export function CallLink({ clinic }: { clinic: Schemas["Clinic"] }) {
       <Section title="Share this link"
         description="Patients open it on their phone or computer and talk to the receptionist in the browser. Put it on your website, WhatsApp or Google listing.">
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Input readOnly value={clinic.call_link} className="font-mono text-sm" onFocus={(e) => e.target.select()} aria-label="Call link" />
+          <Input readOnly value={clinic.call_link} className="font-mono text-sm" onFocus={(e) => e.target.select()} aria-label="Receptionist link" />
           <div className="flex gap-2">
             <Button onClick={copy} className="flex-1 sm:flex-none">{copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy"}</Button>
             <Button variant="outline" asChild className="flex-1 sm:flex-none">
@@ -41,9 +41,9 @@ export function CallLink({ clinic }: { clinic: Schemas["Clinic"] }) {
           </div>
         </div>
       </Section>
-      <Section title="Link name">
+      <Section title="Web address">
         <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); rename.mutate(slug.trim().toLowerCase()); }}>
-          <Field id="slug" label="Link name" hint="Lowercase letters, digits and hyphens, e.g. sharma-skin.">
+          <Field id="slug" label="Web address" hint="The end of your link. Small letters, numbers and dashes, e.g. sharma-skin.">
             <Input id="slug" value={slug} onChange={(e) => setSlug(e.target.value)} className="font-mono" />
           </Field>
           <p className="flex items-start gap-2 text-sm text-warning-foreground">
@@ -51,7 +51,7 @@ export function CallLink({ clinic }: { clinic: Schemas["Clinic"] }) {
             Changing it stops the old link from working. Update it everywhere you shared it.
           </p>
           <div className="flex justify-end">
-            <Button type="submit" disabled={slug === clinic.slug || rename.isPending}>Save link name</Button>
+            <Button type="submit" disabled={slug === clinic.slug || rename.isPending}>Save web address</Button>
           </div>
         </form>
       </Section>

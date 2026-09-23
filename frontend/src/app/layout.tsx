@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "./providers";
+import { PRODUCT_NAME } from "@/lib/product";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Clinic Console",
-  description: "Set up your clinic's receptionist and see its appointments.",
+  title: { default: PRODUCT_NAME, template: `%s · ${PRODUCT_NAME}` },
+  description: "Your clinic's front desk: appointments, calls and the receptionist that answers them.",
   robots: { index: false, follow: false }, // a private staff tool
 };
 

@@ -87,9 +87,9 @@ function Row({ clinic, appt }: { clinic: Schemas["Clinic"]; appt: Appointment })
       </div>
       <div className="flex items-center gap-1.5">
         {appt.source === "voice" ? (
-          <Badge variant="secondary" className="bg-accent text-accent-foreground"><PhoneCall /> Call</Badge>
+          <Badge variant="secondary" className="bg-accent text-accent-foreground"><PhoneCall /> By receptionist</Badge>
         ) : (
-          <Badge variant="outline"><UserRound /> Staff</Badge>
+          <Badge variant="outline"><UserRound /> By staff</Badge>
         )}
         {cancelled && <Badge className="bg-warning text-warning-foreground">Cancelled</Badge>}
       </div>

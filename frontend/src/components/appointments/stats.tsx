@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 export function Stats({ booked, onCalls, week }: { booked: number; onCalls: number; week: number }) {
   const items = [
     { label: "Booked this day", value: booked },
-    { label: "Booked on calls", value: onCalls, hint: "by the receptionist" },
+    { label: "Booked by receptionist", value: onCalls, hint: "from calls" },
     { label: "Next 7 days", value: week, hint: "from this day" },
   ];
   return (

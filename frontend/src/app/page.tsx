@@ -15,8 +15,8 @@ function Home() {
     if (!me.data) return null;
     const { clinics, is_admin } = me.data;
     const last = lastClinic();
-    if (last && clinics.some((c) => c.id === last)) return `/clinics/${last}/appointments`;
-    if (clinics.length) return `/clinics/${clinics[0].id}/appointments`;
+    if (last && clinics.some((c) => c.id === last)) return `/clinics/${last}/today`;
+    if (clinics.length) return `/clinics/${clinics[0].id}/today`;
     return is_admin ? "/new-clinic" : null;
   })();
 

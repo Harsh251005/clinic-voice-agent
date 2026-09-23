@@ -10,13 +10,22 @@ async function pick(page: Page, label: string, option: string) {
   await page.getByRole("option", { name: option, exact: true }).click();
 }
 
-test("home opens the clinic's appointments for today", async ({ page }) => {
+test("home opens the clinic's Today page", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveURL(/\/clinics\/1\/appointments/);
+  await expect(page).toHaveURL(/\/clinics\/1\/today/);
+  await expect(page.getByRole("heading", { name: /^Good (morning|afternoon|evening)$/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Doctors today" })).toBeVisible();
+  await expect(page.getByText("Riya Sharma").first()).toBeVisible();
+  await expect(page.getByText("98200 12345").first()).toBeVisible();
+  await expect(page.getByText("Test mode: sign-in is off").first()).toBeVisible();
+});
+
+test("Today shows the receptionist is ready and the appointments page is one click away", async ({ page }) => {
+  await page.goto("/clinics/1/today");
+  await expect(page.getByText("Ready. It answers from your clinic's details.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Try a call" })).toHaveAttribute("href", /\/call\/demo-family-clinic$/);
+  await page.getByRole("link", { name: "Open diary" }).click();
   await expect(page.getByRole("heading", { name: "Appointments" })).toBeVisible();
-  await expect(page.getByText("Riya Sharma")).toBeVisible();
-  await expect(page.getByText("98200 12345")).toBeVisible();
-  await expect(page.getByText("Sign-in is off")).toBeVisible();
 });
 
 test("moving between days keeps the day in the URL", async ({ page }) => {
@@ -50,14 +59,14 @@ test("staff book a walk-in, then change it", async ({ page }) => {
   await page.getByRole("button", { name: "Book appointment" }).click();
   await expect(page.getByText(/^Booked: Meena Joshi with Dr. Asha Mehta/)).toBeVisible();
   await expect(page.getByText("Tooth pain since Monday")).toBeVisible();
-  await expect(page.getByText("Staff", { exact: true })).toBeVisible();
+  await expect(page.getByText("By staff", { exact: true })).toBeVisible();
 
   const row = page.locator("div").filter({ hasText: /^11:05 am/ }).first();
   await row.getByRole("button", { name: "Edit" }).click();
   await page.getByLabel("Patient name").fill("Meena R Joshi");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText(/^Saved: Meena R Joshi/)).toBeVisible();
-  await expect(page.getByText("Meena R Joshi")).toBeVisible();
+  await expect(page.getByText("Meena R Joshi", { exact: true })).toBeVisible();
 });
 
 test("a double booking is refused with a reason", async ({ page }) => {
@@ -78,7 +87,7 @@ test("a new doctor starts with the common week", async ({ page }) => {
   await expect(page.getByText(/Dr. Neha Kulkarni added with Mon–Sat/)).toBeVisible();
   // Exact name: the add form's hidden option list also mentions "Same as Dr. Neha Kulkarni".
   const card = page.locator('[data-slot="card"]').filter({ has: page.getByText("Dr. Neha Kulkarni", { exact: true }) });
-  await expect(card).toContainText("Monday to Saturday 10:00-13:00 and 17:00-20:00; Sunday not available");
+  await expect(card).toContainText("Mon–Sat 10 am–1 pm, 5–8 pm · Sun closed");
 });
 
 test("a doctor can be removed for good, after a warning", async ({ page }) => {
@@ -105,11 +114,11 @@ test("weekly hours: apply a pattern, see it described, save", async ({ page }) =
   await expect(page.getByText("Unsaved changes")).toBeHidden();
 });
 
-test("weekly hours: overlapping sittings are explained and can't be saved", async ({ page }) => {
+test("weekly hours: overlapping sessions are explained and can't be saved", async ({ page }) => {
   await page.goto(`${SETUP}?tab=hours`);
   await pick(page, "Doctor", "Dr. Asha Mehta");
   await page.getByLabel("Tuesday second from").fill("12:00");
-  await expect(page.getByText("Tuesday: the second sitting starts before the first one ends.")).toBeVisible();
+  await expect(page.getByText("Tuesday: the second session starts before the first one ends.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save hours" })).toBeDisabled();
   await page.getByRole("button", { name: "Discard changes" }).click();
   await expect(page.getByText("Unsaved changes")).toBeHidden();
@@ -124,10 +133,10 @@ test("weekly hours: copy Monday to the other open days", async ({ page }) => {
   await expect(page.getByLabel("Sunday from", { exact: true })).toBeDisabled(); // closed days stay closed
 });
 
-test("FAQ answers can be added and removed", async ({ page }) => {
+test("answers to common questions can be added and removed", async ({ page }) => {
   await page.goto(`${SETUP}?tab=faq`);
-  await page.getByLabel("Question").fill("Do you do home visits?");
-  await page.getByLabel("Answer").fill("No, only at the clinic.");
+  await page.getByLabel("Question", { exact: true }).fill("Do you do home visits?");
+  await page.getByLabel("Answer", { exact: true }).fill("No, only at the clinic.");
   await page.getByRole("button", { name: "Add answer" }).click();
   await expect(page.getByText("Do you do home visits?")).toBeVisible();
   await page.getByRole("button", { name: 'Remove "Do you do home visits?"' }).click();
@@ -143,15 +152,15 @@ test("a clinic holiday can be added", async ({ page }) => {
   await expect(page.getByText("Whole clinic", { exact: true })).toBeVisible();
 });
 
-test("a bad link name is explained, not saved", async ({ page }) => {
+test("a bad web address is explained, not saved", async ({ page }) => {
   await page.goto(`${SETUP}?tab=link`);
-  // A textbox: the tab panel is also named "Call link", after its tab.
-  await expect(page.getByRole("textbox", { name: "Call link" })).toHaveValue(/\/call\/demo-family-clinic$/);
-  await page.getByLabel("Link name").fill("bad name");
-  await page.getByRole("button", { name: "Save link name" }).click();
+  // A textbox: the tab panel is also named "Receptionist link", after its tab.
+  await expect(page.getByRole("textbox", { name: "Receptionist link" })).toHaveValue(/\/call\/demo-family-clinic$/);
+  await page.getByLabel("Web address").fill("bad name");
+  await page.getByRole("button", { name: "Save web address" }).click();
   await expect(page.getByText(/3-60 characters/)).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Link name")).toHaveValue("demo-family-clinic");
+  await expect(page.getByLabel("Web address")).toHaveValue("demo-family-clinic");
 });
 
 test("an admin creates a clinic and lands on its doctors", async ({ page }) => {

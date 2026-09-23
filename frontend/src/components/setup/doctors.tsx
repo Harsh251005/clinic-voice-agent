@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
+import { weekText } from "@/lib/dates";
 import { useClinicChange, usePatterns } from "@/lib/queries";
 import { Field } from "./field";
 import { Section } from "./section";
@@ -49,19 +50,19 @@ export function Doctors({ clinic }: { clinic: Schemas["Clinic"] }) {
                     <p className="text-sm text-muted-foreground">{d.specialty || "No specialty"}</p>
                   </div>
                 </div>
-                {d.active ? <Badge className="bg-accent text-accent-foreground">Taking bookings</Badge> : <Badge variant="outline">Inactive</Badge>}
+                {d.active ? <Badge className="bg-accent text-accent-foreground">Accepting bookings</Badge> : <Badge variant="outline">Bookings paused</Badge>}
               </div>
               <div className="flex flex-wrap gap-1.5">
                 <Badge variant="secondary">₹{d.fee}</Badge>
                 <Badge variant="secondary">{d.slot_minutes} min slots</Badge>
                 {d.upcoming > 0 && <Badge variant="outline">{bookings(d.upcoming)}</Badge>}
               </div>
-              <p className="text-sm text-muted-foreground">{d.hours_text}</p>
+              <p className="text-sm text-muted-foreground">{weekText(d.hours)}</p>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setEditing(d)}><Pencil /> Edit</Button>
                 <Button variant="ghost" size="sm" disabled={update.isPending}
                   onClick={() => update.mutate({ id: d.id, body: { active: !d.active } })}>
-                  <Power /> {d.active ? "Deactivate" : "Activate"}
+                  <Power /> {d.active ? "Pause bookings" : "Resume bookings"}
                 </Button>
                 <RemoveDoctor clinicId={clinic.id} doctor={d} />
               </div>
@@ -178,7 +179,7 @@ function DoctorForm({ initial, extra, submitLabel, pending, onSubmit }: {
       <Field id={`${id}-fee`} label="Consultation fee (₹)">
         <Input id={`${id}-fee`} type="number" min={0} step={50} required value={f.fee} onChange={(e) => set({ fee: Number(e.target.value) })} />
       </Field>
-      <Field id={`${id}-slot`} label="Slot length (minutes)">
+      <Field id={`${id}-slot`} label="Time per patient (minutes)">
         <Input id={`${id}-slot`} type="number" min={5} max={120} step={5} required value={f.slot_minutes} onChange={(e) => set({ slot_minutes: Number(e.target.value) })} />
       </Field>
       {extra && <div className="md:col-span-2">{extra}</div>}
