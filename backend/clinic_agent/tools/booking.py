@@ -95,7 +95,7 @@ def booking_tools(link: ClinicLink) -> list:
             caller_confirmed: True only if you read back the doctor, day, time,
                 name and number and the caller clearly said yes.
             reason: Why the patient is coming, briefly in the caller's own words
-                (e.g. "आँखों से धुंधला दिखता है", "दाँत में दर्द"), for the clinic's
+                (e.g. "Blurred vision from past 2 days", "Pain in teeth"), for the clinic's
                 staff. Empty if the caller didn't want to say.
         """
         if not caller_confirmed:
