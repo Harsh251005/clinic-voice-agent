@@ -329,6 +329,14 @@ write the same tables through `store/repo.py`.
   reply after the tool, and the call ended in silence when that reply was
   empty or interrupted.) Hidden during the greeting; a caller who only says
   thanks is asked "anything else?" first.
+- **The voice gets whole sentences.** The reply streams from the model a few
+  words at a time; Sarvam voices each piece it is handed as one take, so a
+  piece cut mid-sentence changed the tone halfway through. LiveKit's own
+  splitter doesn't know the Hindi full stop "।", so a Hindi reply went out
+  as one block and Sarvam re-cut it every 150 characters wherever that
+  landed. `providers/sentences.py` cuts at । ? ! . first ("Dr." and "5.30"
+  aren't ends), a sentence over 220 characters at its last comma, and only
+  then at a space; Sarvam's `max_chunk_length` is raised so it never re-cuts.
 - **No dead air around a lookup.** The model says a short line ("ठीक है,
   मैं चेक करके बताती हूँ") in the same reply as a booking tool call, so it
   plays at once. If it didn't, the tool says one itself in the caller's

@@ -28,6 +28,24 @@ def test_sarvam_defaults(env):
     assert t.sample_rate == 24000
 
 
+def test_sarvam_voice_gets_whole_sentences(env):
+    # Sarvam voices each piece it gets as one take; pieces cut mid-sentence
+    # made the tone change halfway through. Ours cut at "।", and Sarvam must
+    # not re-cut them.
+    import inspect
+
+    from livekit.plugins.sarvam import tts as sarvam_tts
+
+    from clinic_agent.providers.sentences import MAX_PIECE, SentenceTokenizer
+
+    t = build_tts(load_settings())
+    assert isinstance(t._opts.word_tokenizer, SentenceTokenizer)
+    assert t._opts.max_chunk_length >= MAX_PIECE
+    # The plugin has no argument for its splitter; this fails if an upgrade
+    # stops reading the option we set, instead of silently reverting.
+    assert "self._opts.word_tokenizer" in inspect.getsource(sarvam_tts.SynthesizeStream._run)
+
+
 def test_openai_llm(env):
     env.setenv("LLM_PROVIDER", "openai")
     env.setenv("OPENAI_API_KEY", "sk-test")
