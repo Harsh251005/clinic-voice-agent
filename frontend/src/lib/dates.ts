@@ -38,3 +38,62 @@ export function toDate(day: string): Date {
 export function fromDate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
+
+/** "10 am", "5:30 pm" from "10:00", "17:30" or "17:30:00". Staff read
+ *  12-hour times; 24-hour clocks stay internal. */
+export function time12(hhmm: string): string {
+  const [h, m] = hhmm.slice(0, 5).split(":").map(Number);
+  const suffix = h < 12 ? "am" : "pm";
+  const hour = ((h + 11) % 12) + 1;
+  return m ? `${hour}:${String(m).padStart(2, "0")} ${suffix}` : `${hour} ${suffix}`;
+}
+
+/** "10 am–1 pm", or "5–8 pm" when both ends share am/pm. */
+export function span12(start: string, end: string): string {
+  const a = time12(start), b = time12(end);
+  const [aNum, aSuffix] = a.split(" "), [, bSuffix] = b.split(" ");
+  return aSuffix === bSuffix ? `${aNum}–${b}` : `${a}–${b}`;
+}
+
+/** The clinic's clock right now: its date, weekday (0 = Monday) and "HH:MM". */
+export function nowIn(timezone: string): { day: string; weekday: number; time: string } {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date()).map((p) => [p.type, p.value]),
+  );
+  const day = `${parts.year}-${parts.month}-${parts.day}`;
+  return { day, weekday: weekdayOf(day), time: `${parts.hour}:${parts.minute}` };
+}
+
+/** 0 = Monday ... 6 = Sunday, as the API numbers weekdays. */
+export function weekdayOf(day: string): number {
+  return (new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7;
+}
+
+const SHORT_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+type Sitting = { weekday: number; start: string; end: string };
+
+/** A doctor's week as staff would say it: "Mon–Sat 10 am–1 pm, 5–8 pm · Sun closed". */
+export function weekText(sittings: Sitting[]): string {
+  if (!sittings.length) return "No hours set";
+  const dayText = (d: number) =>
+    sittings.filter((s) => s.weekday === d)
+      .sort((a, b) => a.start.localeCompare(b.start))
+      .map((s) => span12(s.start, s.end)).join(", ");
+  const groups: { from: number; to: number; text: string }[] = [];
+  for (let d = 0; d < 7; d++) {
+    const text = dayText(d);
+    const last = groups.at(-1);
+    if (last && last.text === text) last.to = d;
+    else groups.push({ from: d, to: d, text });
+  }
+  return groups
+    .map(({ from, to, text }) => {
+      const days = from === to ? SHORT_DAYS[from] : `${SHORT_DAYS[from]}–${SHORT_DAYS[to]}`;
+      return `${days} ${text || "closed"}`;
+    })
+    .join(" · ");
+}

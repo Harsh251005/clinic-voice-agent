@@ -35,7 +35,7 @@ export default function NewClinicPage() {
   if (me.isError) return <LoadError onRetry={() => me.refetch()} />;
   if (me.data === null) return <SignIn />;
 
-  const back = me.data.clinics[0] ? `/clinics/${me.data.clinics[0].id}/appointments` : null;
+  const back = me.data.clinics[0] ? `/clinics/${me.data.clinics[0].id}/today` : null;
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 md:py-12">
       <div className="mb-8 flex items-center justify-between">

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api/client";
+import { PRODUCT_NAME } from "@/lib/product";
 import { Brand } from "./brand";
 
 export function CenteredCard({ title, description, children }: { title: string; description?: ReactNode; children?: ReactNode }) {
@@ -80,7 +81,7 @@ export function ClinicNotFound() {
 
 export function LoadError({ onRetry }: { onRetry: () => void }) {
   return (
-    <CenteredCard title="Can't reach the dashboard" description="The server didn't answer. Check that it's running, then try again.">
+    <CenteredCard title="Can't connect" description={`We couldn't reach ${PRODUCT_NAME}. Check your internet connection, then try again.`}>
       <Button className="w-full" onClick={onRetry}>Try again</Button>
     </CenteredCard>
   );

@@ -82,7 +82,7 @@ minutes per month. `console` spends none of them.
 ## Call links (browser calls)
 
 Until there are phone numbers, patients reach the receptionist through a link
-per clinic, shown on the dashboard's **Call link** tab:
+per clinic, shown on the dashboard's **Receptionist link** tab:
 `PUBLIC_BASE_URL/call/<link name>`. It needs the worker running (`dev` or
 `start`) and the link server:
 
@@ -140,11 +140,18 @@ in `repo.py`.
 
 ## Dashboard (what staff can do)
 
-The screens are in `../frontend/` (run instructions in its README); every
-action below is an `/api` endpoint here.
+The dashboard is called **ClinicDesk** (one constant,
+`frontend/src/lib/product.ts`). The screens are in `../frontend/` (run
+instructions in its README); every action below is an `/api` endpoint here.
 
+- **Today** is the home page: whether the clinic is open right now (from the
+  doctors' hours, leave and holidays), the next patient, each doctor's day
+  with the patient in the chair marked, bookings that need a call to the
+  patient, and the receptionist's setup checklist (address and phone,
+  doctors, their hours, common questions) with *Try a call* and *Copy link*.
+  All times are shown as 12-hour clock times.
 - **Appointments**, one day at a time, grouped by doctor, each tagged
-  *Call* (booked by the agent) or *Staff*, with the reason for the visit.
+  *By receptionist* or *By staff*, with the reason for the visit.
   Counters for the day, bookings from calls, and the next seven days.
 - **Staff have the final say.** *New appointment* books a walk-in or a
   booking taken on the clinic's own phone; *Edit* on any row changes the
@@ -189,7 +196,7 @@ action below is an `/api` endpoint here.
   account no clinic added gets a "No clinic yet" screen. Adding someone sends
   no email: give them the dashboard's address yourself.
 - `DASHBOARD_LOGIN=off` skips sign-in and makes everyone an admin, with a
-  warning in the sidebar. Local development only.
+  *Test mode* note in the sidebar. Local development only.
 
 ### Setting up Google sign-in
 
@@ -197,7 +204,7 @@ Once per deployment, in the Google account that will own the login (about
 ten minutes):
 
 1. [console.cloud.google.com](https://console.cloud.google.com) → create a
-   project (e.g. "Clinic Console").
+   project (e.g. "ClinicDesk").
 2. **Google Auth Platform** → **Branding**: app name and a support email.
    **Audience**: *External*. While the app is in *Testing*, only the Google
    accounts listed under **Test users** can sign in (up to 100): add yours and
@@ -347,7 +354,7 @@ write the same tables through `store/repo.py`.
   10–1 and 5–8). **Time off** with no doctor is a whole-clinic holiday.
 - **Each clinic has a link name** (`slug`, e.g. `sharma-skin-clinic`), made
   from its name when created, `-2`, `-3` if taken, and editable on the
-  dashboard's **Call link** tab. Its call link is `PUBLIC_BASE_URL/call/<slug>`.
+  dashboard's **Receptionist link** tab. Its call link is `PUBLIC_BASE_URL/call/<slug>`.
   Patients see the slug, never the database id. Renaming it breaks the old
   link.
 - **A patient is a phone number plus a name**, so one phone can hold a whole

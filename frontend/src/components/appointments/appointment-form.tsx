@@ -97,7 +97,7 @@ function AppointmentForm({ clinic, day, editing, onDone }: {
   });
 
   if (!doctors.length) {
-    return <p className="text-sm text-muted-foreground">Add a doctor on the Clinic setup page first.</p>;
+    return <p className="text-sm text-muted-foreground">Add a doctor in Clinic settings first.</p>;
   }
   return (
     <form className="grid gap-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
