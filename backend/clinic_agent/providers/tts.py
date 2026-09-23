@@ -11,19 +11,28 @@ from livekit.agents import tts
 from livekit.plugins import elevenlabs, sarvam
 
 from clinic_agent.config import Settings, require_key
+from clinic_agent.providers.sentences import MAX_PIECE, SentenceTokenizer
 
 
 def _sarvam(cfg: Settings) -> tts.TTS:
     # The plugin defaults to mp3, which costs a decode on every chunk;
     # linear16 hands LiveKit raw PCM instead. Speaker must be a bulbul:v3 voice.
-    return sarvam.TTS(
+    voice = sarvam.TTS(
         model=cfg.tts_model or "bulbul:v3",
         speaker=cfg.tts_speaker or "suhani",
         target_language_code=cfg.tts_language or "en-IN",
         speech_sample_rate=cfg.tts_sample_rate or 24000,
         output_audio_codec=cfg.tts_codec or "linear16",
+        # Sarvam re-cuts any text longer than this, wherever the count lands,
+        # and voices each part as a new take. Ours arrive already cut at
+        # sentence ends (sentences.py), so it must never cut them again.
+        max_chunk_length=max(500, MAX_PIECE),
         api_key=require_key(cfg.sarvam_api_key, "SARVAM_API_KEY"),
     )
+    # The plugin has no argument for its splitter and hard-codes LiveKit's,
+    # which doesn't know the Hindi full stop "।". test_providers guards this.
+    voice._opts.word_tokenizer = SentenceTokenizer()
+    return voice
 
 
 def _elevenlabs(cfg: Settings) -> tts.TTS:
