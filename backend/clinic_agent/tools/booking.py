@@ -94,9 +94,10 @@ def booking_tools(link: ClinicLink) -> list:
             patient_phone: The caller's 10-digit mobile number.
             caller_confirmed: True only if you read back the doctor, day, time,
                 name and number and the caller clearly said yes.
-            reason: Why the patient is coming, briefly in the caller's own words
-                (e.g. "Blurred vision from past 2 days", "Pain in teeth"), for the clinic's
-                staff. Empty if the caller didn't want to say.
+            reason: Why the patient is coming, for the clinic's staff. Always
+                short, plain English in Roman letters, translated from whatever
+                the caller said, never Devanagari (e.g. "Blurred vision for 2
+                days", "Tooth pain"). Empty if the caller didn't want to say.
         """
         if not caller_confirmed:
             raise ToolError(

@@ -163,10 +163,11 @@ instructions in its README); every action below is an `/api` endpoint here.
   message names who holds the time. A cancelled booking can't be moved
   (book a new one), but its details can still be corrected. The patient is
   never told automatically.
-- **The reason for the visit** ("आँखों से धुंधला दिखता है") is asked for on
-  the call and shown on the row; staff can add or change it. It is health
+- **The reason for the visit** is asked for on the call and filed in short
+  English, whatever language the caller used ("आँखों से धुंधला दिखता है" →
+  "Blurred vision"), since the dashboard is English only. It is shown on the row; staff can add or change it. It is health
   information: shown to the clinic, never written to logs.
-- **Clinic setup**: details, booking rules, the call link, doctors, weekly
+- **Clinic settings**: details, booking rules, the receptionist link, doctors, weekly
   hours (split shifts), leave and holidays, FAQ answers, and (admins) the
   team. Everything the agent knows about a clinic is entered here.
 - **A new doctor starts with hours**, not an empty week: *Starting hours*

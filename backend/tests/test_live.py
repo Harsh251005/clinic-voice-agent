@@ -241,6 +241,30 @@ async def test_booking_flow_reads_back_before_booking(session):
         assert b["patient_phone"].replace(" ", "")[-10:] == "9876543210"
 
 
+
+async def test_visit_reason_is_written_in_english(session):
+    """Staff read English: a reason told in Hindi is stored translated, in Roman letters."""
+    from livekit.agents.voice.run_result import mock_tools
+
+    async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
+        return SLOTS
+
+    async def book_appointment(**kwargs):
+        return "Booked, appointment number 1: Dr. Asha Mehta, Tuesday 22 September 2026 at 17:00, for Ravi, mobile 9876543210."
+
+    with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots, "book_appointment": book_appointment}):
+        result = await session.run(user_input=(
+            "कल शाम पाँच बजे आशा मेहता जी के साथ अपॉइंटमेंट चाहिए। दो दिन से बुखार और खाँसी है। "
+            "नाम रवि, नंबर नौ आठ सात छह पाँच चार तीन दो एक शून्य"
+        ))
+        for _ in range(3):  # it may confirm the slot, then read back, before booking
+            if booked := _calls(result, "book_appointment"):
+                break
+            result = await session.run(user_input="हाँ, सही है, बुक कर दीजिए")
+        (b,) = booked
+        assert b.get("reason"), "the reason the caller gave was dropped"
+        assert b["reason"].isascii(), f"reason not in English: {b['reason']!r}"
+
 # ---------- ending the call (tool mocked: no room to delete in a test) ----------
 
 async def test_hangs_up_when_caller_is_done_but_not_when_they_ask_to_wait(session):

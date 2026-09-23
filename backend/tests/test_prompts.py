@@ -77,3 +77,11 @@ def test_the_receptionist_says_it_is_automated(db):
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW)
     opening = text[text.index("Opening the call:"):text.index("How you speak:")]
     assert "automated assistant" in opening and "ऑटोमेटेड असिस्टेंट" in opening
+
+
+def test_visit_reason_is_asked_for_in_english():
+    # The dashboard is English only: the agent speaks Hindi but files the reason in English.
+    from clinic_agent.prompts import RULES
+
+    rules = " ".join(RULES.split())
+    assert "always write it in short, plain English in Roman letters" in rules
