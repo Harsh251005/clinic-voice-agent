@@ -210,9 +210,16 @@ async def _transcribe(stt_, frames) -> str:
 # ---------- booking conversation (tools mocked) ----------
 
 SLOTS = (
-    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times 17:00 to 19:45, "
-    "every 15 minutes (12 in all); suggest first 17:00, 17:15, 17:30."
+    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - evening: 17:00, 17:15, 17:30, "
+    "17:45, 18:00, 18:15, 18:30, 18:45, 19:00, 19:15, 19:30, 19:45 (12 in all); "
+    "suggest first 17:00, 17:15, 17:30."
 )
+
+
+def _reply(result):
+    """The agent's last message in a turn: its answer, not the "एक सेकंड"
+    it says before a tool."""
+    return result.expect[-1].is_message(role="assistant")
 
 
 def _calls(result, name):
@@ -223,6 +230,29 @@ def _calls(result, name):
         for e in result.events
         if e.type == "function_call" and e.item.name == name
     ]
+
+
+# A whole day with gaps, as find_available_slots lists it.
+GAPPY_DAY = (
+    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - morning: 10:00, 10:15, 11:30; "
+    "afternoon: 12:30, 14:00, 16:45; evening: 17:00, 18:30 (8 in all); suggest first 10:00, 10:15, 11:30."
+)
+
+
+async def test_afternoon_means_twelve_to_five_named_one_by_one(session):
+    from livekit.agents.voice.run_result import mock_tools
+
+    async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
+        return GAPPY_DAY
+
+    with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots}):
+        r = await session.run(user_input="आशा मेहता जी का कल दोपहर में कोई टाइम खाली है?")
+        await _reply(r).judge(
+            session.judge,
+            intent="offers afternoon times only from 12:30, 2:00 and 4:45 (any of them, as words); "
+            "offers no morning time (10:00, 10:15, 11:30) and no evening time (5:00, 6:30); "
+            "does not describe a stretch such as 'eleven to four' or 'twelve to five'",
+        )
 
 
 async def test_booking_flow_reads_back_before_booking(session):
@@ -243,13 +273,18 @@ async def test_booking_flow_reads_back_before_booking(session):
         assert args["date"] == "2026-09-22"  # "kal" resolved from the date in CLINIC FACTS
         assert "asha" in args.get("doctor_name", "").lower()
         assert args.get("part_of_day") == "evening"
-        await r1.expect.contains_message(role="assistant").judge(
-            session.judge, intent="offers only times among 17:00, 17:15 and 17:30"
+        await _reply(r1).judge(
+            session.judge,
+            intent="offers a few evening times, each one of the free times listed (17:00 to 19:45 "
+            "in 15-minute steps), spoken the everyday way such as 'पाँच बजे' or 'साढ़े पाँच', "
+            "never as 'सत्रह'",
         )
 
-        r2 = await session.run(user_input="पाँच बजे ठीक है। नाम रवि, नंबर नौ आठ सात छह पाँच चार तीन दो एक शून्य")
+        r2 = await session.run(
+            user_input="पाँच बजे ठीक है। बुखार है। नाम रवि, नंबर नौ आठ सात छह पाँच चार तीन दो एक शून्य"
+        )
         assert _calls(r2, "book_appointment") == [], "booked before reading back"
-        await r2.expect.contains_message(role="assistant").judge(
+        await _reply(r2).judge(
             session.judge,
             intent="reads back doctor, Tuesday, five o'clock, the name Ravi and the number, and asks if it is correct",
         )
@@ -305,17 +340,24 @@ async def test_hangs_up_when_caller_is_done_but_not_when_they_ask_to_wait(sessio
 async def test_cancel_flow_looks_up_reads_back_then_cancels(session):
     from livekit.agents.voice.run_result import mock_tools
 
-    async def find_my_appointments(patient_phone: str):
+    async def find_my_appointments(patient_phone: str, patient_name: str):
         return "Appointment 7: Dr. Asha Mehta, Tuesday 22 September 2026 at 17:00, for Ravi."
 
-    async def cancel_appointment(appointment_id: int, patient_phone: str, caller_confirmed: bool):
+    async def cancel_appointment(appointment_id: int, patient_phone: str, patient_name: str, caller_confirmed: bool):
         return "Cancelled appointment 7: Dr. Asha Mehta, Tuesday 22 September 2026 at 17:00."
 
     with mock_tools(ClinicAgent, {
         "find_my_appointments": find_my_appointments, "cancel_appointment": cancel_appointment,
     }):
-        r1 = await session.run(user_input="मुझे अपना अपॉइंटमेंट कैंसल करना है, नंबर 9876543210")
-        assert len(_calls(r1, "find_my_appointments")) == 1
+        r0 = await session.run(user_input="मुझे अपना अपॉइंटमेंट कैंसल करना है, नंबर 9876543210")
+        assert _calls(r0, "find_my_appointments") == [], "looked up by the number alone"
+        await _reply(r0).judge(
+            session.judge, intent="asks for the patient's name"
+        )
+
+        r1 = await session.run(user_input="रवि")
+        (found,) = _calls(r1, "find_my_appointments")
+        assert found["patient_name"].strip().lower().startswith("ravi")  # Roman letters
         assert _calls(r1, "cancel_appointment") == [], "cancelled before reading back"
 
         r2 = await session.run(user_input="हाँ, कैंसल कर दीजिए")

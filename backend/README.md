@@ -297,10 +297,15 @@ write the same tables through `store/repo.py`.
   there, it says it doesn't know. Edits in the dashboard apply from the next call.
 - **Booking** (two tools, rules in `booking.py`):
   - `find_available_slots(date, doctor?, part_of_day?)` returns **every**
-    free start time that day per doctor, as ranges ("10:00 to 12:45, 17:00
-    to 19:45, every 15 minutes"), and marks the clinic's "free times offered
-    at once" as the ones to suggest first. The agent suggests those, and
-    answers "anything later / in the evening?" from the full list. With nothing free it says why (clinic
+    free start time that day per doctor, **one by one** under fixed parts of
+    the day: morning before 12:00, afternoon 12:00 to before 17:00, evening
+    17:00 on ("morning: 10:00, 10:15, 11:30; afternoon: 12:30, 14:00"). It
+    marks the clinic's "free times offered at once" as the ones to suggest
+    first. The agent suggests those, and answers "anything later / in the
+    afternoon?" from the full list, offering only the times under that label
+    and never summing them up as a range. Ranges used to hide booked times
+    inside them ("10:00 to 13:30" with 11:00 taken), and the agent offered
+    those. 24-hour times are spoken the everyday way ("शाम पाँच बजे"). With nothing free it says why (clinic
     closed, doctor on leave, doesn't sit that day or that part of the day, no
     times left today, fully booked) and gives the next free day.
   - `book_appointment(...)` also takes the caller's own words for why they
@@ -310,16 +315,20 @@ write the same tables through `store/repo.py`.
     turns a lost race into "just taken — offer these instead".
   - Database work runs in a worker thread so a slow query never stalls audio.
     Tool errors reach the LLM as plain sentences it can relay.
-- **Cancelling and moving** (three more tools): `find_my_appointments` looks
-  bookings up by the mobile number they were made with; `cancel_appointment`
-  and `reschedule_appointment` act only on the caller's own upcoming booking
-  and only with `caller_confirmed` after a read-back. A move is one database
+- **Cancelling and moving** (three more tools): `find_my_appointments` needs
+  the mobile number **and the patient's name**, and lists only that patient's
+  upcoming bookings (family members sharing the number stay hidden), without
+  the visit reason. `cancel_appointment` and `reschedule_appointment` need
+  both too, and act only with `caller_confirmed` after a read-back. Names are
+  compared on the first name, spelling-tolerant ("Meena"/"Mina", "Ravi
+  ji"/"Ravi Kumar"); tools take them in Roman letters, as booking stores them. A move is one database
   update: the appointment keeps its number, and the double-booking index
-  still refuses a taken slot, so it is never half-moved. A wrong number, an
-  unknown id and another clinic's id all get the same answer, so guessing
+  still refuses a taken slot, so it is never half-moved. A wrong number, a wrong
+  name, an unknown id and another clinic's id all get the same answer, so guessing
   reveals nothing. A booking with a doctor who has since been deactivated
-  can only move to another doctor. **The mobile number is the only proof of identity today** —
-  once telephony arrives, match it against the caller's own number.
+  can only move to another doctor. **Number + first name is the only proof
+  of identity today**, and a first name is easy to guess for someone who
+  knows the family. Once telephony arrives, match the caller's own number.
 - **Ending the call**: `end_call(goodbye)` takes the goodbye as its
   argument — what was done on the call (the booking's doctor, day and time),
   then goodbye — speaks it with interruptions off, waits until it has
