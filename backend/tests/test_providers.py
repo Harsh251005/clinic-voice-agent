@@ -57,7 +57,7 @@ def test_openai_llm(env):
 def test_openai_model_override(env):
     env.setenv("LLM_PROVIDER", "openai")
     env.setenv("OPENAI_API_KEY", "sk-test")
-    env.setenv("LLM_MODEL", "gpt-4o-mini")
+    env.setenv("OPENAI_LLM_MODEL", "gpt-4o-mini")
     assert build_llm(load_settings()).model == "gpt-4o-mini"
 
 
@@ -68,7 +68,7 @@ def test_openai_model_override(env):
 def test_openai_reasoning_is_off_so_tools_work(env, model, effort):
     env.setenv("LLM_PROVIDER", "openai")
     env.setenv("OPENAI_API_KEY", "sk-test")
-    env.setenv("LLM_MODEL", model)
+    env.setenv("OPENAI_LLM_MODEL", model)
     opts = build_llm(load_settings())._opts
     got = opts.reasoning_effort if isinstance(opts.reasoning_effort, str) else None
     assert got == effort
@@ -100,12 +100,21 @@ def test_elevenlabs_stt(env):
 
 @pytest.mark.parametrize(("value", "expected"), [("unknown", "hi"), ("", "hi"), ("en", "en")])
 def test_elevenlabs_stt_language(env, value, expected):
-    # Sarvam's "unknown" (auto-detect) becomes Hindi here, so switching the
-    # provider needs no other .env change and never turns auto-detect on.
+    # "unknown" (Sarvam's word for auto-detect) becomes Hindi here, so
+    # ElevenLabs never turns auto-detect on.
     env.setenv("STT_PROVIDER", "elevenlabs")
     env.setenv("ELEVENLABS_API_KEY", "el-test")
-    env.setenv("STT_LANGUAGE", value)
+    env.setenv("ELEVENLABS_STT_LANGUAGE", value)
     assert build_stt(load_settings())._opts.language_code == expected
+
+
+def test_switching_provider_picks_up_that_vendors_own_settings(env):
+    env.setenv("ELEVENLABS_API_KEY", "el-test")
+    env.setenv("SARVAM_TTS_SPEAKER", "shubh")
+    env.setenv("ELEVENLABS_TTS_VOICE", "voice-123")
+    assert build_tts(load_settings())._opts.speaker == "shubh"
+    env.setenv("TTS_PROVIDER", "elevenlabs")
+    assert build_tts(load_settings())._opts.voice_id == "voice-123"
 
 
 def test_only_the_allowed_vendors_are_registered():

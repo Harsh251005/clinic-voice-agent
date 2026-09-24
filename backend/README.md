@@ -421,7 +421,7 @@ Two steps. Nothing else in the codebase changes.
    ```python
    # clinic_agent/providers/tts.py
    def _elevenlabs(cfg: Settings) -> tts.TTS:
-       return elevenlabs.TTS(voice_id=cfg.tts_speaker)
+       return elevenlabs.TTS(voice_id=cfg.elevenlabs_tts_voice)
 
    BUILDERS = {"sarvam": _sarvam, "elevenlabs": _elevenlabs}
    ```
@@ -437,12 +437,19 @@ STT `sarvam`, `elevenlabs`; LLM `sarvam`, `openai`; TTS `sarvam`, `elevenlabs`.
 That list is deliberate: no other vendors (a test enforces it).
 
 Each builder owns its defaults and asks for its own key with
-`require_key(...)`, so an unused vendor needs nothing set. Model and voice
-settings left blank in `.env` get the selected provider's default. Leave them
-blank and switching is just the `*_PROVIDER` line; a value you set is
-vendor-specific (`TTS_SPEAKER=suhani` means nothing to ElevenLabs), so clear it
-when switching. `STT_LANGUAGE=unknown` is the one exception: it works for
-both (auto-detect on Sarvam, Hindi on ElevenLabs).
+`require_key(...)`, so an unused vendor needs nothing set. Every vendor has
+its own model and voice settings (`SARVAM_TTS_SPEAKER`, `ELEVENLABS_TTS_VOICE`,
+…), so both sets live in `.env` at once and switching the whole stack is only
+the three `*_PROVIDER` lines:
+
+| Stack | `STT_PROVIDER` | `LLM_PROVIDER` | `TTS_PROVIDER` |
+|---|---|---|---|
+| Production | `sarvam` | `sarvam` | `sarvam` |
+| Testing | `elevenlabs` | `openai` | `elevenlabs` |
+
+A vendor setting left blank gets that vendor's default. The old shared names
+(`STT_MODEL`, `TTS_SPEAKER`, …) are refused at startup with their new names,
+rather than silently ignored.
 
 ## Configuration
 
@@ -450,14 +457,14 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 
 | Setting | Default | Why you would change it |
 |---|---|---|
-| `STT_MODEL` | provider's | Sarvam: `saaras:v4`. ElevenLabs: `scribe_v2_realtime`, its only streaming model; turn detection needs a streaming STT, so keep it. |
-| `STT_LANGUAGE` | provider's | Sarvam: `unknown` auto-detects per utterance. ElevenLabs: always `hi` when blank or `unknown`. Its auto-detect locks onto the wrong language during the greeting's silence (Cyrillic, Chinese) and then commits empty transcripts, so the agent never hears the caller. Pinned `hi` still transcribes English as English and Hinglish as Hinglish. |
-| `STT_MODE` | `transcribe` | Sarvam only. `transcribe` returns Hindi in Devanagari, which matches the prompt's rule that Hindi replies are written in Devanagari — the script the voice engine pronounces correctly. |
-| `LLM_MODEL` | provider's | OpenAI: `gpt-4.1-mini` — no reasoning step, so replies start fast. Reasoning models (`gpt-5*`, `o*`) work too: the builder sets `reasoning_effort="none"`, which OpenAI requires for tools on Chat Completions. Sarvam: `sarvam-105b-conversations` (fall back to `sarvam-105b`). |
-| `TTS_MODEL` | provider's | ElevenLabs: `eleven_v3_conversational`, the most expressive; use `eleven_multilingual_v2` if your plan rejects it, or `eleven_flash_v2_5` for the lowest latency. Sarvam: `bulbul:v3`. |
-| `TTS_SPEAKER` | provider's | ElevenLabs: a voice ID. The plugin default is not a Hindi voice — pick one in ElevenLabs → Voices → Voice Library (language Hindi, accent Indian), add it to My Voices, copy its ID. Sarvam: any `bulbul:v3` voice, default `suhani`; v2 names such as `anushka` are rejected. |
-| `TTS_CODEC` | provider's | Raw PCM for both (`pcm_24000` / `linear16`) — compressed formats cost a decode per chunk. |
-| `TTS_LANGUAGE` | provider's | ElevenLabs auto-detects, which suits mixed Hindi/English; Sarvam defaults to `en-IN`. |
+| `SARVAM_STT_MODEL` / `ELEVENLABS_STT_MODEL` | vendor's | Sarvam: `saaras:v4`. ElevenLabs: `scribe_v2_realtime` is its only streaming model (the LiveKit plugin streams that exact name only); turn detection needs a streaming STT. |
+| `SARVAM_STT_LANGUAGE` / `ELEVENLABS_STT_LANGUAGE` | vendor's | Sarvam: `unknown` auto-detects per utterance. ElevenLabs: always `hi` when blank or `unknown`. Its auto-detect locks onto the wrong language during the greeting's silence (Cyrillic, Chinese) and then commits empty transcripts, so the agent never hears the caller. Pinned `hi` still transcribes English as English and Hinglish as Hinglish. |
+| `SARVAM_STT_MODE` | `transcribe` | `transcribe` returns Hindi in Devanagari, which matches the prompt's rule that Hindi replies are written in Devanagari — the script the voice engine pronounces correctly. |
+| `SARVAM_LLM_MODEL` / `OPENAI_LLM_MODEL` | vendor's | OpenAI: `gpt-4.1-mini` — no reasoning step, so replies start fast. Reasoning models (`gpt-5*`, `o*`) work too: the builder sets `reasoning_effort="none"`, which OpenAI requires for tools on Chat Completions. Sarvam: `sarvam-105b-conversations` (fall back to `sarvam-105b`). |
+| `SARVAM_TTS_MODEL` / `ELEVENLABS_TTS_MODEL` | vendor's | ElevenLabs: `eleven_v3_conversational`, the most expressive; use `eleven_multilingual_v2` if your plan rejects it, or `eleven_flash_v2_5` for the lowest latency. Sarvam: `bulbul:v3`. |
+| `SARVAM_TTS_SPEAKER` / `ELEVENLABS_TTS_VOICE` | vendor's | ElevenLabs: a voice ID. The plugin default is not a Hindi voice — pick one in ElevenLabs → Voices → Voice Library (language Hindi, accent Indian), add it to My Voices, copy its ID. Sarvam: any `bulbul:v3` voice, default `suhani`; v2 names such as `anushka` are rejected. |
+| `SARVAM_TTS_CODEC` / `ELEVENLABS_TTS_CODEC` | vendor's | Raw PCM for both (`pcm_24000` / `linear16`) — compressed formats cost a decode per chunk. |
+| `SARVAM_TTS_LANGUAGE` / `ELEVENLABS_TTS_LANGUAGE` | vendor's | ElevenLabs auto-detects, which suits mixed Hindi/English; Sarvam defaults to `en-IN`. |
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
 | `PUBLIC_BASE_URL` | `http://localhost:8080` | Where the call-link server is reachable; the dashboard builds each clinic's link from it. Your tunnel's https address for a demo from outside. |
 | `MAX_CALL_MINUTES` | `10` | Longest a call may last before a goodbye and hang-up. Guards against forgotten or abused calls spending minutes. |

@@ -10,7 +10,10 @@ are `sarvam` or `elevenlabs`, the LLM `sarvam` or `openai` — never add others
 (`test_only_the_allowed_vendors_are_registered` enforces it). Sarvam is the
 production stack and the default for all three. Testing stack today:
 ElevenLabs STT + OpenAI LLM + ElevenLabs TTS, to save Sarvam credits; live
-tests always pin that stack. Switch in `.env`, never by commenting code out.
+tests always pin that stack. Switch with the three `*_PROVIDER` lines in
+`.env`, never by commenting code out: every vendor has its own model/voice
+settings (`SARVAM_TTS_SPEAKER`, `ELEVENLABS_TTS_VOICE`, …), so nothing else
+changes. The old shared names (`TTS_SPEAKER`, …) are refused at startup.
 
 Current state: **Stage 2 built** (plan:
 `~/.claude/plans/distributed-munching-wall.md`); **Stage 3 production setup in
@@ -174,20 +177,20 @@ with `Session` / `Sessions` from `store/db.py`.
   change, in the same commit.
 - **Raw PCM TTS output** (`linear16` for Sarvam, `pcm_24000` for ElevenLabs).
   Both plugins default to mp3; PCM avoids a decode per chunk.
-- **Sarvam `TTS_SPEAKER` must be a `bulbul:v3` voice** (default `suhani`); the
-  plugin rejects v2 names such as `anushka`. For ElevenLabs it is a voice ID.
+- **`SARVAM_TTS_SPEAKER` must be a `bulbul:v3` voice** (default `suhani`); the
+  plugin rejects v2 names such as `anushka`. ElevenLabs' is `ELEVENLABS_TTS_VOICE`, a voice ID.
 - **OpenAI default is `gpt-4.1-mini`**, not the gpt-5 family: no reasoning step,
   so the first token comes fast enough for a phone call. For reasoning models
   the builder forces `reasoning_effort="none"`: Chat Completions rejects tools
   otherwise, and the plugin only sets it for model names it knows.
-- **`STT_LANGUAGE=unknown`** auto-detects per utterance on Sarvam. On
-  ElevenLabs it means `hi` (auto-detect there breaks live calls), and its
+- **`SARVAM_STT_LANGUAGE=unknown`** auto-detects per utterance. On
+  ElevenLabs (`ELEVENLABS_STT_LANGUAGE`) blank or `unknown` means `hi` (auto-detect there breaks live calls), and its
   builder must keep `server_vad={}` (manual commits never fire on a call).
   Test STT the way a call feeds it: real time, lead-in noise, stream open.
 - **Hindi replies are written in Devanagari** (prompt rule). The TTS pronounces
   by script; romanised Hindi ("aap kaise hain") is read with English spelling
-  rules. Don't switch the prompt or `STT_MODE` to romanised output.
+  rules. Don't switch the prompt or `SARVAM_STT_MODE` to romanised output.
 - **ElevenLabs default model is `eleven_v3_conversational`**, chosen for realism
   over latency.
-- Sarvam `LLM_MODEL` defaults to `sarvam-105b-conversations`; fall back to
+- `SARVAM_LLM_MODEL` defaults to `sarvam-105b-conversations`; fall back to
   `sarvam-105b` if the plan lacks it.
