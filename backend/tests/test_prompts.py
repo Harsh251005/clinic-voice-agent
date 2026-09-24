@@ -72,6 +72,7 @@ def test_the_receptionist_speaks_as_a_woman(db):
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW)
     assert "You are a woman" in text
     assert "मैं Demo Family Clinic की ऑटोमेटेड असिस्टेंट" in text
+    assert "That is only for you" in text  # the caller is never addressed as a woman
 
 
 def test_unknown_doctor_rule(db):

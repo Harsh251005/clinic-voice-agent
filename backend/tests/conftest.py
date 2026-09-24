@@ -1,4 +1,5 @@
 import os
+import re
 
 import pytest
 
@@ -11,6 +12,12 @@ SETTING_NAMES = [
     "DASHBOARD_URL", "SESSION_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "DATABASE_URL", "PUBLIC_BASE_URL",
     "LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET", "API_HOST", "API_PORT", "CLIENT_IP_HEADER",
 ]
+
+
+def plain(text: str) -> str:
+    """A tool result without the Hindi words after each time, so a test can
+    check the times themselves ("12:00 (बारह बजे)" -> "12:00")."""
+    return re.sub(r" \([^)]*(?:बजे|मिनट)\)", "", text)
 
 
 @pytest.fixture

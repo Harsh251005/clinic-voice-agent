@@ -7,6 +7,7 @@ import pytest
 from clinic_agent import booking
 from clinic_agent.booking import BookingError
 from clinic_agent.store import repo
+from conftest import plain
 
 NOW = datetime(2026, 9, 21, 9, 0)  # Monday morning
 TUE, WED = date(2026, 9, 22), date(2026, 9, 23)
@@ -90,7 +91,7 @@ def test_move_keeps_the_appointment_number_and_frees_the_old_slot(booked):
     s.expire_all()
     moved = repo.get_appointment(s, appt_id)
     assert (moved.starts_at, moved.ends_at) == (datetime(2026, 9, 23, 17), datetime(2026, 9, 23, 17, 15))
-    assert booking.find_slots(s, clinic_id, TUE, NOW, doctor_name="Asha").startswith(
+    assert plain(booking.find_slots(s, clinic_id, TUE, NOW, doctor_name="Asha")).startswith(
         "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - morning: 10:00, 10:15"
     )
 
@@ -107,7 +108,7 @@ def test_move_to_another_doctor_uses_their_slot_length(booked):
 def test_move_to_a_taken_time_leaves_it_unchanged(booked):
     s, clinic_id, appt_id = booked
     booking.book_slot(s, clinic_id, "Asha", WED, time(17), "Sunita", "9123456780", NOW)
-    with pytest.raises(BookingError, match=r"not free at 17:00.*That day: .*12:45; evening: 17:15, 17:30"):
+    with pytest.raises(BookingError, match=r"not free at 17:00.*That day: .*12:45 \(पौने एक बजे\); evening: 17:15 \(सवा पाँच बजे\)"):
         booking.reschedule_booking(s, clinic_id, appt_id, PHONE, "Ravi", WED, time(17, 0), NOW)
     s.expire_all()
     assert repo.get_appointment(s, appt_id).starts_at == datetime(2026, 9, 22, 10)

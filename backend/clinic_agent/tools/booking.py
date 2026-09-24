@@ -56,10 +56,11 @@ def booking_tools(link: ClinicLink) -> list:
     ) -> str:
         """Find every free appointment time on one day. Offer the caller only times this returns.
 
-        It lists every free start time one by one, grouped as morning
+        It lists every free start time one by one, with its Hindi words in
+        brackets ("12:30 (साढ़े बारह बजे)"), grouped as morning
         (before 12:00), afternoon (12:00 to before 17:00) and evening (17:00
         on), and which few to suggest first. Suggest those, and answer
-        "anything later / after eleven / in the evening?" from the full list
+        "anything later / in the evening?" from the full list
         without calling again: for a part of the day, offer only the times
         under that label. Call again only for another day or doctor.
 
