@@ -56,17 +56,20 @@ def booking_tools(link: ClinicLink) -> list:
     ) -> str:
         """Find every free appointment time on one day. Offer the caller only times this returns.
 
-        It lists all free start times as ranges ("10:00 to 12:45, every 15
-        minutes") and which few to suggest first. Suggest those, and answer
+        It lists every free start time one by one, grouped as morning
+        (before 12:00), afternoon (12:00 to before 17:00) and evening (17:00
+        on), and which few to suggest first. Suggest those, and answer
         "anything later / after eleven / in the evening?" from the full list
-        without calling again. Call again only for another day or doctor.
+        without calling again: for a part of the day, offer only the times
+        under that label. Call again only for another day or doctor.
 
         Args:
             date: The day as YYYY-MM-DD. Work out words like aaj, kal, parson or
                 Monday from the current date in CLINIC FACTS.
             doctor_name: A doctor from CLINIC FACTS if the caller named one or
                 described one (e.g. the children's doctor); empty for any doctor.
-            part_of_day: Only if the caller asked for morning, afternoon or evening.
+            part_of_day: Only if the caller asked for morning (before 12:00),
+                afternoon (12:00 to before 17:00) or evening (17:00 on).
         """
         return await run(
             ctx, booking.find_slots, _date(date), clinic_now(link.timezone),
@@ -90,7 +93,8 @@ def booking_tools(link: ClinicLink) -> list:
             doctor_name: The doctor, as named in CLINIC FACTS.
             date: The day as YYYY-MM-DD.
             time: Start time as HH:MM (24-hour), one of the free times found.
-            patient_name: The patient's name as the caller gave it.
+            patient_name: The patient's name as the caller gave it, in Roman
+                letters (e.g. "Ravi Kumar"), never Devanagari.
             patient_phone: The caller's 10-digit mobile number.
             caller_confirmed: True only if you read back the doctor, day, time,
                 name and number and the caller clearly said yes.
@@ -110,23 +114,27 @@ def booking_tools(link: ClinicLink) -> list:
         )
 
     @function_tool
-    async def find_my_appointments(ctx: RunContext, patient_phone: str) -> str:
-        """List the caller's upcoming appointments, found by the mobile number they booked with.
+    async def find_my_appointments(ctx: RunContext, patient_phone: str, patient_name: str) -> str:
+        """List one patient's upcoming appointments. Both the number and the name must match.
 
         Args:
             patient_phone: The 10-digit mobile number the appointment was booked with.
+            patient_name: The patient's name, in Roman letters (e.g. "Ravi").
         """
-        return await run(ctx, booking.find_appointments, patient_phone, clinic_now(link.timezone))
+        return await run(
+            ctx, booking.find_appointments, patient_phone, patient_name, clinic_now(link.timezone)
+        )
 
     @function_tool
     async def cancel_appointment(
-        ctx: RunContext, appointment_id: int, patient_phone: str, caller_confirmed: bool
+        ctx: RunContext, appointment_id: int, patient_phone: str, patient_name: str, caller_confirmed: bool
     ) -> str:
         """Cancel one of the caller's appointments. Call only after reading it back.
 
         Args:
             appointment_id: The appointment number from find_my_appointments.
             patient_phone: The mobile number it was booked with.
+            patient_name: The patient's name, in Roman letters, as for find_my_appointments.
             caller_confirmed: True only if you read back the doctor, day and time
                 and the caller clearly said yes, cancel it.
         """
@@ -136,7 +144,8 @@ def booking_tools(link: ClinicLink) -> list:
                 "cancel only after they say yes."
             )
         return await run(
-            ctx, booking.cancel_booking, appointment_id, patient_phone, clinic_now(link.timezone)
+            ctx, booking.cancel_booking, appointment_id, patient_phone, patient_name,
+            clinic_now(link.timezone),
         )
 
     @function_tool
@@ -144,6 +153,7 @@ def booking_tools(link: ClinicLink) -> list:
         ctx: RunContext,
         appointment_id: int,
         patient_phone: str,
+        patient_name: str,
         date: str,
         time: str,
         caller_confirmed: bool,
@@ -154,6 +164,7 @@ def booking_tools(link: ClinicLink) -> list:
         Args:
             appointment_id: The appointment number from find_my_appointments.
             patient_phone: The mobile number it was booked with.
+            patient_name: The patient's name, in Roman letters, as for find_my_appointments.
             date: The new day as YYYY-MM-DD.
             time: The new start time as HH:MM (24-hour), one of the free times found.
             caller_confirmed: True only if you read back the old and new day and
@@ -166,7 +177,8 @@ def booking_tools(link: ClinicLink) -> list:
                 "move it only after they say yes."
             )
         return await run(
-            ctx, booking.reschedule_booking, appointment_id, patient_phone, _date(date), _time(time),
+            ctx, booking.reschedule_booking, appointment_id, patient_phone, patient_name,
+            _date(date), _time(time),
             clinic_now(link.timezone), doctor_name or None,
         )
 

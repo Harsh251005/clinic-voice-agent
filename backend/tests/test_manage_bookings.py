@@ -26,38 +26,38 @@ def booked(db):
 
 def test_finds_the_callers_upcoming_appointments(booked):
     s, clinic_id, appt_id = booked
-    out = booking.find_appointments(s, clinic_id, "+91 98765 43210", NOW)
+    out = booking.find_appointments(s, clinic_id, "+91 98765 43210", "Ravi", NOW)
     assert out == f"Appointment {appt_id}: Dr. Asha Mehta, Tuesday 22 September 2026 at 10:00, for Ravi."
 
 
 def test_past_and_cancelled_appointments_are_not_listed(booked):
     s, clinic_id, appt_id = booked
     with pytest.raises(BookingError, match="No upcoming appointments"):
-        booking.find_appointments(s, clinic_id, PHONE, datetime(2026, 9, 22, 11, 0))
+        booking.find_appointments(s, clinic_id, PHONE, "Ravi", datetime(2026, 9, 22, 11, 0))
     repo.cancel_appointment(s, appt_id)
     with pytest.raises(BookingError, match="No upcoming appointments"):
-        booking.find_appointments(s, clinic_id, PHONE, NOW)
+        booking.find_appointments(s, clinic_id, PHONE, "Ravi", NOW)
 
 
 def test_unknown_number(booked):
     s, clinic_id, _ = booked
-    with pytest.raises(BookingError, match="No upcoming appointments booked with mobile 9123456780"):
-        booking.find_appointments(s, clinic_id, "9123456780", NOW)
+    with pytest.raises(BookingError, match="No upcoming appointments for Ravi with mobile 9123456780"):
+        booking.find_appointments(s, clinic_id, "9123456780", "Ravi", NOW)
 
 
 # ---------- cancelling ----------
 
 def test_cancel_frees_the_slot(booked):
     s, clinic_id, appt_id = booked
-    out = booking.cancel_booking(s, clinic_id, appt_id, PHONE, NOW)
+    out = booking.cancel_booking(s, clinic_id, appt_id, PHONE, "Ravi", NOW)
     assert out == f"Cancelled appointment {appt_id}: Dr. Asha Mehta, Tuesday 22 September 2026 at 10:00."
     assert booking.find_slots(s, clinic_id, TUE, NOW, doctor_name="Asha").endswith("suggest first 10:00, 10:15, 10:30.")
 
 
 def test_cannot_cancel_someone_elses_appointment(booked):
     s, clinic_id, appt_id = booked
-    with pytest.raises(BookingError, match=f"No appointment {appt_id} booked with mobile 9123456780"):
-        booking.cancel_booking(s, clinic_id, appt_id, "9123456780", NOW)
+    with pytest.raises(BookingError, match=f"No appointment {appt_id} for Ravi with mobile 9123456780"):
+        booking.cancel_booking(s, clinic_id, appt_id, "9123456780", "Ravi", NOW)
     assert repo.get_appointment(s, appt_id).status == "booked"
 
 
@@ -65,24 +65,24 @@ def test_unknown_and_other_clinic_ids_look_the_same(booked):
     s, clinic_id, appt_id = booked
     other = repo.create_clinic(s, name="Other Clinic")
     for cid, aid in [(clinic_id, 999), (other.id, appt_id)]:
-        with pytest.raises(BookingError, match=f"No appointment {aid} booked with mobile"):
-            booking.cancel_booking(s, cid, aid, PHONE, NOW)
+        with pytest.raises(BookingError, match=f"No appointment {aid} for Ravi with mobile"):
+            booking.cancel_booking(s, cid, aid, PHONE, "Ravi", NOW)
 
 
 def test_cannot_cancel_twice_or_after_it_happened(booked):
     s, clinic_id, appt_id = booked
     with pytest.raises(BookingError, match="already passed"):
-        booking.cancel_booking(s, clinic_id, appt_id, PHONE, datetime(2026, 9, 22, 11, 0))
-    booking.cancel_booking(s, clinic_id, appt_id, PHONE, NOW)
+        booking.cancel_booking(s, clinic_id, appt_id, PHONE, "Ravi", datetime(2026, 9, 22, 11, 0))
+    booking.cancel_booking(s, clinic_id, appt_id, PHONE, "Ravi", NOW)
     with pytest.raises(BookingError, match="already cancelled"):
-        booking.cancel_booking(s, clinic_id, appt_id, PHONE, NOW)
+        booking.cancel_booking(s, clinic_id, appt_id, PHONE, "Ravi", NOW)
 
 
 # ---------- rescheduling ----------
 
 def test_move_keeps_the_appointment_number_and_frees_the_old_slot(booked):
     s, clinic_id, appt_id = booked
-    out = booking.reschedule_booking(s, clinic_id, appt_id, PHONE, WED, time(17, 0), NOW)
+    out = booking.reschedule_booking(s, clinic_id, appt_id, PHONE, "Ravi", WED, time(17, 0), NOW)
     assert out == (
         f"Moved appointment {appt_id} from Dr. Asha Mehta, Tuesday 22 September 2026 at 10:00 "
         "to Dr. Asha Mehta, Wednesday 23 September 2026 at 17:00."
@@ -91,13 +91,13 @@ def test_move_keeps_the_appointment_number_and_frees_the_old_slot(booked):
     moved = repo.get_appointment(s, appt_id)
     assert (moved.starts_at, moved.ends_at) == (datetime(2026, 9, 23, 17), datetime(2026, 9, 23, 17, 15))
     assert booking.find_slots(s, clinic_id, TUE, NOW, doctor_name="Asha").startswith(
-        "Dr. Asha Mehta on Tuesday 22 September 2026: free start times 10:00 to 12:45"
+        "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - morning: 10:00, 10:15"
     )
 
 
 def test_move_to_another_doctor_uses_their_slot_length(booked):
     s, clinic_id, appt_id = booked
-    booking.reschedule_booking(s, clinic_id, appt_id, PHONE, WED, time(11, 0), NOW, doctor_name="Rohan")
+    booking.reschedule_booking(s, clinic_id, appt_id, PHONE, "Ravi", WED, time(11, 0), NOW, doctor_name="Rohan")
     s.expire_all()
     moved = repo.get_appointment(s, appt_id)
     assert moved.doctor.name == "Dr. Rohan Iyer"
@@ -107,8 +107,8 @@ def test_move_to_another_doctor_uses_their_slot_length(booked):
 def test_move_to_a_taken_time_leaves_it_unchanged(booked):
     s, clinic_id, appt_id = booked
     booking.book_slot(s, clinic_id, "Asha", WED, time(17), "Sunita", "9123456780", NOW)
-    with pytest.raises(BookingError, match=r"not free at 17:00.*That day: free start times 10:00 to 12:45, 17:15 to 19:45"):
-        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, WED, time(17, 0), NOW)
+    with pytest.raises(BookingError, match=r"not free at 17:00.*That day: .*12:45; evening: 17:15, 17:30"):
+        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, "Ravi", WED, time(17, 0), NOW)
     s.expire_all()
     assert repo.get_appointment(s, appt_id).starts_at == datetime(2026, 9, 22, 10)
 
@@ -117,15 +117,15 @@ def test_move_race_leaves_it_unchanged(booked, monkeypatch):
     s, clinic_id, appt_id = booked
     monkeypatch.setattr(repo, "move_appointment", lambda *a: (_ for _ in ()).throw(repo.SlotTaken()))
     with pytest.raises(BookingError, match="just taken by another caller. The appointment is unchanged"):
-        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, WED, time(17, 0), NOW)
+        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, "Ravi", WED, time(17, 0), NOW)
 
 
 def test_move_to_same_time_and_to_past_day(booked):
     s, clinic_id, appt_id = booked
     with pytest.raises(BookingError, match="already at that time"):
-        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, TUE, time(10, 0), NOW)
+        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, "Ravi", TUE, time(10, 0), NOW)
     with pytest.raises(BookingError, match="in the past"):
-        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, date(2026, 9, 20), time(10, 0), NOW)
+        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, "Ravi", date(2026, 9, 20), time(10, 0), NOW)
 
 
 def test_database_refuses_moving_onto_a_booked_slot(booked):
@@ -138,12 +138,43 @@ def test_database_refuses_moving_onto_a_booked_slot(booked):
     assert repo.get_appointment(s, appt_id).starts_at == datetime(2026, 9, 22, 10)
 
 
-def test_one_phone_lists_every_family_members_bookings(booked):
+def test_a_shared_phone_shows_only_the_named_patient(booked):
+    # Families share a phone; each member's bookings need their own name.
     s, clinic_id, appt_id = booked
     booking.book_slot(s, clinic_id, "Asha", TUE, time(10, 15), "Priya", PHONE, NOW)
-    out = booking.find_appointments(s, clinic_id, PHONE, NOW)
-    assert f"Appointment {appt_id}: Dr. Asha Mehta, Tuesday 22 September 2026 at 10:00, for Ravi." in out
-    assert "at 10:15, for Priya." in out
+    ravi = booking.find_appointments(s, clinic_id, PHONE, "Ravi", NOW)
+    assert ravi == f"Appointment {appt_id}: Dr. Asha Mehta, Tuesday 22 September 2026 at 10:00, for Ravi."
+    assert "at 10:15, for Priya." in booking.find_appointments(s, clinic_id, PHONE, "Priya", NOW)
+
+
+# ---------- knowing the number is not enough ----------
+
+def test_the_number_alone_shows_and_cancels_nothing(booked):
+    # The hole: anyone who knew a patient's number could list and cancel
+    # their bookings. The name must match too, and a wrong one reveals nothing.
+    s, clinic_id, appt_id = booked
+    with pytest.raises(BookingError, match="No upcoming appointments for Suresh with mobile 9876543210"):
+        booking.find_appointments(s, clinic_id, PHONE, "Suresh", NOW)
+    with pytest.raises(BookingError, match=f"No appointment {appt_id} for Suresh"):
+        booking.cancel_booking(s, clinic_id, appt_id, PHONE, "Suresh", NOW)
+    with pytest.raises(BookingError, match=f"No appointment {appt_id} for Suresh"):
+        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, "Suresh", WED, time(17), NOW)
+    assert repo.get_appointment(s, appt_id).status == "booked"
+
+
+@pytest.mark.parametrize("spoken", ["ravi", "Ravi Kumar", "Ravi ji", "Shri Ravi", "Raavi"])
+def test_the_name_tolerates_how_it_is_said(booked, spoken):
+    s, clinic_id, appt_id = booked
+    assert f"Appointment {appt_id}" in booking.find_appointments(s, clinic_id, PHONE, spoken, NOW)
+
+
+def test_a_name_without_roman_letters_is_refused_not_matched(booked):
+    s, clinic_id, appt_id = booked
+    for spoken in ["रवि", "", "  "]:
+        with pytest.raises(BookingError, match="Roman letters"):
+            booking.find_appointments(s, clinic_id, PHONE, spoken, NOW)
+        with pytest.raises(BookingError, match="Roman letters"):
+            booking.cancel_booking(s, clinic_id, appt_id, PHONE, spoken, NOW)
 
 
 # ---------- bookings staff have since made impossible ----------
@@ -153,8 +184,8 @@ def test_move_is_refused_when_the_doctor_no_longer_takes_bookings(booked):
     asha = repo.get_appointment(s, appt_id).doctor
     repo.update_doctor(s, asha.id, active=False)
     with pytest.raises(BookingError, match="Dr. Asha Mehta is no longer taking appointments. Offer another doctor: Dr. Rohan Iyer."):
-        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, WED, time(11), NOW)
-    out = booking.reschedule_booking(s, clinic_id, appt_id, PHONE, WED, time(11), NOW, doctor_name="Rohan")
+        booking.reschedule_booking(s, clinic_id, appt_id, PHONE, "Ravi", WED, time(11), NOW)
+    out = booking.reschedule_booking(s, clinic_id, appt_id, PHONE, "Ravi", WED, time(11), NOW, doctor_name="Rohan")
     assert out.endswith("to Dr. Rohan Iyer, Wednesday 23 September 2026 at 11:00.")
 
 
@@ -162,7 +193,7 @@ def test_finding_flags_an_appointment_on_leave(booked):
     s, clinic_id, appt_id = booked
     asha = repo.get_appointment(s, appt_id).doctor
     repo.add_time_off(s, clinic_id, TUE, TUE, doctor_id=asha.id)
-    out = booking.find_appointments(s, clinic_id, PHONE, NOW)
+    out = booking.find_appointments(s, clinic_id, PHONE, "Ravi", NOW)
     assert "Problem: Dr. Asha Mehta is on leave that day. Tell the caller and offer to move or cancel it." in out
 
 

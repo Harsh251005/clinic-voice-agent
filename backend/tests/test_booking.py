@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 import pytest
 
@@ -64,17 +64,31 @@ def test_inactive_doctor_is_not_bookable(db):
 
 # ---------- finding slots ----------
 
+def every(first: str, last: str, minutes: int) -> str:
+    """'10:00, 10:15, ... 11:45': what the tool lists, one time at a time."""
+    t, end, out = datetime.fromisoformat(f"2026-01-01 {first}"), datetime.fromisoformat(f"2026-01-01 {last}"), []
+    while t <= end:
+        out.append(f"{t:%H:%M}")
+        t += timedelta(minutes=minutes)
+    return ", ".join(out)
+
+
+ASHA_MORNING = every("10:00", "11:45", 15)
+ASHA_AFTERNOON = every("12:00", "12:45", 15)
+ASHA_EVENING = every("17:00", "19:45", 15)
+
+
 def test_finds_every_free_time_per_doctor(db):
     out = find(db)
     assert (
-        "Dr. Asha Mehta on Tuesday 22 September 2026: free start times 10:00 to 12:45, 17:00 to 19:45, "
-        "every 15 minutes (24 in all); suggest first 10:00, 10:15, 10:30."
+        f"Dr. Asha Mehta on Tuesday 22 September 2026: free start times - morning: {ASHA_MORNING}; "
+        f"afternoon: {ASHA_AFTERNOON}; evening: {ASHA_EVENING} (24 in all); suggest first 10:00, 10:15, 10:30."
     ) in out
     # Rohan doesn't sit on Tuesdays: says why and the next free day, whole
     assert "Dr. Rohan Iyer on Tuesday 22 September 2026: none - doctor does not sit on Tuesdays." in out
     assert (
-        "Next free day: Wednesday 23 September 2026, free start times 11:00 to 13:40, every 20 minutes "
-        "(9 in all); suggest first 11:00, 11:20, 11:40."
+        "Next free day: Wednesday 23 September 2026, free start times - morning: 11:00, 11:20, 11:40; "
+        "afternoon: 12:00, 12:20, 12:40, 13:00, 13:20, 13:40 (9 in all); suggest first 11:00, 11:20, 11:40."
     ) in out
 
 
@@ -82,13 +96,32 @@ def test_later_times_are_listed_not_just_the_first_few(db):
     # The bug: only 10:00, 10:15, 10:30 reached the LLM, so "anything after
     # eleven?" or "evening?" got "nothing free".
     out = find(db, doctor_name="Asha")
-    assert "10:00 to 12:45" in out and "17:00 to 19:45" in out
+    assert "11:45" in out and "19:45" in out
+
+
+def test_times_are_listed_one_by_one_never_as_ranges(db):
+    # The bug: "10:00 to 13:30" hid a booked 11:00 inside it, and the agent
+    # offered it. Every free time is named; a booked one simply isn't there.
+    book(db, at=time(11, 0))
+    out = find(db, doctor_name="Asha")
+    assert " to " not in out and "every" not in out
+    assert "10:45, 11:15" in out
+
+
+def test_parts_of_the_day_are_fixed(db):
+    # Morning is before 12, afternoon 12 to before 5, evening 5 on. The LLM
+    # used to decide "afternoon" itself ("eleven to four").
+    out = find(db, doctor_name="Asha")
+    assert "morning: 10:00" in out and "11:45; afternoon: 12:00" in out and "12:45; evening: 17:00" in out
+    assert find(db, doctor_name="Asha", part_of_day="afternoon").startswith(
+        f"Dr. Asha Mehta on Tuesday 22 September 2026: free start times - afternoon: {ASHA_AFTERNOON} (4 in all)"
+    )
 
 
 def test_part_of_day_and_one_doctor(db):
     assert find(db, doctor_name="Asha", part_of_day="evening") == (
-        "Dr. Asha Mehta on Tuesday 22 September 2026: free start times 17:00 to 19:45, "
-        "every 15 minutes (12 in all); suggest first 17:00, 17:15, 17:30."
+        f"Dr. Asha Mehta on Tuesday 22 September 2026: free start times - evening: {ASHA_EVENING} "
+        "(12 in all); suggest first 17:00, 17:15, 17:30."
     )
 
 
@@ -100,21 +133,21 @@ def test_slots_offered_follows_clinic_setting(db):
 
 def test_booked_slot_is_not_offered(db):
     book(db)
-    assert "free start times 10:15 to 12:45, 17:00 to 19:45" in find(db, doctor_name="Asha")
+    assert "free start times - morning: 10:15, 10:30," in find(db, doctor_name="Asha")
 
 
-def test_booked_slots_split_the_ranges(db):
+def test_booked_slots_are_left_out(db):
     book(db, at=time(11, 0))
     book(db, at=time(11, 15), name="Sunita", phone="9123456780")
     out = find(db, doctor_name="Asha")
-    assert "free start times 10:00 to 10:45, 11:30 to 12:45, 17:00 to 19:45, every 15 minutes (22 in all)" in out
+    assert "morning: 10:00, 10:15, 10:30, 10:45, 11:30, 11:45;" in out and "(22 in all)" in out
 
 
-def test_a_lone_free_slot_is_a_time_not_a_range(db):
+def test_a_lone_free_slot(db):
     s, clinic_id = db
     asha = repo.get_clinic(s, clinic_id).doctors[0]
     repo.set_doctor_hours(s, asha.id, [(1, time(10), time(10, 15))])
-    assert find(db, doctor_name="Asha").endswith("free start times 10:00 (1 in all); suggest first 10:00.")
+    assert find(db, doctor_name="Asha").endswith("free start times - morning: 10:00 (1 in all); suggest first 10:00.")
 
 
 def test_clinic_holiday_gives_reason_and_next_day(db):
@@ -168,7 +201,7 @@ def test_today_skips_times_already_gone(db):
     s, clinic_id = db
     late = datetime(2026, 9, 21, 10, 50)
     out = booking.find_slots(s, clinic_id, date(2026, 9, 21), late, doctor_name="Asha")
-    assert "free start times 11:30 to 12:45, 17:00 to 19:45" in out
+    assert "free start times - morning: 11:30, 11:45; afternoon: 12:00" in out
 
 
 # ---------- booking ----------
@@ -184,7 +217,7 @@ def test_booking_succeeds_and_is_stored(db):
 
 def test_booking_a_taken_slot_offers_others(db):
     book(db)
-    with pytest.raises(BookingError, match=r"not free at 10:00.*That day: free start times 10:15 to 12:45"):
+    with pytest.raises(BookingError, match=r"not free at 10:00.*That day: free start times - morning: 10:15, 10:30"):
         book(db, name="Sunita", phone="9123456780")
 
 
@@ -208,7 +241,7 @@ def test_race_between_check_and_insert_is_caught(db, monkeypatch):
         return real_book(*args, **kwargs)
 
     monkeypatch.setattr(repo, "book", sneaky)
-    with pytest.raises(BookingError, match="just taken by another caller. That day: free start times 10:15 to 12:45"):
+    with pytest.raises(BookingError, match="just taken by another caller. That day: free start times - morning: 10:15, 10:30"):
         book(db)
 
 
@@ -249,7 +282,8 @@ def test_a_call_booking_keeps_the_reason(db):
     booking.book_slot(s, clinic_id, "Asha", TUE, time(10), "Ravi", "9876543210", NOW, reason="  बुखार   और खाँसी ")
     (appt,) = repo.appointments_on(s, clinic_id, TUE)
     assert appt.reason == "बुखार और खाँसी"
-    assert booking.find_appointments(s, clinic_id, "9876543210", NOW).endswith("for Ravi (बुखार और खाँसी).")
+    # Health information: kept for staff, never read out on a call.
+    assert booking.find_appointments(s, clinic_id, "9876543210", "Ravi", NOW).endswith("for Ravi.")
 
 
 def test_staff_change_points_the_booking_at_the_right_patient(db):

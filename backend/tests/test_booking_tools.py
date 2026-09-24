@@ -39,7 +39,7 @@ async def test_find_then_book_through_the_tools(tools):
     find, book, sessions, clinic_id = tools
     day = next_working_day().isoformat()
     found = await find(None, date=day, doctor_name="Asha", part_of_day="evening")
-    assert "free start times 17:00 to 19:45" in found and found.endswith("suggest first 17:00, 17:15, 17:30.")
+    assert "free start times - evening: 17:00, 17:15" in found and found.endswith("suggest first 17:00, 17:15, 17:30.")
     booked = await book(None, 
         doctor_name="Asha", date=day, time="17:00",
         patient_name="Ravi", patient_phone="9876543210", caller_confirmed=True,
@@ -86,21 +86,21 @@ async def test_find_cancel_through_the_tools(tools):
         patient_name="Ravi", patient_phone="9876543210", caller_confirmed=True,
     )
     mine, cancel, move = _manage(sessions, clinic_id)
-    listed = await mine(None, patient_phone="9876543210")
+    listed = await mine(None, patient_phone="9876543210", patient_name="Ravi")
     appt_id = int(listed.split(":")[0].removeprefix("Appointment "))
     with pytest.raises(ToolError, match="Not cancelled"):
-        await cancel(None, appointment_id=appt_id, patient_phone="9876543210", caller_confirmed=False)
+        await cancel(None, appointment_id=appt_id, patient_phone="9876543210", patient_name="Ravi", caller_confirmed=False)
     with pytest.raises(ToolError, match="Not moved"):
         await move(None, 
-            appointment_id=appt_id, patient_phone="9876543210", date=day, time="17:15",
+            appointment_id=appt_id, patient_phone="9876543210", patient_name="Ravi", date=day, time="17:15",
             caller_confirmed=False,
         )
     moved = await move(None, 
-        appointment_id=appt_id, patient_phone="9876543210", date=day, time="17:15",
+        appointment_id=appt_id, patient_phone="9876543210", patient_name="Ravi", date=day, time="17:15",
         caller_confirmed=True,
     )
     assert moved.startswith(f"Moved appointment {appt_id}")
-    cancelled = await cancel(None, appointment_id=appt_id, patient_phone="9876543210", caller_confirmed=True)
+    cancelled = await cancel(None, appointment_id=appt_id, patient_phone="9876543210", patient_name="Ravi", caller_confirmed=True)
     assert cancelled.startswith(f"Cancelled appointment {appt_id}")
 
 

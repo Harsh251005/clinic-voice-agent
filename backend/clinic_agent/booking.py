@@ -69,12 +69,12 @@ def find_slots(
     for doctor in doctors:
         slots = _day_slots(s, doctor, day, time_off, now, part_of_day)
         if slots:
-            lines.append(f"{doctor.name} on {_day(day)}: {_free(slots, doctor, clinic)}.")
+            lines.append(f"{doctor.name} on {_day(day)}: {_free(slots, clinic)}.")
             continue
         why = _why_none(doctor, day, time_off, now, part_of_day)
         nxt = _next_free(s, doctor, day, last_day, time_off, now, part_of_day)
         tail = (
-            f" Next free day: {_day(nxt[0].date())}, {_free(nxt, doctor, clinic)}."
+            f" Next free day: {_day(nxt[0].date())}, {_free(nxt, clinic)}."
             if nxt else f" Nothing free up to {_day(last_day)}."
         )
         lines.append(f"{doctor.name} on {_day(day)}: none - {why}.{tail}")
@@ -103,7 +103,7 @@ def book_slot(
     time_off = repo.time_off_overlapping(s, clinic.id, day, day)
     free = _day_slots(s, doctor, day, time_off, now, None)
     if starts_at not in free:
-        offer = f" That day: {_free(free, doctor, clinic)}." if free else ""
+        offer = f" That day: {_free(free, clinic)}." if free else ""
         raise BookingError(f"{doctor.name} is not free at {start:%H:%M} on {_day(day)}.{offer}")
 
     try:
@@ -113,7 +113,7 @@ def book_slot(
         )
     except repo.SlotTaken:
         free = _day_slots(s, doctor, day, time_off, now, None)
-        offer = f" That day: {_free(free, doctor, clinic)}." if free else ""
+        offer = f" That day: {_free(free, clinic)}." if free else ""
         raise BookingError(f"That time was just taken by another caller.{offer}") from None
     return (
         f"Booked, appointment number {appt.id}: {doctor.name}, {_day(day)} at {start:%H:%M}, "
@@ -121,19 +121,29 @@ def book_slot(
     )
 
 
-def find_appointments(s: Session, clinic_id: int, patient_phone: str, now: datetime) -> str:
+def find_appointments(
+    s: Session, clinic_id: int, patient_phone: str, patient_name: str, now: datetime
+) -> str:
+    """The named patient's upcoming bookings on that number.
+
+    The number alone isn't enough: anyone may know it. The name must match
+    too, and family members sharing the number stay hidden. The visit reason
+    is health information, so it is never read out.
+    """
     phone = normalise_phone(patient_phone)
-    appts = repo.upcoming_for_phone(s, clinic_id, phone, now)
+    who = _spoken_person(patient_name)
+    appts = [a for a in repo.upcoming_for_phone(s, clinic_id, phone, now) if _person_key(a.patient.name) == who]
     if not appts:
         raise BookingError(
-            f"No upcoming appointments booked with mobile {phone}. Check the number with the caller."
+            f"No upcoming appointments for {patient_name.strip()} with mobile {phone}. "
+            "Check the patient's name and number with the caller."
         )
     time_off = repo.time_off_overlapping(s, clinic_id, now.date(), appts[-1].starts_at.date())
     lines = []
     for a in appts:
         line = (
             f"Appointment {a.id}: {a.doctor.name}, {_day(a.starts_at.date())} at {a.starts_at:%H:%M}, "
-            f"for {a.patient.name}{f' ({a.reason})' if a.reason else ''}."
+            f"for {a.patient.name}."
         )
         if problem := appointment_problem(a, time_off):
             line += f" Problem: {problem}. Tell the caller and offer to move or cancel it."
@@ -169,9 +179,9 @@ def appointment_problem(appt: Appointment, time_off: list[TimeOff]) -> str | Non
 
 
 def cancel_booking(
-    s: Session, clinic_id: int, appointment_id: int, patient_phone: str, now: datetime
+    s: Session, clinic_id: int, appointment_id: int, patient_phone: str, patient_name: str, now: datetime
 ) -> str:
-    appt = _owned(s, clinic_id, appointment_id, patient_phone, now)
+    appt = _owned(s, clinic_id, appointment_id, patient_phone, patient_name, now)
     repo.cancel_appointment(s, appt.id)
     return (
         f"Cancelled appointment {appt.id}: {appt.doctor.name}, "
@@ -184,12 +194,13 @@ def reschedule_booking(
     clinic_id: int,
     appointment_id: int,
     patient_phone: str,
+    patient_name: str,
     day: date,
     start: time,
     now: datetime,
     doctor_name: str | None = None,
 ) -> str:
-    appt = _owned(s, clinic_id, appointment_id, patient_phone, now)
+    appt = _owned(s, clinic_id, appointment_id, patient_phone, patient_name, now)
     clinic = repo.get_clinic(s, clinic_id)
     doctor = resolve_doctor(clinic, doctor_name) if doctor_name else appt.doctor
     if not doctor.active:  # resolve_doctor only finds active ones; the booked doctor may not be
@@ -207,7 +218,7 @@ def reschedule_booking(
     time_off = repo.time_off_overlapping(s, clinic.id, day, day)
     free = _day_slots(s, doctor, day, time_off, now, None)
     if starts_at not in free:
-        offer = f" That day: {_free(free, doctor, clinic)}." if free else ""
+        offer = f" That day: {_free(free, clinic)}." if free else ""
         raise BookingError(f"{doctor.name} is not free at {start:%H:%M} on {_day(day)}.{offer}")
 
     try:
@@ -300,20 +311,27 @@ def _reason(text: str) -> str:
     return " ".join(text.split())[:REASON_MAX]
 
 
-def _owned(s: Session, clinic_id: int, appointment_id: int, patient_phone: str, now: datetime):
+def _owned(
+    s: Session, clinic_id: int, appointment_id: int, patient_phone: str, patient_name: str, now: datetime
+):
     """The caller's own upcoming booking, or a BookingError.
 
-    The same message covers 'no such appointment', 'another clinic's' and
-    'someone else's', so a guessed id reveals nothing about other patients.
+    Number and patient name must both match. The same message covers 'no
+    such appointment', 'another clinic's' and 'someone else's', so a guessed
+    id, number or name reveals nothing about other patients.
     """
     phone = normalise_phone(patient_phone)
+    who = _spoken_person(patient_name)
     try:
         appt = repo.get_appointment(s, appointment_id)
     except repo.NotFound:
         appt = None
-    if appt is None or appt.clinic_id != clinic_id or appt.patient.phone != phone:
+    if (
+        appt is None or appt.clinic_id != clinic_id or appt.patient.phone != phone
+        or _person_key(appt.patient.name) != who
+    ):
         raise BookingError(
-            f"No appointment {appointment_id} booked with mobile {phone}. "
+            f"No appointment {appointment_id} for {patient_name.strip()} with mobile {phone}. "
             "Use find_my_appointments to see the caller's bookings."
         )
     if appt.status != "booked":
@@ -383,26 +401,49 @@ def _times(slots: list[datetime]) -> str:
     return ", ".join(f"{t:%H:%M}" for t in slots)
 
 
-def _free(slots: list[datetime], doctor: Doctor, clinic: Clinic) -> str:
-    """Every free start time, as runs, plus the few to suggest first.
+def _free(slots: list[datetime], clinic: Clinic) -> str:
+    """Every free start time, one by one, under the clinic's fixed parts of
+    the day, plus the few to suggest first.
 
     The whole day goes to the LLM, not just the first few times, so "anything
-    after eleven?" or "evening?" is answered from what is really free rather
-    than from a sample. Runs keep it short: a free morning is one range.
+    after eleven?" is answered from what is really free. Each time is listed
+    on its own: ranges with gaps ("10:00 to 13:30") made the LLM offer booked
+    times inside them. The labels fix what "afternoon" means (12:00-17:00)
+    instead of leaving it to the LLM.
     """
-    step = timedelta(minutes=doctor.slot_minutes)
-    runs: list[list[datetime]] = []
-    for t in slots:
-        if runs and t - runs[-1][-1] == step:
-            runs[-1].append(t)
-        else:
-            runs.append([t])
-    parts = [f"{r[0]:%H:%M}" if len(r) == 1 else f"{r[0]:%H:%M} to {r[-1]:%H:%M}" for r in runs]
-    every = f", every {doctor.slot_minutes} minutes" if any(len(r) > 1 for r in runs) else ""
+    parts = [
+        f"{part}: {_times(times)}"
+        for part, (start, end) in scheduling.PARTS_OF_DAY.items()
+        if (times := [t for t in slots if start <= t.time() < end])
+    ]
     return (
-        f"free start times {', '.join(parts)}{every} ({len(slots)} in all); "
+        f"free start times - {'; '.join(parts)} ({len(slots)} in all); "
         f"suggest first {_times(slots[: clinic.slots_offered])}"
     )
+
+
+HONORIFICS = {"ji", "mr", "mrs", "ms", "miss", "shri", "shrimati", "smt", "kumari", "dr", "doctor"}
+
+
+def _person_key(name: str) -> str:
+    """A patient's first name, folded so the same name spelled two ways
+    matches: "Meena"/"Mina", "Aarav"/"Arav", "Rama"/"Ram". Names are stored
+    and spoken to the tools in Roman letters; anything else yields ""
+    and never matches."""
+    words = [w for w in re.findall(r"[a-z]+", name.lower()) if w not in HONORIFICS]
+    if not words:
+        return ""
+    w = words[0].replace("ee", "i").replace("oo", "u").replace("w", "v")
+    w = re.sub(r"(.)\1+", r"\1", w)  # aa -> a, nn -> n
+    return w[:-1] if len(w) > 2 and w.endswith("a") else w
+
+
+def _spoken_person(name: str) -> str:
+    if not (key := _person_key(name)):
+        raise BookingError(
+            f"'{name}' is not a usable name. Ask for the patient's name and pass it in Roman letters."
+        )
+    return key
 
 
 def _name_key(name: str) -> str:
