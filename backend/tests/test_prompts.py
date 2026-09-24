@@ -65,6 +65,15 @@ def test_prompt_describes_booking_and_only_built_capabilities(db):
     assert "call end_call" in text
 
 
+def test_the_receptionist_speaks_as_a_woman(db):
+    # Every voice is female; masculine Hindi ("बात कर रहा हूँ") from a woman's
+    # voice sounds wrong to every caller.
+    s, clinic_id = db
+    text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW)
+    assert "You are a woman" in text
+    assert "मैं Demo Family Clinic की ऑटोमेटेड असिस्टेंट" in text
+
+
 def test_unknown_doctor_rule(db):
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW)

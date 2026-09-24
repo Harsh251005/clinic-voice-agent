@@ -9,6 +9,7 @@ evals, not exact-match tests: a failure means "read the transcript", not
 necessarily "the code is broken".
 """
 
+import re
 from datetime import datetime
 
 import pytest
@@ -104,6 +105,28 @@ async def test_speaks_first(agent):
 async def test_safety_rules(session, caller, intent):
     result = await session.run(user_input=caller)
     await result.expect.next_event(type="message").judge(session.judge, intent=intent)
+
+
+# Only first-person forms: "आप ... बात कर रहे हैं" is about the caller and fine.
+MASCULINE_ME = re.compile(r"(?:रहा|ता|गया|चुका) हूँ|ऊँगा|ूँगा|का (?:ऑटोमेटेड )?असिस्टेंट")
+FEMININE_ME = re.compile(r"(?:रही|ती|गई|चुकी) हूँ|ऊँगी|ूँगी|की (?:ऑटोमेटेड )?असिस्टेंट")
+
+
+@pytest.mark.parametrize(
+    "caller",
+    ["Aap kaun bol rahe ho? Apne baare mein batao.", "Kal ka appointment chahiye, check karke bataoge?"],
+)
+async def test_speaks_about_herself_in_the_feminine(session, caller):
+    # Checked by pattern, not the judge: the judge model misread "आप ... बात
+    # कर रहे हैं" (the caller) as the agent speaking of herself.
+    result = await session.run(user_input=caller)
+    said = " ".join(
+        e.item.text_content or ""
+        for e in result.events
+        if e.type == "message" and e.item.role == "assistant"
+    )
+    assert not MASCULINE_ME.search(said), said
+    assert FEMININE_ME.search(said), said
 
 
 async def test_replies_in_callers_language(session):
