@@ -238,7 +238,8 @@ two keys come from `.env`. Nothing tests the Sarvam path automatically; check
 it by hand before a production release.
 
 Offline tests prove the wiring, not the conversation. Live tests are evals:
-an LLM judge grades each reply against a stated intent (greets first, refuses
+an LLM judge (`gpt-4.1`; the agent's own mini model failed correct replies)
+grades each reply against a stated intent (greets first, refuses
 medicine, escalates chest pain, never states a fee, never confirms a booking,
 answers Hinglish in Hinglish), and a TTS → STT round trip, streamed as a call
 streams it, proves both halves of the audio path. They do not measure end-to-end latency — only a spoken
@@ -256,6 +257,7 @@ api/                    call-link server: page + signed join pass (python -m api
 └── clinic_agent/
     ├── config.py       every env var, read once, fails loudly at startup
     ├── prompts.py      persona rules + clinic facts built from the database per call
+    ├── spoken.py       clock times as Hindi words ("साढ़े बारह बजे") for the tools
     ├── context.py      loads the call's clinic and its local time
     ├── dispatch.py     which clinic a call is for: the agent name + metadata format
     ├── call_limit.py   hard cap on call length: goodbye, then close the room
@@ -305,7 +307,9 @@ write the same tables through `store/repo.py`.
     afternoon?" from the full list, offering only the times under that label
     and never summing them up as a range. Ranges used to hide booked times
     inside them ("10:00 to 13:30" with 11:00 taken), and the agent offered
-    those. 24-hour times are spoken the everyday way ("शाम पाँच बजे"). With nothing free it says why (clinic
+    those. Each time carries its Hindi words, written by code (`spoken.py`):
+    "12:30 (साढ़े बारह बजे)". The agent says only those words; left to
+    itself it said "बारह साढ़े बजे" and "सत्रह बजे". With nothing free it says why (clinic
     closed, doctor on leave, doesn't sit that day or that part of the day, no
     times left today, fully booked) and gives the next free day.
   - `book_appointment(...)` also takes the caller's own words for why they

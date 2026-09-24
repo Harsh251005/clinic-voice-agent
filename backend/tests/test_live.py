@@ -4,11 +4,13 @@ Always the testing stack - ElevenLabs STT + OpenAI LLM + ElevenLabs TTS, with
 each builder's default model and voice - whatever `.env` selects, so tests
 never spend Sarvam credits. Only the two keys come from `.env`.
 
-Behaviour is graded by an LLM judge (the same OpenAI model), so these are
+Behaviour is graded by an LLM judge (gpt-4.1: the agent's own mini model
+failed correct replies and contradicted itself), so these are
 evals, not exact-match tests: a failure means "read the transcript", not
 necessarily "the code is broken".
 """
 
+import dataclasses
 import re
 from datetime import datetime
 
@@ -17,7 +19,7 @@ from livekit.agents import AgentSession, utils
 from livekit.agents.utils import http_context
 
 from clinic_agent.agent import ClinicAgent
-from clinic_agent.config import load_settings
+from clinic_agent.config import VENDOR_SETTINGS, load_settings
 from clinic_agent.prompts import build_instructions
 from clinic_agent.store import repo
 from clinic_agent.tools.booking import ClinicLink, booking_tools
@@ -27,9 +29,8 @@ from clinic_agent.providers import build_llm, build_stt, build_tts
 pytestmark = pytest.mark.live
 NOW = datetime(2026, 9, 21, 15, 30)
 
-# Each vendor keeps its own settings in .env, so pinning the providers is
-# enough: a Sarvam value can never reach ElevenLabs or OpenAI.
 TEST_STACK = {"STT_PROVIDER": "elevenlabs", "LLM_PROVIDER": "openai", "TTS_PROVIDER": "elevenlabs"}
+JUDGE_MODEL = "gpt-4.1"
 
 
 @pytest.fixture(autouse=True)
@@ -37,6 +38,13 @@ def testing_stack(monkeypatch):
     # load_dotenv never overrides a variable that is already set.
     for name, value in TEST_STACK.items():
         monkeypatch.setenv(name, value)
+    # Builder defaults, not whatever model or voice .env is trying out.
+    for name in VENDOR_SETTINGS:
+        monkeypatch.setenv(name, "")
+
+
+def _judge():
+    return build_llm(dataclasses.replace(load_settings(), openai_llm_model=JUDGE_MODEL))
 
 
 @pytest.fixture
@@ -52,7 +60,7 @@ def agent(db):
 async def session(agent):
     llm = build_llm(load_settings())
     async with http_context.open(), AgentSession(llm=llm) as s:
-        s.judge = llm
+        s.judge = _judge()
         await s.start(agent)
         yield s
 
@@ -63,7 +71,7 @@ async def test_speaks_first(agent):
         result = await s.start(agent, capture_run=True)
         await (
             result.expect.next_event(type="message")
-            .judge(llm, intent="greets the caller, names Demo Family Clinic, says it is an automated assistant, and offers help")
+            .judge(_judge(), intent="greets the caller, names Demo Family Clinic, says it is an automated assistant, and offers help")
         )
 
 
@@ -210,8 +218,10 @@ async def _transcribe(stt_, frames) -> str:
 # ---------- booking conversation (tools mocked) ----------
 
 SLOTS = (
-    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - evening: 17:00, 17:15, 17:30, "
-    "17:45, 18:00, 18:15, 18:30, 18:45, 19:00, 19:15, 19:30, 19:45 (12 in all); "
+    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - evening: 17:00 (पाँच बजे), "
+    "17:15 (सवा पाँच बजे), 17:30 (साढ़े पाँच बजे), 17:45 (पौने छह बजे), 18:00 (छह बजे), "
+    "18:15 (सवा छह बजे), 18:30 (साढ़े छह बजे), 18:45 (पौने सात बजे), 19:00 (सात बजे), "
+    "19:15 (सवा सात बजे), 19:30 (साढ़े सात बजे), 19:45 (पौने आठ बजे) (12 in all); "
     "suggest first 17:00, 17:15, 17:30."
 )
 
@@ -234,9 +244,36 @@ def _calls(result, name):
 
 # A whole day with gaps, as find_available_slots lists it.
 GAPPY_DAY = (
-    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - morning: 10:00, 10:15, 11:30; "
-    "afternoon: 12:30, 14:00, 16:45; evening: 17:00, 18:30 (8 in all); suggest first 10:00, 10:15, 11:30."
+    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - morning: 10:00 (दस बजे), "
+    "10:15 (सवा दस बजे), 11:30 (साढ़े ग्यारह बजे); afternoon: 12:30 (साढ़े बारह बजे), 14:00 (दो बजे), "
+    "16:45 (पौने पाँच बजे); evening: 17:00 (पाँच बजे), 18:30 (साढ़े छह बजे) (8 in all); "
+    "suggest first 10:00, 10:15, 11:30."
 )
+# Harsh's call: "कल दोपहर ग्यारह बजे से पहले ... बारह साढ़े बजे" for a day
+# whose afternoon starts at 12:00.
+REAL_AFTERNOON = (
+    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - afternoon: 12:00 (बारह बजे), "
+    "12:30 (साढ़े बारह बजे), 13:00 (एक बजे), 13:30 (डेढ़ बजे), 14:30 (ढाई बजे) (5 in all); "
+    "suggest first 12:00, 12:30, 13:00."
+)
+
+
+@pytest.mark.parametrize("attempt", range(3))
+async def test_afternoon_times_are_said_as_given(session, attempt):
+    from livekit.agents.voice.run_result import mock_tools
+
+    async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
+        return REAL_AFTERNOON
+
+    with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots}):
+        r = await session.run(user_input="आशा मेहता जी का कल दोपहर को कोई स्लॉट available है क्या?")
+    said = " ".join(
+        e.item.text_content or "" for e in r.events if e.type == "message" and e.item.role == "assistant"
+    )
+    assert "ग्यारह" not in said, said  # no time that isn't free
+    assert "बारह साढ़े" not in said and "बारह तीस" not in said, said
+    assert "साढ़े बारह" in said or "बारह बजे" in said, said
+    assert not re.search(r"ेंगी\b|ती हैं\b", said), said  # the caller isn't assumed female
 
 
 async def test_afternoon_means_twelve_to_five_named_one_by_one(session):
@@ -275,8 +312,9 @@ async def test_booking_flow_reads_back_before_booking(session):
         assert args.get("part_of_day") == "evening"
         await _reply(r1).judge(
             session.judge,
-            intent="offers a few evening times, each one of the free times listed (17:00 to 19:45 "
-            "in 15-minute steps), spoken the everyday way such as 'पाँच बजे' or 'साढ़े पाँच', "
+            intent="names one or more evening times for the caller to choose from; each time it "
+            "names is on the free list (any 15-minute step from five to quarter to eight in the "
+            "evening), and it says them the everyday way such as 'पाँच बजे' or 'साढ़े पाँच', "
             "never as 'सत्रह'",
         )
 
@@ -286,7 +324,8 @@ async def test_booking_flow_reads_back_before_booking(session):
         assert _calls(r2, "book_appointment") == [], "booked before reading back"
         await _reply(r2).judge(
             session.judge,
-            intent="reads back doctor, Tuesday, five o'clock, the name Ravi and the number, and asks if it is correct",
+            intent="reads back the doctor, the day (Tuesday, or कल / tomorrow, which is Tuesday here), "
+            "five o'clock, the name Ravi and the number, and asks if it is correct",
         )
 
         r3 = await session.run(user_input="हाँ, सही है")

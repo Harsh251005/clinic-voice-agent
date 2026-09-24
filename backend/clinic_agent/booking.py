@@ -12,6 +12,7 @@ import re
 from datetime import date, datetime, time, timedelta
 
 from clinic_agent import scheduling
+from clinic_agent.spoken import hindi_time
 from clinic_agent.store import repo
 from clinic_agent.store.db import Session
 from clinic_agent.store.models import Appointment, Clinic, Doctor, TimeOff
@@ -401,6 +402,11 @@ def _times(slots: list[datetime]) -> str:
     return ", ".join(f"{t:%H:%M}" for t in slots)
 
 
+def _said(slots: list[datetime]) -> str:
+    """'12:00 (बारह बजे), 12:30 (साढ़े बारह बजे)': each time with the words for it."""
+    return ", ".join(f"{t:%H:%M} ({hindi_time(t.time())})" for t in slots)
+
+
 def _free(slots: list[datetime], clinic: Clinic) -> str:
     """Every free start time, one by one, under the clinic's fixed parts of
     the day, plus the few to suggest first.
@@ -409,10 +415,11 @@ def _free(slots: list[datetime], clinic: Clinic) -> str:
     after eleven?" is answered from what is really free. Each time is listed
     on its own: ranges with gaps ("10:00 to 13:30") made the LLM offer booked
     times inside them. The labels fix what "afternoon" means (12:00-17:00)
-    instead of leaving it to the LLM.
+    instead of leaving it to the LLM. Each time carries its Hindi words
+    (spoken.py), which the LLM got wrong on its own.
     """
     parts = [
-        f"{part}: {_times(times)}"
+        f"{part}: {_said(times)}"
         for part, (start, end) in scheduling.PARTS_OF_DAY.items()
         if (times := [t for t in slots if start <= t.time() < end])
     ]

@@ -5,6 +5,7 @@ import pytest
 from clinic_agent import booking
 from clinic_agent.booking import BookingError
 from clinic_agent.store import repo
+from conftest import plain
 
 NOW = datetime(2026, 9, 21, 9, 0)  # Monday morning
 TUE = date(2026, 9, 22)
@@ -12,7 +13,7 @@ TUE = date(2026, 9, 22)
 
 def find(db, day=TUE, **kw):
     s, clinic_id = db
-    return booking.find_slots(s, clinic_id, day, NOW, **kw)
+    return plain(booking.find_slots(s, clinic_id, day, NOW, **kw))
 
 
 def book(db, doctor="Asha", day=TUE, at=time(10, 0), name="Ravi", phone="98765 43210"):
@@ -108,6 +109,13 @@ def test_times_are_listed_one_by_one_never_as_ranges(db):
     assert "10:45, 11:15" in out
 
 
+def test_each_time_carries_the_hindi_words_for_it(db):
+    # Left alone the LLM said "बारह साढ़े बजे" and "सत्रह बजे".
+    s, clinic_id = db
+    out = booking.find_slots(s, clinic_id, TUE, NOW, doctor_name="Asha")
+    assert "12:30 (साढ़े बारह बजे), 12:45 (पौने एक बजे); evening: 17:00 (पाँच बजे)" in out
+
+
 def test_parts_of_the_day_are_fixed(db):
     # Morning is before 12, afternoon 12 to before 5, evening 5 on. The LLM
     # used to decide "afternoon" itself ("eleven to four").
@@ -200,7 +208,7 @@ def test_today_skips_times_already_gone(db):
     # 09:00 now, 30-minute lead: 10:00 is fine, and nothing before it exists anyway
     s, clinic_id = db
     late = datetime(2026, 9, 21, 10, 50)
-    out = booking.find_slots(s, clinic_id, date(2026, 9, 21), late, doctor_name="Asha")
+    out = plain(booking.find_slots(s, clinic_id, date(2026, 9, 21), late, doctor_name="Asha"))
     assert "free start times - morning: 11:30, 11:45; afternoon: 12:00" in out
 
 
@@ -217,7 +225,7 @@ def test_booking_succeeds_and_is_stored(db):
 
 def test_booking_a_taken_slot_offers_others(db):
     book(db)
-    with pytest.raises(BookingError, match=r"not free at 10:00.*That day: free start times - morning: 10:15, 10:30"):
+    with pytest.raises(BookingError, match=r"not free at 10:00.*That day: free start times - morning: 10:15 \(सवा दस बजे\)"):
         book(db, name="Sunita", phone="9123456780")
 
 
@@ -241,7 +249,7 @@ def test_race_between_check_and_insert_is_caught(db, monkeypatch):
         return real_book(*args, **kwargs)
 
     monkeypatch.setattr(repo, "book", sneaky)
-    with pytest.raises(BookingError, match="just taken by another caller. That day: free start times - morning: 10:15, 10:30"):
+    with pytest.raises(BookingError, match=r"just taken by another caller. That day: free start times - morning: 10:15 \(सवा दस बजे\)"):
         book(db)
 
 

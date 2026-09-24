@@ -39,7 +39,7 @@ async def test_find_then_book_through_the_tools(tools):
     find, book, sessions, clinic_id = tools
     day = next_working_day().isoformat()
     found = await find(None, date=day, doctor_name="Asha", part_of_day="evening")
-    assert "free start times - evening: 17:00, 17:15" in found and found.endswith("suggest first 17:00, 17:15, 17:30.")
+    assert "free start times - evening: 17:00 (पाँच बजे), 17:15 (सवा पाँच बजे)" in found and found.endswith("suggest first 17:00, 17:15, 17:30.")
     booked = await book(None, 
         doctor_name="Asha", date=day, time="17:00",
         patient_name="Ravi", patient_phone="9876543210", caller_confirmed=True,
