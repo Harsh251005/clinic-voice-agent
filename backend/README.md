@@ -350,6 +350,10 @@ write the same tables through `store/repo.py`.
 - **It says it is automated.** The first line names the clinic and says it
   is the clinic's automated assistant ("ऑटोमेटेड असिस्टेंट" in Hindi). The
   call page says so too.
+- **She speaks as a woman.** Every voice is female, so in Hindi everything
+  she says about herself is feminine ("बात कर रही हूँ", "बताती हूँ", "की
+  ऑटोमेटेड असिस्टेंट"). The caller's gender is still never assumed ("ji").
+  Pick only female voices (`SARVAM_TTS_SPEAKER`, `ELEVENLABS_TTS_VOICE`).
 - **Calls have a time limit** (`MAX_CALL_MINUTES`, default 10). At the limit
   the receptionist apologises, says goodbye (it can't be interrupted), and
   closes the room, which disconnects the caller.
