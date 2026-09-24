@@ -28,21 +28,28 @@ class Settings:
     llm_provider: str
     tts_provider: str
 
-    # --- speech to text (None = the selected provider's default) ---
-    stt_model: str | None
-    stt_language: str | None
-    stt_mode: str  # Sarvam only
-    stt_sample_rate: int
+    # --- per-vendor settings. Each vendor keeps its own, so switching the
+    # stack is only the three *_PROVIDER lines. None = the builder's default ---
+    stt_sample_rate: int  # the audio fed to whichever STT runs
 
-    # --- language model (None = the selected provider's default) ---
-    llm_model: str | None
+    sarvam_stt_model: str | None
+    sarvam_stt_language: str | None
+    sarvam_stt_mode: str
+    elevenlabs_stt_model: str | None
+    elevenlabs_stt_language: str | None
 
-    # --- text to speech (None = the selected provider's default) ---
-    tts_model: str | None
-    tts_speaker: str | None
-    tts_language: str | None
-    tts_sample_rate: int | None
-    tts_codec: str | None
+    sarvam_llm_model: str | None
+    openai_llm_model: str | None
+
+    sarvam_tts_model: str | None
+    sarvam_tts_speaker: str | None
+    sarvam_tts_language: str | None
+    sarvam_tts_sample_rate: int | None
+    sarvam_tts_codec: str | None
+    elevenlabs_tts_model: str | None
+    elevenlabs_tts_voice: str | None
+    elevenlabs_tts_language: str | None
+    elevenlabs_tts_codec: str | None
 
     # --- turn taking ---
     min_endpointing_delay: float
@@ -108,17 +115,54 @@ def _choice(name: str, allowed: tuple[str, ...]) -> str:
     return value
 
 
+# Each vendor's own model and voice settings, read in load_settings().
+VENDOR_SETTINGS = (
+    "SARVAM_STT_MODEL", "SARVAM_STT_LANGUAGE", "SARVAM_STT_MODE",
+    "ELEVENLABS_STT_MODEL", "ELEVENLABS_STT_LANGUAGE",
+    "SARVAM_LLM_MODEL", "OPENAI_LLM_MODEL",
+    "SARVAM_TTS_MODEL", "SARVAM_TTS_SPEAKER", "SARVAM_TTS_LANGUAGE",
+    "SARVAM_TTS_SAMPLE_RATE", "SARVAM_TTS_CODEC",
+    "ELEVENLABS_TTS_MODEL", "ELEVENLABS_TTS_VOICE", "ELEVENLABS_TTS_LANGUAGE",
+    "ELEVENLABS_TTS_CODEC",
+)
+
+# Settings that used to be shared by every vendor. Each vendor now has its
+# own, so an old .env would be silently ignored: refuse it instead.
+_SPLIT_PER_VENDOR = {
+    "STT_MODEL": "SARVAM_STT_MODEL / ELEVENLABS_STT_MODEL",
+    "STT_LANGUAGE": "SARVAM_STT_LANGUAGE / ELEVENLABS_STT_LANGUAGE",
+    "STT_MODE": "SARVAM_STT_MODE",
+    "LLM_MODEL": "SARVAM_LLM_MODEL / OPENAI_LLM_MODEL",
+    "TTS_MODEL": "SARVAM_TTS_MODEL / ELEVENLABS_TTS_MODEL",
+    "TTS_SPEAKER": "SARVAM_TTS_SPEAKER / ELEVENLABS_TTS_VOICE",
+    "TTS_LANGUAGE": "SARVAM_TTS_LANGUAGE / ELEVENLABS_TTS_LANGUAGE",
+    "TTS_SAMPLE_RATE": "SARVAM_TTS_SAMPLE_RATE",
+    "TTS_CODEC": "SARVAM_TTS_CODEC / ELEVENLABS_TTS_CODEC",
+}
+
+
+def _refuse_shared_vendor_settings() -> None:
+    old = [name for name in _SPLIT_PER_VENDOR if _text(name)]
+    if old:
+        raise ConfigError(
+            "settings are now per vendor; rename in .env: "
+            + ", ".join(f"{name} -> {_SPLIT_PER_VENDOR[name]}" for name in old)
+        )
+
+
 def load_settings() -> Settings:
     """Read .env and the environment into a Settings object.
 
-    Model and voice settings left blank stay None, and the selected
-    provider's builder fills in its own default. API keys are checked by the
+    Each vendor has its own model and voice settings, so switching the stack
+    is only the *_PROVIDER lines. Left blank they stay None, and that
+    vendor's builder fills in its own default. API keys are checked by the
     builder that needs them; main.py builds every provider at startup, so a
     missing key is still a startup error rather than a caller hearing silence.
     """
     load_dotenv()
+    _refuse_shared_vendor_settings()
 
-    tts_rate = _number("TTS_SAMPLE_RATE")
+    tts_rate = _number("SARVAM_TTS_SAMPLE_RATE")
     return Settings(
         sarvam_api_key=_text("SARVAM_API_KEY", ""),
         openai_api_key=_text("OPENAI_API_KEY", ""),
@@ -127,16 +171,23 @@ def load_settings() -> Settings:
         stt_provider=_text("STT_PROVIDER", "sarvam"),
         llm_provider=_text("LLM_PROVIDER", "sarvam"),
         tts_provider=_text("TTS_PROVIDER", "sarvam"),
-        stt_model=_text("STT_MODEL"),
-        stt_language=_text("STT_LANGUAGE"),
-        stt_mode=_text("STT_MODE", "transcribe"),
         stt_sample_rate=int(_number("STT_SAMPLE_RATE", 16000)),
-        llm_model=_text("LLM_MODEL"),
-        tts_model=_text("TTS_MODEL"),
-        tts_speaker=_text("TTS_SPEAKER"),
-        tts_language=_text("TTS_LANGUAGE"),
-        tts_sample_rate=int(tts_rate) if tts_rate is not None else None,
-        tts_codec=_text("TTS_CODEC"),
+        sarvam_stt_model=_text("SARVAM_STT_MODEL"),
+        sarvam_stt_language=_text("SARVAM_STT_LANGUAGE"),
+        sarvam_stt_mode=_text("SARVAM_STT_MODE", "transcribe"),
+        elevenlabs_stt_model=_text("ELEVENLABS_STT_MODEL"),
+        elevenlabs_stt_language=_text("ELEVENLABS_STT_LANGUAGE"),
+        sarvam_llm_model=_text("SARVAM_LLM_MODEL"),
+        openai_llm_model=_text("OPENAI_LLM_MODEL"),
+        sarvam_tts_model=_text("SARVAM_TTS_MODEL"),
+        sarvam_tts_speaker=_text("SARVAM_TTS_SPEAKER"),
+        sarvam_tts_language=_text("SARVAM_TTS_LANGUAGE"),
+        sarvam_tts_sample_rate=int(tts_rate) if tts_rate is not None else None,
+        sarvam_tts_codec=_text("SARVAM_TTS_CODEC"),
+        elevenlabs_tts_model=_text("ELEVENLABS_TTS_MODEL"),
+        elevenlabs_tts_voice=_text("ELEVENLABS_TTS_VOICE"),
+        elevenlabs_tts_language=_text("ELEVENLABS_TTS_LANGUAGE"),
+        elevenlabs_tts_codec=_text("ELEVENLABS_TTS_CODEC"),
         min_endpointing_delay=_number("MIN_ENDPOINTING_DELAY", 0.2),
         max_call_minutes=_number("MAX_CALL_MINUTES", 10),
         dashboard_login=_choice("DASHBOARD_LOGIN", ("google", "off")),

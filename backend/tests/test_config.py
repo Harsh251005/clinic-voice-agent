@@ -10,9 +10,9 @@ def test_defaults(env):
     assert (cfg.stt_provider, cfg.llm_provider, cfg.tts_provider) == ("sarvam",) * 3
     assert cfg.min_endpointing_delay == 0.2
     # Model and voice defaults belong to each provider's builder.
-    assert (cfg.stt_model, cfg.stt_language) == (None, None)
-    assert cfg.llm_model is None
-    assert (cfg.tts_model, cfg.tts_speaker, cfg.tts_codec) == (None, None, None)
+    assert (cfg.sarvam_stt_model, cfg.elevenlabs_stt_model) == (None, None)
+    assert (cfg.sarvam_llm_model, cfg.openai_llm_model) == (None, None)
+    assert (cfg.sarvam_tts_speaker, cfg.elevenlabs_tts_voice) == (None, None)
 
 
 def test_keys_are_not_checked_by_config(env):
@@ -23,19 +23,19 @@ def test_keys_are_not_checked_by_config(env):
 
 
 def test_env_overrides_default(env):
-    env.setenv("STT_MODEL", "saaras:v3")
+    env.setenv("SARVAM_STT_MODEL", "saaras:v3")
     env.setenv("MIN_ENDPOINTING_DELAY", "0.5")
     cfg = load_settings()
-    assert cfg.stt_model == "saaras:v3"
+    assert cfg.sarvam_stt_model == "saaras:v3"
     assert cfg.min_endpointing_delay == 0.5
 
 
 def test_blank_value_falls_back_to_default(env):
-    env.setenv("STT_MODEL", "")
-    env.setenv("TTS_SPEAKER", "  ")
+    env.setenv("SARVAM_STT_MODEL", "")
+    env.setenv("ELEVENLABS_TTS_VOICE", "  ")
     cfg = load_settings()
-    assert cfg.stt_model is None
-    assert cfg.tts_speaker is None
+    assert cfg.sarvam_stt_model is None
+    assert cfg.elevenlabs_tts_voice is None
 
 
 def test_non_numeric_number_is_a_config_error(env):
@@ -47,7 +47,25 @@ def test_non_numeric_number_is_a_config_error(env):
 def test_settings_are_immutable(env):
     cfg = load_settings()
     with pytest.raises(dataclasses.FrozenInstanceError):
-        cfg.llm_model = "other"
+        cfg.openai_llm_model = "other"
+
+
+def test_each_vendor_keeps_its_own_settings(env):
+    # Switching the stack is only the *_PROVIDER lines: both vendors'
+    # values sit in .env at once and neither overwrites the other.
+    env.setenv("SARVAM_TTS_SPEAKER", "suhani")
+    env.setenv("ELEVENLABS_TTS_VOICE", "voice-123")
+    cfg = load_settings()
+    assert (cfg.sarvam_tts_speaker, cfg.elevenlabs_tts_voice) == ("suhani", "voice-123")
+
+
+def test_old_shared_setting_is_refused_with_its_new_names(env):
+    # Silently ignoring it would change the voice or model with no warning.
+    env.setenv("TTS_SPEAKER", "suhani")
+    with pytest.raises(ConfigError, match="TTS_SPEAKER -> SARVAM_TTS_SPEAKER / ELEVENLABS_TTS_VOICE"):
+        load_settings()
+    env.setenv("TTS_SPEAKER", "")
+    load_settings()  # blank is harmless
 
 
 def test_dashboard_login_defaults_to_google_and_rejects_typos(env):

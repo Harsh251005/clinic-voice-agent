@@ -26,11 +26,9 @@ from clinic_agent.providers import build_llm, build_stt, build_tts
 pytestmark = pytest.mark.live
 NOW = datetime(2026, 9, 21, 15, 30)
 
+# Each vendor keeps its own settings in .env, so pinning the providers is
+# enough: a Sarvam value can never reach ElevenLabs or OpenAI.
 TEST_STACK = {"STT_PROVIDER": "elevenlabs", "LLM_PROVIDER": "openai", "TTS_PROVIDER": "elevenlabs"}
-# Blank = the builder's default. These values mean different things per
-# vendor, so a Sarvam value left in .env must not reach ElevenLabs.
-VENDOR_SETTINGS = ["STT_MODEL", "STT_LANGUAGE", "LLM_MODEL", "TTS_MODEL", "TTS_SPEAKER",
-                   "TTS_LANGUAGE", "TTS_SAMPLE_RATE", "TTS_CODEC"]
 
 
 @pytest.fixture(autouse=True)
@@ -38,8 +36,6 @@ def testing_stack(monkeypatch):
     # load_dotenv never overrides a variable that is already set.
     for name, value in TEST_STACK.items():
         monkeypatch.setenv(name, value)
-    for name in VENDOR_SETTINGS:
-        monkeypatch.setenv(name, "")
 
 
 @pytest.fixture

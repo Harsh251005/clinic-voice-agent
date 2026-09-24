@@ -18,10 +18,10 @@ def _sarvam(cfg: Settings) -> stt.STT:
     # sarvam.STT declares streaming=True and does its own endpointing over a
     # websocket the plugin owns, so no separate VAD is wired in.
     return sarvam.STT(
-        model=cfg.stt_model or "saaras:v4",
+        model=cfg.sarvam_stt_model or "saaras:v4",
         # "unknown" auto-detects per utterance: callers mix Hindi and English.
-        language=cfg.stt_language or "unknown",
-        mode=cfg.stt_mode,
+        language=cfg.sarvam_stt_language or "unknown",
+        mode=cfg.sarvam_stt_mode,
         sample_rate=cfg.stt_sample_rate,
         api_key=require_key(cfg.sarvam_api_key, "SARVAM_API_KEY"),
     )
@@ -38,14 +38,16 @@ def _elevenlabs(cfg: Settings) -> stt.STT:
     # the agent never hears the caller. Pinned "hi" still transcribes English
     # as English and Hinglish as Hinglish (checked with all three). Adding
     # secondary_languages=["en"] made commits empty again, so it's left off.
-    # Blank or "unknown" (Sarvam's auto-detect) therefore mean "hi" here.
-    language = cfg.stt_language if cfg.stt_language not in (None, "unknown") else "hi"
+    # Blank or "unknown" therefore mean "hi" here.
+    language = cfg.elevenlabs_stt_language
+    if language in (None, "unknown"):
+        language = "hi"
     # server_vad switches ElevenLabs from manual commits to committing on
     # silence. Without it, a transcript is only finalised when the stream is
     # flushed, which LiveKit never does on a live call: the agent greeted
     # and then never heard a word. Empty = ElevenLabs' own VAD defaults.
     return elevenlabs.STT(
-        model=cfg.stt_model or "scribe_v2_realtime",
+        model=cfg.elevenlabs_stt_model or "scribe_v2_realtime",
         server_vad={},
         language_code=language,
         sample_rate=cfg.stt_sample_rate,

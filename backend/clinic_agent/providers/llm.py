@@ -15,7 +15,7 @@ from clinic_agent.config import Settings, require_key
 
 def _sarvam(cfg: Settings) -> llm.LLM:
     return sarvam.LLM(
-        model=cfg.llm_model or "sarvam-105b-conversations",
+        model=cfg.sarvam_llm_model or "sarvam-105b-conversations",
         api_key=require_key(cfg.sarvam_api_key, "SARVAM_API_KEY"),
     )
 
@@ -26,7 +26,7 @@ def _openai(cfg: Settings) -> llm.LLM:
     # "none" explicitly: Chat Completions refuses tools with reasoning on,
     # and the plugin only sets it for model names it already knows, so a
     # newer model (e.g. gpt-5.6-luna) would fail on every turn.
-    model = cfg.llm_model or "gpt-4.1-mini"
+    model = cfg.openai_llm_model or "gpt-4.1-mini"
     options = {"reasoning_effort": "none"} if _reasons(model) else {}
     return openai.LLM(
         model=model,

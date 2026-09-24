@@ -61,15 +61,6 @@ def _take_clinic_flag(argv: list[str]) -> int | None:
 
 async def entrypoint(ctx: JobContext) -> None:
     cfg = load_settings()
-    if TEXT_ONLY:
-        logger.info("starting text-only session: llm=%s/%s", cfg.llm_provider, cfg.llm_model or "default")
-    else:
-        logger.info(
-            "starting session: stt=%s/%s llm=%s/%s tts=%s/%s speaker=%s",
-            cfg.stt_provider, cfg.stt_model or "default",
-            cfg.llm_provider, cfg.llm_model or "default",
-            cfg.tts_provider, cfg.tts_model or "default", cfg.tts_speaker or "default",
-        )
 
     try:
         clinic_id = clinic_id_from(ctx.job.metadata, fallback=LOCAL_CLINIC)
@@ -85,6 +76,15 @@ async def entrypoint(ctx: JobContext) -> None:
     tools = [*booking_tools(link), end_call_tool()]
 
     session = build_session(cfg, text_only=TEXT_ONLY)
+    if TEXT_ONLY:
+        logger.info("starting text-only session: llm=%s/%s", cfg.llm_provider, session.llm.model)
+    else:
+        logger.info(
+            "starting session: stt=%s/%s llm=%s/%s tts=%s/%s",
+            cfg.stt_provider, session.stt.model,
+            cfg.llm_provider, session.llm.model,
+            cfg.tts_provider, session.tts.model,
+        )
     keep_promises(session, [t.info.name for t in tools if t.info.name != "end_call"])
     await session.start(agent=ClinicAgent(instructions, tools), room=ctx.room)
 
