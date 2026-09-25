@@ -474,7 +474,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 
 | Setting | Default | Why you would change it |
 |---|---|---|
-| `SARVAM_STT_MODEL` / `ELEVENLABS_STT_MODEL` | vendor's | Sarvam: `saaras:v4`. ElevenLabs: `scribe_v2_realtime` is its only streaming model (the LiveKit plugin streams that exact name only); turn detection needs a streaming STT. |
+| `SARVAM_STT_MODEL` / `ELEVENLABS_STT_MODEL` | vendor's | Sarvam: `saaras:v3` (`saaras:v4` is not available on our plan). ElevenLabs: `scribe_v2_realtime` is its only streaming model (the LiveKit plugin streams that exact name only); turn detection needs a streaming STT. |
 | `SARVAM_STT_LANGUAGE` / `ELEVENLABS_STT_LANGUAGE` | vendor's | Sarvam: `unknown` auto-detects per utterance. ElevenLabs: always `hi` when blank or `unknown`. Its auto-detect locks onto the wrong language during the greeting's silence (Cyrillic, Chinese) and then commits empty transcripts, so the agent never hears the caller. Pinned `hi` still transcribes English as English and Hinglish as Hinglish. |
 | `SARVAM_STT_MODE` | `transcribe` | `transcribe` returns Hindi in Devanagari, which matches the prompt's rule that Hindi replies are written in Devanagari — the script the voice engine pronounces correctly. |
 | `SARVAM_LLM_MODEL` / `OPENAI_LLM_MODEL` | vendor's | OpenAI: `gpt-4.1-mini` — no reasoning step, so replies start fast. Reasoning models (`gpt-5*`, `o*`) work too: the builder sets `reasoning_effort="none"`, which OpenAI requires for tools on Chat Completions. Sarvam: `sarvam-105b-conversations` (fall back to `sarvam-105b`). |
@@ -490,6 +490,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `API_HOST` / `API_PORT` | `127.0.0.1` / `8080` | Where the call-link server listens. `0.0.0.0` inside a container. |
 | `CLIENT_IP_HEADER` | blank | The header carrying the caller's IP behind a tunnel/proxy (`CF-Connecting-IP`, `X-Forwarded-For`), so rate limits stay per caller. Never trusted unless set. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
+| `INTERRUPT_MIN_SPEECH` | `0.3` | Seconds of caller speech that stop the agent mid-reply. Lower if it talks over you, raise if coughs or background noise cut it off. |
 
 ## Troubleshooting
 
@@ -515,17 +516,18 @@ on our side.
 
 ## Notes
 
-- **VAD — decision pending.** Sarvam's STT does its own endpointing and
-  `turn_handling={"turn_detection": "stt"}` trusts it for end of turn. But
-  LiveKit 1.8.2 still attaches a local Silero VAD by default unless
-  `AgentSession(vad=None)` is passed, so one is running today (tracked by the
-  expected-failure test `test_no_local_vad`). Keeping it gives faster barge-in;
-  removing it avoids double-triggered interruptions. To be settled on a live call.
-- **`console`/`dev` do not behave exactly like `start`.** With a VAD present,
-  LiveKit turns on *adaptive interruption detection* in console and dev mode —
-  a LiveKit Cloud model, called with `LIVEKIT_API_KEY` — and turns it off by
-  default under `start`. So interruptions you test locally are handled by a
-  model production does not run.
+- **Interruptions: local Silero VAD, same in every mode.** Sarvam's STT
+  still decides when a turn *ends* (`turn_detection: "stt"`); the VAD only
+  decides when the caller *cuts in*. `session.py` passes the VAD explicitly
+  and sets interruption mode `"vad"`: once the VAD hears
+  `INTERRUPT_MIN_SPEECH` seconds of speech the agent stops. Without the
+  explicit mode LiveKit would use its *adaptive* interruption model (LiveKit
+  Cloud) in `console`/`dev` but not under `start`, so local tests would not
+  match production. Two LiveKit behaviours remain: interruptions are off for
+  the first 3 s of the agent's first reply (echo-cancellation warm-up), and
+  a cut-in is first a *pause*: if the STT returns no words within 2 s the
+  agent resumes (a "false interruption"). So a broken STT looks like "it
+  doesn't stop".
 - Sarvam credits are consumption-based and shared across STT, LLM and TTS.
   The testing stack spends none of them.
 - **ElevenLabs STT ends a turn after 1.5 s of silence** (its server-side

@@ -53,6 +53,7 @@ class Settings:
 
     # --- turn taking ---
     min_endpointing_delay: float
+    interrupt_min_speech: float  # seconds of caller speech that stop the agent
 
     # --- calls ---
     max_call_minutes: float  # then a goodbye and hang up
@@ -189,6 +190,7 @@ def load_settings() -> Settings:
         elevenlabs_tts_language=_text("ELEVENLABS_TTS_LANGUAGE"),
         elevenlabs_tts_codec=_text("ELEVENLABS_TTS_CODEC"),
         min_endpointing_delay=_number("MIN_ENDPOINTING_DELAY", 0.2),
+        interrupt_min_speech=_number("INTERRUPT_MIN_SPEECH", 0.3),
         max_call_minutes=_number("MAX_CALL_MINUTES", 10),
         dashboard_login=_choice("DASHBOARD_LOGIN", ("google", "off")),
         admin_emails=frozenset(

@@ -1,5 +1,3 @@
-import pytest
-
 from clinic_agent.config import load_settings
 from clinic_agent.session import build_session
 
@@ -12,13 +10,14 @@ async def test_turn_detection_trusts_stt(env):
     assert opts.turn_handling["endpointing"]["min_delay"] == 0.3
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="LiveKit adds a local Silero VAD unless vad=None is passed; "
-    "CLAUDE.md claims there is none. Pending a decision.",
-)
-async def test_no_local_vad(env):
-    assert build_session(load_settings()).vad is None
+async def test_interruptions_use_the_local_vad_in_every_mode(env):
+    # Explicit mode "vad": otherwise console/dev would use LiveKit's adaptive
+    # model and start wouldn't, so local tests wouldn't match production.
+    env.setenv("INTERRUPT_MIN_SPEECH", "0.25")
+    session = build_session(load_settings())
+    assert session.vad is not None
+    assert session.interruption_detection == "vad"
+    assert session.options.interruption["min_duration"] == 0.25
 
 
 async def test_text_only_session_builds_no_speech_providers(env):

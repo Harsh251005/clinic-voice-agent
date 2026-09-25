@@ -21,7 +21,7 @@ def test_stt_is_streaming(env):
 def test_sarvam_defaults(env):
     cfg = load_settings()
     s = build_stt(cfg)
-    assert (s.model, s._opts.language) == ("saaras:v4", "unknown")
+    assert (s.model, s._opts.language) == ("saaras:v3", "unknown")
     assert build_llm(cfg).model == "sarvam-105b-conversations"
     t = build_tts(cfg)
     assert (t.model, t._opts.speaker, t._opts.output_audio_codec) == ("bulbul:v3", "suhani", "linear16")
