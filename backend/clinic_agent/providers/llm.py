@@ -5,6 +5,7 @@ Every builder returns a `livekit.agents.llm.LLM`.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 
 from livekit.agents import llm
@@ -21,12 +22,12 @@ def _sarvam(cfg: Settings) -> llm.LLM:
 
 
 def _openai(cfg: Settings) -> llm.LLM:
-    # gpt-4.1-mini: no reasoning step, so the first token arrives fast enough
-    # for a phone call. Reasoning models (gpt-5*, o*) get reasoning_effort
-    # "none" explicitly: Chat Completions refuses tools with reasoning on,
-    # and the plugin only sets it for model names it already knows, so a
-    # newer model (e.g. gpt-5.6-luna) would fail on every turn.
-    model = cfg.openai_llm_model or "gpt-4.1-mini"
+    # gpt-6-luna is a reasoning model. Reasoning models (gpt-5 and later,
+    # o*) get reasoning_effort "none" explicitly: Chat Completions refuses
+    # tools with reasoning on (400 on every turn, checked with gpt-6-luna),
+    # the plugin only sets it for model names it already knows, and no
+    # reasoning step keeps the first token fast enough for a phone call.
+    model = cfg.openai_llm_model or "gpt-6-luna"
     options = {"reasoning_effort": "none"} if _reasons(model) else {}
     return openai.LLM(
         model=model,
@@ -36,7 +37,8 @@ def _openai(cfg: Settings) -> llm.LLM:
 
 
 def _reasons(model: str) -> bool:
-    return model.startswith(("gpt-5", "o1", "o3", "o4"))
+    """gpt-5 and every later generation, and the o-series."""
+    return bool(re.match(r"(gpt-([5-9]|\d{2,})|o\d)", model))
 
 
 # Allowed vendors are Sarvam (production) and OpenAI. Don't add others.

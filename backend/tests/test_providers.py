@@ -51,7 +51,8 @@ def test_openai_llm(env):
     env.setenv("OPENAI_API_KEY", "sk-test")
     m = build_llm(load_settings())
     assert isinstance(m, llm.LLM)
-    assert m.model == "gpt-4.1-mini"
+    assert m.model == "gpt-6-luna"
+    assert m._opts.reasoning_effort == "none"  # a reasoning model: tools need it off
 
 
 def test_openai_model_override(env):
@@ -63,7 +64,8 @@ def test_openai_model_override(env):
 
 @pytest.mark.parametrize(
     ("model", "effort"),
-    [("gpt-5.6-luna", "none"), ("gpt-5-mini", "none"), ("o4-mini", "none"), ("gpt-4.1-mini", None)],
+    [("gpt-6-luna", "none"), ("gpt-5.6-luna", "none"), ("gpt-5-mini", "none"), ("gpt-10", "none"),
+     ("o4-mini", "none"), ("gpt-4.1-mini", None), ("gpt-4o-mini", None)],
 )
 def test_openai_reasoning_is_off_so_tools_work(env, model, effort):
     env.setenv("LLM_PROVIDER", "openai")
@@ -90,11 +92,19 @@ def test_elevenlabs_stt(env):
     env.setenv("ELEVENLABS_API_KEY", "el-test")
     s = build_stt(load_settings())
     assert isinstance(s, stt.STT)
-    # Streaming, so turn detection can trust its end of speech as with Sarvam.
-    assert s.model == "scribe_v2_realtime"
-    assert s.capabilities.streaming
+    # Batch: LiveKit cuts utterances with the session's VAD and sends each one.
+    assert s.model == "scribe_v2"
+    assert not s.capabilities.streaming
     assert s._opts.language_code == "hi"  # auto-detect breaks on live calls
-    # Commits on silence. Manual commits would wait for a flush a live call never sends.
+
+
+def test_elevenlabs_realtime_stt_commits_on_silence(env):
+    env.setenv("STT_PROVIDER", "elevenlabs")
+    env.setenv("ELEVENLABS_API_KEY", "el-test")
+    env.setenv("ELEVENLABS_STT_MODEL", "scribe_v2_realtime")
+    s = build_stt(load_settings())
+    assert s.capabilities.streaming
+    # Manual commits would wait for a flush a live call never sends.
     assert s._opts.server_vad == {}  # given, so commit_strategy=vad
 
 

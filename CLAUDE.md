@@ -30,10 +30,8 @@ same change that builds it.
 
 ## Commands
 
-Dashboard (Next.js, `frontend/`, screens only; see `frontend/README.md`):
-`npm run dev` (needs `uv run python -m api` running), `npm run api:types`
-after any API change (a backend test fails if the schema is stale),
-`npm run typecheck`, `npm run lint`, `npm run build`.
+Dashboard: see `frontend/CLAUDE.md`. After any API change run
+`npm run api:types` in `frontend/` (`tests/test_openapi.py` fails if stale).
 
 
 Run from `backend/` (Python ≥3.13, managed with `uv`, `package = false`):
@@ -137,20 +135,8 @@ The pipeline is split so each concern lives in exactly one module:
   Tests: `db` fixture also runs on Postgres when `TEST_POSTGRES_URL` is set
   (local container `clinic-pg`, port 5433; see README). Clinic details are
   data (seed or dashboard), never in `.py` files.
-- `frontend/` — the dashboard: Next.js 16 (App Router), Tailwind,
-  shadcn/ui (Radix base). **Screens only**: it calls `/api/*` (forwarded to
-  FastAPI by `next.config.ts` in dev, by Caddy in production) through the
-  typed client in `src/lib/api/` (types generated from FastAPI's OpenAPI,
-  `npm run api:types`; `backend/tests/test_openapi.py` fails when stale).
-  Data hooks in `src/lib/queries.ts`; changes go through `useClinicChange`
-  (toast + refresh). Clinic times are naive clinic-local strings; never
-  convert them through the browser's timezone (`src/lib/dates.ts`). Next 16
-  differs from older versions: read `frontend/node_modules/next/dist/docs/`
-  first (`frontend/AGENTS.md`). The dev server serves scripts only to
-  `localhost` (`allowedDevOrigins` for anything else, e.g. a tunnel).
-  E2E: `npm run test:e2e` (Playwright on installed Chrome, fresh DB via
-  `e2e/start-api.sh`, sign-in off). Visual checks without the extension:
-  `google-chrome --headless=new --screenshot=out.png --window-size=… URL`.
+- `frontend/` — the dashboard (Next.js, screens only); its notes load from
+  `frontend/CLAUDE.md` when working there.
 - `clinic_agent/providers/{stt,llm,tts}.py` — each has a `BUILDERS` registry
   mapping a name to a builder returning LiveKit's base `STT`/`LLM`/`TTS` class.
   Builders own their vendor's defaults (model/voice settings are `None` in
@@ -171,8 +157,9 @@ with `Session` / `Sessions` from `store/db.py`.
 - **Turn detection is `"stt"`**, set explicitly in `session.py` (omitting it
   falls back to LiveKit's own turn-detector model).
 - **Local Silero VAD, interruption mode `"vad"`** (Harsh, 2026-09-25), set
-  explicitly in `session.py`. The VAD only handles barge-in; the STT still ends
-  turns. The explicit mode keeps `console`/`dev` from using LiveKit Cloud's
+  explicitly in `session.py`. The VAD handles barge-in, and for a batch STT
+  (ElevenLabs `scribe_v2`, the default) it also cuts each utterance; a
+  streaming STT (Sarvam) ends turns itself. The explicit mode keeps `console`/`dev` from using LiveKit Cloud's
   adaptive model, so local tests match `start`. `INTERRUPT_MIN_SPEECH` tunes it.
 - **Keep `backend/README.md` current** with every behaviour, command or setup
   change, in the same commit.
@@ -180,14 +167,17 @@ with `Session` / `Sessions` from `store/db.py`.
   Both plugins default to mp3; PCM avoids a decode per chunk.
 - **`SARVAM_TTS_SPEAKER` must be a `bulbul:v3` voice** (default `suhani`); the
   plugin rejects v2 names such as `anushka`. ElevenLabs' is `ELEVENLABS_TTS_VOICE`, a voice ID.
-- **OpenAI default is `gpt-4.1-mini`**, not the gpt-5 family: no reasoning step,
-  so the first token comes fast enough for a phone call. For reasoning models
-  the builder forces `reasoning_effort="none"`: Chat Completions rejects tools
-  otherwise, and the plugin only sets it for model names it knows.
+- **OpenAI default is `gpt-6-luna`** (Harsh's pick), a reasoning model. The
+  builder forces `reasoning_effort="none"` for gpt-5-or-later and `o*` models:
+  Chat Completions rejects tools otherwise (400 every turn), the plugin only
+  sets it for model names it knows, and no reasoning step keeps replies fast.
 - **`SARVAM_STT_LANGUAGE=unknown`** auto-detects per utterance. On
-  ElevenLabs (`ELEVENLABS_STT_LANGUAGE`) blank or `unknown` means `hi` (auto-detect there breaks live calls), and its
-  builder must keep `server_vad={}` (manual commits never fire on a call).
-  Test STT the way a call feeds it: real time, lead-in noise, stream open.
+  ElevenLabs (`ELEVENLABS_STT_LANGUAGE`) blank or `unknown` means `hi` (auto-detect there breaks live calls).
+  Its default `scribe_v2` is batch (VAD-cut utterances over HTTP); only
+  `scribe_v2_realtime` streams, and it must keep `server_vad={}` (manual
+  commits never fire on a call). Test STT the way a call feeds it: real
+  time, lead-in noise, stream open, and a batch model through LiveKit's
+  `StreamAdapter` (its bare `stream()` hits the realtime websocket: 1008).
 - **Hindi replies are written in Devanagari** (prompt rule). The TTS pronounces
   by script; romanised Hindi ("aap kaise hain") is read with English spelling
   rules. Don't switch the prompt or `SARVAM_STT_MODE` to romanised output.

@@ -474,10 +474,10 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 
 | Setting | Default | Why you would change it |
 |---|---|---|
-| `SARVAM_STT_MODEL` / `ELEVENLABS_STT_MODEL` | vendor's | Sarvam: `saaras:v3` (`saaras:v4` is not available on our plan). ElevenLabs: `scribe_v2_realtime` is its only streaming model (the LiveKit plugin streams that exact name only); turn detection needs a streaming STT. |
+| `SARVAM_STT_MODEL` / `ELEVENLABS_STT_MODEL` | vendor's | Sarvam: `saaras:v3` (`saaras:v4` is not available on our plan). ElevenLabs: `scribe_v2` (batch: LiveKit cuts each utterance with the VAD and sends it; about 1 s from end of speech to text). `scribe_v2_medical` works the same way; `scribe_v2_realtime` streams over a websocket but waits for ElevenLabs' own silence commit (about 3 s). |
 | `SARVAM_STT_LANGUAGE` / `ELEVENLABS_STT_LANGUAGE` | vendor's | Sarvam: `unknown` auto-detects per utterance. ElevenLabs: always `hi` when blank or `unknown`. Its auto-detect locks onto the wrong language during the greeting's silence (Cyrillic, Chinese) and then commits empty transcripts, so the agent never hears the caller. Pinned `hi` still transcribes English as English and Hinglish as Hinglish. |
 | `SARVAM_STT_MODE` | `transcribe` | `transcribe` returns Hindi in Devanagari, which matches the prompt's rule that Hindi replies are written in Devanagari — the script the voice engine pronounces correctly. |
-| `SARVAM_LLM_MODEL` / `OPENAI_LLM_MODEL` | vendor's | OpenAI: `gpt-4.1-mini` — no reasoning step, so replies start fast. Reasoning models (`gpt-5*`, `o*`) work too: the builder sets `reasoning_effort="none"`, which OpenAI requires for tools on Chat Completions. Sarvam: `sarvam-105b-conversations` (fall back to `sarvam-105b`). |
+| `SARVAM_LLM_MODEL` / `OPENAI_LLM_MODEL` | vendor's | OpenAI: `gpt-6-luna`, a reasoning model: the builder sets `reasoning_effort="none"` for every gpt-5-or-later and `o*` model, which OpenAI requires for tools on Chat Completions and which keeps replies fast. Non-reasoning models (`gpt-4.1-mini`) work too. Sarvam: `sarvam-105b-conversations` (fall back to `sarvam-105b`). |
 | `SARVAM_TTS_MODEL` / `ELEVENLABS_TTS_MODEL` | vendor's | ElevenLabs: `eleven_v3_conversational`, the most expressive; use `eleven_multilingual_v2` if your plan rejects it, or `eleven_flash_v2_5` for the lowest latency. Sarvam: `bulbul:v3`. |
 | `SARVAM_TTS_SPEAKER` / `ELEVENLABS_TTS_VOICE` | vendor's | ElevenLabs: a voice ID. The plugin default is not a Hindi voice — pick one in ElevenLabs → Voices → Voice Library (language Hindi, accent Indian), add it to My Voices, copy its ID. Sarvam: any `bulbul:v3` voice, default `suhani`; v2 names such as `anushka` are rejected. |
 | `SARVAM_TTS_CODEC` / `ELEVENLABS_TTS_CODEC` | vendor's | Raw PCM for both (`pcm_24000` / `linear16`) — compressed formats cost a decode per chunk. |
@@ -516,9 +516,10 @@ on our side.
 
 ## Notes
 
-- **Interruptions: local Silero VAD, same in every mode.** Sarvam's STT
-  still decides when a turn *ends* (`turn_detection: "stt"`); the VAD only
-  decides when the caller *cuts in*. `session.py` passes the VAD explicitly
+- **Interruptions: local Silero VAD, same in every mode.** The VAD decides
+  when the caller *cuts in*. When a turn *ends* is the STT's call
+  (`turn_detection: "stt"`): Sarvam streams and ends turns itself; with
+  ElevenLabs' batch `scribe_v2` the VAD also cuts each utterance for it. `session.py` passes the VAD explicitly
   and sets interruption mode `"vad"`: once the VAD hears
   `INTERRUPT_MIN_SPEECH` seconds of speech the agent stops. Without the
   explicit mode LiveKit would use its *adaptive* interruption model (LiveKit
@@ -530,12 +531,16 @@ on our side.
   doesn't stop".
 - Sarvam credits are consumption-based and shared across STT, LLM and TTS.
   The testing stack spends none of them.
-- **ElevenLabs STT ends a turn after 1.5 s of silence** (its server-side
-  default), slower than Sarvam. Expected on the testing stack; production is
-  Sarvam. It must run with `server_vad` (commit on silence): in its default
+- **ElevenLabs `scribe_v2_realtime` ends a turn after 1.5 s of silence**
+  (its server-side default), so it is slower than the batch `scribe_v2`
+  default. It must run with `server_vad` (commit on silence): in its default
   manual-commit mode a sentence is only finalised when the stream is
   flushed, which LiveKit never does on a live call. The agent greeted and
   then never heard a word.
+- **Batch STT models can't be tested by calling `stream()`**: the plugin
+  then opens the realtime websocket and ElevenLabs refuses the model (1008).
+  A call wraps them in LiveKit's `StreamAdapter` with the VAD; the live
+  test does the same.
 - **The live speech test feeds audio like a call**: real time, faint room
   noise first, stream left open. The old instant, silent, stream-ending
   version passed with both ElevenLabs bugs present.
