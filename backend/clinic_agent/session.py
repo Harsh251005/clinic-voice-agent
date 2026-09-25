@@ -24,9 +24,7 @@ def build_session(cfg: Settings, text_only: bool = False) -> AgentSession:
         stt=build_stt(cfg),
         llm=build_llm(cfg),
         tts=build_tts(cfg),
-        # Local Silero VAD: barge-in, and it cuts utterances for a batch STT
-        # (ElevenLabs scribe_v2). A streaming STT (Sarvam) ends turns itself.
-        vad=inference.VAD(model="silero"),
+        vad=build_vad(cfg),
         turn_handling={
             # Trust Sarvam's end-of-speech signal. Must stay explicit: omitting
             # it makes LiveKit fall back to its own turn-detector model.
@@ -38,3 +36,11 @@ def build_session(cfg: Settings, text_only: bool = False) -> AgentSession:
             "interruption": {"mode": "vad", "min_duration": cfg.interrupt_min_speech},
         },
     )
+
+
+def build_vad(cfg: Settings) -> inference.VAD:
+    """Local Silero VAD: barge-in, and it cuts utterances for a batch STT
+    (ElevenLabs scribe_v2); a streaming STT (Sarvam) ends turns itself.
+    LiveKit's 0.25 s silence ended an utterance at a comma pause, so a batch
+    STT's caller was answered mid-sentence."""
+    return inference.VAD(model="silero", min_silence_duration=cfg.vad_min_silence)

@@ -116,7 +116,11 @@ The pipeline is split so each concern lives in exactly one module:
   `booking.py`, never in the wrapper. Tests: in-memory DB for rules; a file DB
   for tools (SQLite `:memory:` is per-thread, so threaded tools would see an
   empty database). Live evals use `mock_tools` so the LLM's tool choices are
-  graded without a real clock.
+  graded without a real clock. **Booking is check-then-book, enforced in
+  code**: `check_booking` validates and returns the read-back; the no-argument
+  `book_appointment` books only what was checked, and only after the caller
+  has spoken since (`tools/booking.py`, the one piece of call state kept in a
+  wrapper). Never go back to trusting a `caller_confirmed` flag for booking.
 - `clinic_agent/store/` — clinic data (SQLAlchemy, sync). `repo.py` holds every
   query; writes commit before returning; callers see `repo.NotFound` /
   `repo.SlotTaken`, never SQLAlchemy errors. **Only `store/` imports

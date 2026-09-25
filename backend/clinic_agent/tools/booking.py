@@ -32,8 +32,34 @@ class ClinicLink:
     sessions: Sessions
 
 
+MAX_MISSED_LOOKUPS = 3
+
+
+@dataclass(frozen=True)
+class _Checked:
+    """A booking read back to the caller, waiting for their yes."""
+
+    doctor_name: str
+    day: date
+    start: time
+    patient_name: str
+    patient_phone: str
+    reason: str
+    caller_turns: int  # caller messages heard when it was checked
+
+
+def _caller_turns(ctx: RunContext | None) -> int | None:
+    """How many times the caller has spoken this call. None without a
+    session: tests that call a tool directly have no caller."""
+    if ctx is None:
+        return None
+    return sum(1 for it in ctx.session.history.items if it.type == "message" and it.role == "user")
+
+
 def booking_tools(link: ClinicLink) -> list:
     said: set[str] = set()  # replies whose "one moment" was already spoken
+    checked: list[_Checked] = []  # the one booking awaiting the caller's yes (a call's tools are its own)
+    missed: list[int] = [0]  # lookups this call that matched nobody
 
     async def run(ctx: RunContext | None, fn: Callable, *args):
         def work():
@@ -78,17 +104,19 @@ def booking_tools(link: ClinicLink) -> list:
         )
 
     @function_tool
-    async def book_appointment(
+    async def check_booking(
         ctx: RunContext,
         doctor_name: str,
         date: str,
         time: str,
         patient_name: str,
         patient_phone: str,
-        caller_confirmed: bool,
         reason: str = "",
     ) -> str:
-        """Book an appointment. Call only after reading every detail back to the caller.
+        """Check a booking and get the details to read back. Books nothing.
+
+        Call once the caller has picked a time and given the name and number.
+        Then read back what it returns and ask if it is correct.
 
         Args:
             doctor_name: The doctor, as named in CLINIC FACTS.
@@ -97,22 +125,47 @@ def booking_tools(link: ClinicLink) -> list:
             patient_name: The patient's name as the caller gave it, in Roman
                 letters (e.g. "Ravi Kumar"), never Devanagari.
             patient_phone: The caller's 10-digit mobile number.
-            caller_confirmed: True only if you read back the doctor, day, time,
-                name and number and the caller clearly said yes.
             reason: Why the patient is coming, for the clinic's staff. Always
                 short, plain English in Roman letters, translated from whatever
                 the caller said, never Devanagari (e.g. "Blurred vision for 2
                 days", "Tooth pain"). Empty if the caller didn't want to say.
         """
-        if not caller_confirmed:
-            raise ToolError(
-                "Not booked. Read the doctor, day, time, name and number back to the "
-                "caller and book only after they say yes."
-            )
-        return await run(
-            ctx, booking.book_slot, doctor_name, _date(date), _time(time),
-            patient_name, patient_phone, clinic_now(link.timezone), reason,
+        day, start = _date(date), _time(time)
+        details = await run(
+            ctx, booking.check_slot, doctor_name, day, start,
+            patient_name, patient_phone, clinic_now(link.timezone),
         )
+        checked[:] = [_Checked(
+            doctor_name, day, start, patient_name, patient_phone, reason, _caller_turns(ctx) or 0,
+        )]
+        return (
+            f"Not booked yet. Read this back to the caller in one sentence, the number "
+            f"digit by digit, and ask if it is correct: {details}. If they say yes, call "
+            f"book_appointment. If anything is wrong, fix it and call check_booking again."
+        )
+
+    @function_tool
+    async def book_appointment(ctx: RunContext) -> str:
+        """Book the appointment check_booking last checked. Call only after the caller heard the read-back and said yes."""
+        if not checked:
+            raise ToolError(
+                "Nothing to book. Call check_booking first, read its details back to the "
+                "caller, and book only after they say yes."
+            )
+        c = checked[0]
+        turns = _caller_turns(ctx)
+        if turns is not None and turns <= c.caller_turns:
+            # Code, not the model's word: the caller must have answered the read-back.
+            raise ToolError(
+                "Not booked: the caller hasn't answered yet. Read the details from "
+                "check_booking back to them, ask if they are correct, and wait for a yes."
+            )
+        result = await run(
+            ctx, booking.book_slot, c.doctor_name, c.day, c.start,
+            c.patient_name, c.patient_phone, clinic_now(link.timezone), c.reason,
+        )
+        checked.clear()
+        return result
 
     @function_tool
     async def find_my_appointments(ctx: RunContext, patient_phone: str, patient_name: str) -> str:
@@ -122,9 +175,20 @@ def booking_tools(link: ClinicLink) -> list:
             patient_phone: The 10-digit mobile number the appointment was booked with.
             patient_name: The patient's name, in Roman letters (e.g. "Ravi").
         """
-        return await run(
-            ctx, booking.find_appointments, patient_phone, patient_name, clinic_now(link.timezone)
-        )
+        # A cap per call, so neither the model nor a caller can try name after
+        # name on someone's number (gpt-6-luna guessed one in a live test).
+        if missed[0] >= MAX_MISSED_LOOKUPS:
+            raise ToolError(
+                "No more lookups on this call. Tell the caller you couldn't find the "
+                "appointment and that the clinic's staff can help them in person."
+            )
+        try:
+            return await run(
+                ctx, booking.find_appointments, patient_phone, patient_name, clinic_now(link.timezone)
+            )
+        except ToolError:
+            missed[0] += 1
+            raise
 
     @function_tool
     async def cancel_appointment(
@@ -184,7 +248,7 @@ def booking_tools(link: ClinicLink) -> list:
         )
 
     return [
-        find_available_slots, book_appointment,
+        find_available_slots, check_booking, book_appointment,
         find_my_appointments, cancel_appointment, reschedule_appointment,
     ]
 

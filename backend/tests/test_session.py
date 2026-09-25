@@ -20,6 +20,13 @@ async def test_interruptions_use_the_local_vad_in_every_mode(env):
     assert session.options.interruption["min_duration"] == 0.25
 
 
+async def test_vad_waits_out_a_comma_pause(env):
+    # At LiveKit's 0.25 s a comma pause ended the utterance, and a batch STT
+    # transcribed only "नमस्ते" of "नमस्ते, आपका अपॉइंटमेंट ...".
+    env.setenv("VAD_MIN_SILENCE", "0.7")
+    assert build_session(load_settings()).vad._opts.min_silence_duration == 0.7
+
+
 async def test_text_only_session_builds_no_speech_providers(env):
     env.setenv("LLM_PROVIDER", "openai")
     env.setenv("OPENAI_API_KEY", "sk-test")
