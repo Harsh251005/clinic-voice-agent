@@ -170,9 +170,10 @@ with `Session` / `Sessions` from `store/db.py`.
 
 - **Turn detection is `"stt"`**, set explicitly in `session.py` (omitting it
   falls back to LiveKit's own turn-detector model).
-- **VAD is undecided.** LiveKit 1.8.2 attaches a local Silero VAD unless
-  `vad=None` is passed, so one runs today; `test_no_local_vad` is a strict xfail
-  recording that. Don't add or remove `vad=` without Harsh's decision.
+- **Local Silero VAD, interruption mode `"vad"`** (Harsh, 2026-09-25), set
+  explicitly in `session.py`. The VAD only handles barge-in; the STT still ends
+  turns. The explicit mode keeps `console`/`dev` from using LiveKit Cloud's
+  adaptive model, so local tests match `start`. `INTERRUPT_MIN_SPEECH` tunes it.
 - **Keep `backend/README.md` current** with every behaviour, command or setup
   change, in the same commit.
 - **Raw PCM TTS output** (`linear16` for Sarvam, `pcm_24000` for ElevenLabs).

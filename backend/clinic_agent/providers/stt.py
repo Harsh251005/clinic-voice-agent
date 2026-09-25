@@ -18,7 +18,7 @@ def _sarvam(cfg: Settings) -> stt.STT:
     # sarvam.STT declares streaming=True and does its own endpointing over a
     # websocket the plugin owns, so no separate VAD is wired in.
     return sarvam.STT(
-        model=cfg.sarvam_stt_model or "saaras:v4",
+        model=cfg.sarvam_stt_model or "saaras:v3",
         # "unknown" auto-detects per utterance: callers mix Hindi and English.
         language=cfg.sarvam_stt_language or "unknown",
         mode=cfg.sarvam_stt_mode,
