@@ -155,8 +155,8 @@ async def test_replies_in_callers_language(session):
 async def test_speech_round_trip(line):
     """What TTS says, STT must understand: proves both halves of the audio path.
 
-    Streams the audio as a call does. ElevenLabs' realtime model is
-    streaming-only, so a one-shot recognize() would test a path calls never use.
+    Streams the audio as a call does: through the VAD adapter for a batch
+    model, straight into the stream for a streaming one.
     """
     cfg = load_settings()
     async with http_context.open():
@@ -181,13 +181,18 @@ async def _transcribe(stt_, frames) -> str:
     import struct
 
     from livekit import rtc
-    from livekit.agents import stt as stt_types
+    from livekit.agents import inference, stt as stt_types
 
     rate = frames[0].sample_rate
     n = rate // 100  # 10 ms frames
     rng = random.Random(7)
     quiet = [rtc.AudioFrame(struct.pack(f"<{n}h", *(rng.randint(-100, 100) for _ in range(n))), rate, 1, n)
              for _ in range(50)]
+    if not stt_.capabilities.streaming:
+        # What LiveKit does in a call: the VAD cuts utterances for a batch STT.
+        # Calling a batch model's stream() directly opens the realtime
+        # websocket, which ElevenLabs refuses (1008).
+        stt_ = stt_types.StreamAdapter(stt=stt_, vad=inference.VAD(model="silero"))
     stream = stt_.stream()
 
     async def feed():

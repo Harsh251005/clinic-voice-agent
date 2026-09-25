@@ -24,7 +24,8 @@ def build_session(cfg: Settings, text_only: bool = False) -> AgentSession:
         stt=build_stt(cfg),
         llm=build_llm(cfg),
         tts=build_tts(cfg),
-        # Local Silero VAD, only for barge-in: the STT still ends turns.
+        # Local Silero VAD: barge-in, and it cuts utterances for a batch STT
+        # (ElevenLabs scribe_v2). A streaming STT (Sarvam) ends turns itself.
         vad=inference.VAD(model="silero"),
         turn_handling={
             # Trust Sarvam's end-of-speech signal. Must stay explicit: omitting

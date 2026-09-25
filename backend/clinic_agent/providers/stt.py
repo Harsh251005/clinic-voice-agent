@@ -28,9 +28,15 @@ def _sarvam(cfg: Settings) -> stt.STT:
 
 
 def _elevenlabs(cfg: Settings) -> stt.STT:
-    # scribe_v2_realtime is the only streaming Scribe model, and streaming is
-    # what lets turn detection trust the STT's end of speech, as with Sarvam;
-    # the batch models would leave the session with no end-of-turn signal.
+    # scribe_v2 (and scribe_v2_medical) are batch models: LiveKit wraps them
+    # in a StreamAdapter that uses the session's VAD to cut each utterance
+    # and sends it over HTTP, so a batch STT needs the VAD in session.py.
+    # Checked on that path (2026-09-25, one line each): all three models
+    # transcribe; batch finished ~0.9-1.1 s after speech, scribe_v2_realtime
+    # (websocket, waits for ElevenLabs' own silence commit) ~3.1 s.
+    # Only the realtime model can be driven by calling stream() directly;
+    # the others get 1008 there, which is why tests must go through the
+    # adapter the way a call does.
     #
     # Language is pinned to Hindi. Auto-detect breaks on a live call: the
     # stream starts with the greeting's silence, detection settles on the
@@ -42,13 +48,16 @@ def _elevenlabs(cfg: Settings) -> stt.STT:
     language = cfg.elevenlabs_stt_language
     if language in (None, "unknown"):
         language = "hi"
-    # server_vad switches ElevenLabs from manual commits to committing on
-    # silence. Without it, a transcript is only finalised when the stream is
-    # flushed, which LiveKit never does on a live call: the agent greeted
-    # and then never heard a word. Empty = ElevenLabs' own VAD defaults.
+    model = cfg.elevenlabs_stt_model or "scribe_v2"
+    # Realtime only: server_vad switches ElevenLabs from manual commits to
+    # committing on silence. Without it, a transcript is only finalised when
+    # the stream is flushed, which LiveKit never does on a live call: the
+    # agent greeted and then never heard a word. Empty = ElevenLabs' own VAD
+    # defaults. Batch models reject the option (the plugin warns).
+    options = {"server_vad": {}} if model == "scribe_v2_realtime" else {}
     return elevenlabs.STT(
-        model=cfg.elevenlabs_stt_model or "scribe_v2_realtime",
-        server_vad={},
+        model=model,
+        **options,
         language_code=language,
         sample_rate=cfg.stt_sample_rate,
         api_key=require_key(cfg.elevenlabs_api_key, "ELEVENLABS_API_KEY"),
