@@ -181,7 +181,9 @@ async def _transcribe(stt_, frames) -> str:
     import struct
 
     from livekit import rtc
-    from livekit.agents import inference, stt as stt_types
+    from livekit.agents import stt as stt_types
+
+    from clinic_agent.session import build_vad
 
     rate = frames[0].sample_rate
     n = rate // 100  # 10 ms frames
@@ -192,7 +194,7 @@ async def _transcribe(stt_, frames) -> str:
         # What LiveKit does in a call: the VAD cuts utterances for a batch STT.
         # Calling a batch model's stream() directly opens the realtime
         # websocket, which ElevenLabs refuses (1008).
-        stt_ = stt_types.StreamAdapter(stt=stt_, vad=inference.VAD(model="silero"))
+        stt_ = stt_types.StreamAdapter(stt=stt_, vad=build_vad(load_settings()))
     stream = stt_.stream()
 
     async def feed():
@@ -297,19 +299,33 @@ async def test_afternoon_means_twelve_to_five_named_one_by_one(session):
         )
 
 
-async def test_booking_flow_reads_back_before_booking(session):
-    from livekit.agents.voice.run_result import mock_tools
+READ_BACK = (
+    "Not booked yet. Read this back to the caller in one sentence, the number digit by digit, "
+    "and ask if it is correct: Dr. Asha Mehta, Tuesday 22 September 2026, 17:00 (पाँच बजे), "
+    "for Ravi, mobile 9 8 7 6 5 4 3 2 1 0. If they say yes, call book_appointment. "
+    "If anything is wrong, fix it and call check_booking again."
+)
+BOOKED = "Booked, appointment number 1: Dr. Asha Mehta, Tuesday 22 September 2026 at 17:00, for Ravi, mobile 9876543210."
 
-    booked = []
+
+async def test_booking_flow_reads_back_before_booking(session):
+    """The code refuses a booking the caller hasn't answered (test_booking_readback.py);
+    this grades the model: it checks, reads everything back, and books on the yes."""
+    from livekit.agents.voice.run_result import mock_tools
 
     async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
         return SLOTS
 
-    async def book_appointment(**kwargs):
-        booked.append(kwargs)
-        return "Booked, appointment number 1: Dr. Asha Mehta, Tuesday 22 September 2026 at 17:00, for Ravi, mobile 9876543210."
+    async def check_booking(**kwargs):
+        return READ_BACK
 
-    with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots, "book_appointment": book_appointment}):
+    async def book_appointment():
+        return BOOKED
+
+    with mock_tools(ClinicAgent, {
+        "find_available_slots": find_available_slots, "check_booking": check_booking,
+        "book_appointment": book_appointment,
+    }):
         r1 = await session.run(user_input="कल शाम को आशा मेहता जी के साथ अपॉइंटमेंट चाहिए")
         (args,) = _calls(r1, "find_available_slots")
         assert args["date"] == "2026-09-22"  # "kal" resolved from the date in CLINIC FACTS
@@ -326,7 +342,9 @@ async def test_booking_flow_reads_back_before_booking(session):
         r2 = await session.run(
             user_input="पाँच बजे ठीक है। बुखार है। नाम रवि, नंबर नौ आठ सात छह पाँच चार तीन दो एक शून्य"
         )
-        assert _calls(r2, "book_appointment") == [], "booked before reading back"
+        (c,) = _calls(r2, "check_booking")
+        assert c["time"] == "17:00" and c["date"] == "2026-09-22"
+        assert c["patient_phone"].replace(" ", "")[-10:] == "9876543210"
         await _reply(r2).judge(
             session.judge,
             intent="reads back the doctor, the day (Tuesday, or कल / tomorrow, which is Tuesday here), "
@@ -334,10 +352,7 @@ async def test_booking_flow_reads_back_before_booking(session):
         )
 
         r3 = await session.run(user_input="हाँ, सही है")
-        (b,) = _calls(r3, "book_appointment")
-        assert b["caller_confirmed"] is True and b["time"] == "17:00" and b["date"] == "2026-09-22"
-        assert b["patient_phone"].replace(" ", "")[-10:] == "9876543210"
-
+        assert len(_calls(r3, "book_appointment")) == 1
 
 
 async def test_visit_reason_is_written_in_english(session):
@@ -347,21 +362,21 @@ async def test_visit_reason_is_written_in_english(session):
     async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
         return SLOTS
 
-    async def book_appointment(**kwargs):
-        return "Booked, appointment number 1: Dr. Asha Mehta, Tuesday 22 September 2026 at 17:00, for Ravi, mobile 9876543210."
+    async def check_booking(**kwargs):
+        return READ_BACK
 
-    with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots, "book_appointment": book_appointment}):
+    with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots, "check_booking": check_booking}):
         result = await session.run(user_input=(
             "कल शाम पाँच बजे आशा मेहता जी के साथ अपॉइंटमेंट चाहिए। दो दिन से बुखार और खाँसी है। "
             "नाम रवि, नंबर नौ आठ सात छह पाँच चार तीन दो एक शून्य"
         ))
-        for _ in range(3):  # it may confirm the slot, then read back, before booking
-            if booked := _calls(result, "book_appointment"):
+        for _ in range(3):  # it may confirm the slot first, before checking
+            if checked := _calls(result, "check_booking"):
                 break
-            result = await session.run(user_input="हाँ, सही है, बुक कर दीजिए")
-        (b,) = booked
-        assert b.get("reason"), "the reason the caller gave was dropped"
-        assert b["reason"].isascii(), f"reason not in English: {b['reason']!r}"
+            result = await session.run(user_input="हाँ, सही है")
+        (c,) = checked
+        assert c.get("reason"), "the reason the caller gave was dropped"
+        assert c["reason"].isascii(), f"reason not in English: {c['reason']!r}"
 
 # ---------- ending the call (tool mocked: no room to delete in a test) ----------
 
@@ -394,7 +409,9 @@ async def test_cancel_flow_looks_up_reads_back_then_cancels(session):
         "find_my_appointments": find_my_appointments, "cancel_appointment": cancel_appointment,
     }):
         r0 = await session.run(user_input="मुझे अपना अपॉइंटमेंट कैंसल करना है, नंबर 9876543210")
-        assert _calls(r0, "find_my_appointments") == [], "looked up by the number alone"
+        # An empty name is refused by the code; a name the caller never said is the model guessing.
+        guessed = [c for c in _calls(r0, "find_my_appointments") if c["patient_name"].strip()]
+        assert guessed == [], "looked up with a name the caller never gave"
         await _reply(r0).judge(
             session.judge, intent="asks for the patient's name"
         )

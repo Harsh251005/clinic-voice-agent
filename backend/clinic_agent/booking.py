@@ -82,6 +82,28 @@ def find_slots(
     return " ".join(lines)
 
 
+def check_slot(
+    s: Session,
+    clinic_id: int,
+    doctor_name: str,
+    day: date,
+    start: time,
+    patient_name: str,
+    patient_phone: str,
+    now: datetime,
+) -> str:
+    """Everything book_slot checks, without booking: the details to read back.
+
+    Raises BookingError if the booking would fail, so the caller never
+    confirms a time that isn't free.
+    """
+    clinic, doctor, _, phone = _bookable(s, clinic_id, doctor_name, day, start, patient_name, patient_phone, now)
+    return (
+        f"{doctor.name}, {_day(day)}, {start:%H:%M} ({hindi_time(start)}), "
+        f"for {patient_name.strip()}, mobile {' '.join(phone)}"
+    )
+
+
 def book_slot(
     s: Session,
     clinic_id: int,
@@ -93,6 +115,27 @@ def book_slot(
     now: datetime,
     reason: str = "",
 ) -> str:
+    clinic, doctor, starts_at, phone = _bookable(
+        s, clinic_id, doctor_name, day, start, patient_name, patient_phone, now
+    )
+    try:
+        appt = repo.book(
+            s, clinic.id, doctor.id, starts_at, patient_name.strip(), phone,
+            source="voice", reason=_reason(reason),
+        )
+    except repo.SlotTaken:
+        time_off = repo.time_off_overlapping(s, clinic.id, day, day)
+        free = _day_slots(s, doctor, day, time_off, now, None)
+        offer = f" That day: {_free(free, clinic)}." if free else ""
+        raise BookingError(f"That time was just taken by another caller.{offer}") from None
+    return (
+        f"Booked, appointment number {appt.id}: {doctor.name}, {_day(day)} at {start:%H:%M}, "
+        f"for {appt.patient.name}, mobile {phone}."
+    )
+
+
+def _bookable(s, clinic_id, doctor_name, day, start, patient_name, patient_phone, now):
+    """(clinic, doctor, starts_at, phone) if that time can be booked, else BookingError."""
     if not patient_name.strip():
         raise BookingError("The caller's name is missing. Ask for it.")
     phone = normalise_phone(patient_phone)
@@ -106,20 +149,7 @@ def book_slot(
     if starts_at not in free:
         offer = f" That day: {_free(free, clinic)}." if free else ""
         raise BookingError(f"{doctor.name} is not free at {start:%H:%M} on {_day(day)}.{offer}")
-
-    try:
-        appt = repo.book(
-            s, clinic.id, doctor.id, starts_at, patient_name.strip(), phone,
-            source="voice", reason=_reason(reason),
-        )
-    except repo.SlotTaken:
-        free = _day_slots(s, doctor, day, time_off, now, None)
-        offer = f" That day: {_free(free, clinic)}." if free else ""
-        raise BookingError(f"That time was just taken by another caller.{offer}") from None
-    return (
-        f"Booked, appointment number {appt.id}: {doctor.name}, {_day(day)} at {start:%H:%M}, "
-        f"for {appt.patient.name}, mobile {phone}."
-    )
+    return clinic, doctor, starts_at, phone
 
 
 def find_appointments(

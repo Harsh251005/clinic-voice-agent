@@ -297,7 +297,7 @@ write the same tables through `store/repo.py`.
   doctors with fees and weekly hours, leave and holidays inside the booking
   window, FAQ answers, and the clinic's current date and time. Anything not
   there, it says it doesn't know. Edits in the dashboard apply from the next call.
-- **Booking** (two tools, rules in `booking.py`):
+- **Booking** (three tools, rules in `booking.py`):
   - `find_available_slots(date, doctor?, part_of_day?)` returns **every**
     free start time that day per doctor, **one by one** under fixed parts of
     the day: morning before 12:00, afternoon 12:00 to before 17:00, evening
@@ -312,11 +312,18 @@ write the same tables through `store/repo.py`.
     itself it said "बारह साढ़े बजे" and "सत्रह बजे". With nothing free it says why (clinic
     closed, doctor on leave, doesn't sit that day or that part of the day, no
     times left today, fully booked) and gives the next free day.
-  - `book_appointment(...)` also takes the caller's own words for why they
-    are coming, for the clinic's staff. It refuses unless `caller_confirmed` is true, which
-    the instructions tie to reading every detail back first. It re-checks the
-    slot, validates a 10-digit Indian mobile (+91 / 0 / spaces accepted), and
-    turns a lost race into "just taken — offer these instead".
+  - `check_booking(doctor, date, time, name, phone, reason?)` books
+    **nothing**. It checks everything a booking would (doctor, day, the time
+    still free, a 10-digit Indian mobile, +91 / 0 / spaces accepted), keeps
+    the details, and returns them for the read-back, written by code: doctor,
+    day, time with its Hindi words, name, number digit by digit. `reason` is
+    why the patient is coming, in English, for the clinic's staff.
+  - `book_appointment()` takes no details: it books what `check_booking`
+    last checked, so nothing can change between the read-back and the
+    booking. **The code refuses it until the caller has spoken since that
+    check**, so the model can't book in the same breath as the read-back
+    (gpt-6-luna did, 3 of 4 live runs). It re-checks the slot and turns a
+    lost race into "just taken — offer these instead".
   - Database work runs in a worker thread so a slow query never stalls audio.
     Tool errors reach the LLM as plain sentences it can relay.
 - **Cancelling and moving** (three more tools): `find_my_appointments` needs
@@ -490,6 +497,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `API_HOST` / `API_PORT` | `127.0.0.1` / `8080` | Where the call-link server listens. `0.0.0.0` inside a container. |
 | `CLIENT_IP_HEADER` | blank | The header carrying the caller's IP behind a tunnel/proxy (`CF-Connecting-IP`, `X-Forwarded-For`), so rate limits stay per caller. Never trusted unless set. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
+| `VAD_MIN_SILENCE` | `0.6` | Pause that ends an utterance for the VAD. With ElevenLabs' batch `scribe_v2` each utterance is transcribed on its own, so at LiveKit's 0.25 s a comma pause ended the caller's turn mid-sentence. Lower for faster replies, raise if it still cuts callers off. |
 | `INTERRUPT_MIN_SPEECH` | `0.3` | Seconds of caller speech that stop the agent mid-reply. Lower if it talks over you, raise if coughs or background noise cut it off. |
 
 ## Troubleshooting

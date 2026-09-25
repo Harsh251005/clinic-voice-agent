@@ -18,7 +18,7 @@ def test_call_agent_has_booking_and_end_call_tools():
     tools = [*booking_tools(ClinicLink(1, "Asia/Kolkata", sessions=None)), end_call_tool()]
     agent = ClinicAgent("instructions", tools)
     assert sorted(_names(agent)) == [
-        "book_appointment", "cancel_appointment", "end_call", "find_available_slots",
+        "book_appointment", "cancel_appointment", "check_booking", "end_call", "find_available_slots",
         "find_my_appointments", "reschedule_appointment",
     ]
 
