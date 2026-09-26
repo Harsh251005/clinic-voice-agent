@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 
 logger = logging.getLogger("clinic-agent")
 
@@ -16,10 +17,13 @@ GOODBYE = (
 )
 
 
-async def end_after(session, job_ctx, seconds: float) -> None:
+async def end_after(session, job_ctx, seconds: float, on_limit: Callable[[], None] | None = None) -> None:
     """Sleep, then say goodbye and close the room (which disconnects the
-    caller). Cancelled by the entrypoint if the call ends first."""
+    caller). Cancelled by the entrypoint if the call ends first. `on_limit`
+    is told as the limit is reached (the call's record notes why it ended)."""
     await asyncio.sleep(seconds)
+    if on_limit:
+        on_limit()
     logger.info("call reached its %g-minute limit in room %s", seconds / 60, job_ctx.room.name)
     try:
         handle = session.generate_reply(instructions=GOODBYE, allow_interruptions=False)

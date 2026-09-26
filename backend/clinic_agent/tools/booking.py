@@ -30,6 +30,9 @@ class ClinicLink:
     clinic_id: int
     timezone: str
     sessions: Sessions
+    # Told of every appointment a tool changes: (appointment id, action).
+    # The call's record uses it (clinic_agent/call_record.py).
+    on_change: Callable[[int, str], None] | None = None
 
 
 MAX_MISSED_LOOKUPS = 3
@@ -69,9 +72,12 @@ def booking_tools(link: ClinicLink) -> list:
         task = asyncio.ensure_future(asyncio.to_thread(work))  # start before the filler wait
         await filler_unless_spoken(ctx, said)
         try:
-            return await task
+            result = await task
         except booking.BookingError as err:
             raise ToolError(str(err)) from None
+        if isinstance(result, booking.Changed) and link.on_change:
+            link.on_change(result.appointment_id, result.action)
+        return str(result)
 
     @function_tool
     async def find_available_slots(

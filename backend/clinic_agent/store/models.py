@@ -3,14 +3,14 @@
 Appointment times are naive and in the clinic's own timezone
 (`Clinic.timezone`); every clinic today is in India, and a naive local time is
 what staff and callers mean by "eleven o'clock". Record-keeping timestamps
-(`created_at`) are naive UTC.
+(`created_at`, call times) are naive UTC.
 """
 
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, time
 
-from sqlalchemy import ForeignKey, Index, MetaData, String, UniqueConstraint, text
+from sqlalchemy import JSON, ForeignKey, Index, MetaData, String, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -164,3 +164,77 @@ class Appointment(Base):
 
     doctor: Mapped[Doctor] = relationship()
     patient: Mapped[Patient] = relationship()
+
+
+# ---------- calls ----------
+#
+# A call is kept as two kinds of data, and the split is the privacy line:
+# the trace (Call + CallEvent) says what happened - timings, tool names,
+# errors, outcome - and never what anyone said, so the operator may always
+# see it. The transcript (CallTranscript) is what was said: patient data,
+# for the clinic, and for the operator only through a logged opening
+# (TranscriptAccess). No audio is ever stored.
+
+
+class Call(Base):
+    __tablename__ = "calls"
+    __table_args__ = (Index("ix_calls_clinic_id_started_at", "clinic_id", "started_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(ForeignKey("clinics.id", ondelete="CASCADE"))
+    room: Mapped[str] = mapped_column(String(128), default="")
+    started_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
+    # Null until the worker finishes the call: a row left open after the
+    # time limit is a call the worker never finished (it crashed or stopped).
+    ended_at: Mapped[datetime | None] = mapped_column(default=None)  # UTC
+    # caller_left | agent_ended | time_limit | shutdown | error
+    end_reason: Mapped[str] = mapped_column(String(20), default="")
+    # booked | moved | cancelled | info_only | no_action | failed
+    outcome: Mapped[str] = mapped_column(String(20), default="")
+    stack: Mapped[str] = mapped_column(String(300), default="")  # provider/model for STT, LLM, TTS: which took each turn
+    turn_count: Mapped[int] = mapped_column(default=0)  # times the caller spoke
+    error_count: Mapped[int] = mapped_column(default=0)  # vendor (STT/LLM/TTS) errors
+    # What the call changed: [{"id": 12, "action": "booked"}, ...]
+    appointments: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class CallEvent(Base):
+    """One step of a call's trace. Never content: `detail` is a code or a
+    count (an error's type and status), not words from the call."""
+
+    __tablename__ = "call_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    call_id: Mapped[int] = mapped_column(ForeignKey("calls.id", ondelete="CASCADE"), index=True)
+    t_ms: Mapped[int]  # since the call started
+    kind: Mapped[str] = mapped_column(String(10))  # stt | eou | llm | tts | reply | tool | error
+    name: Mapped[str] = mapped_column(String(100), default="")  # the tool, or the failing provider/model
+    duration_ms: Mapped[int | None] = mapped_column(default=None)
+    ok: Mapped[bool] = mapped_column(default=True)
+    detail: Mapped[str] = mapped_column(String(200), default="")
+
+
+class CallTranscript(Base):
+    """What was said on a call. Its own table, so no trace query can read
+    it by accident. Deleted after the retention period (store/purge.py)."""
+
+    __tablename__ = "call_transcripts"
+
+    call_id: Mapped[int] = mapped_column(ForeignKey("calls.id", ondelete="CASCADE"), primary_key=True)
+    # [{"t_ms": 0, "role": "agent" | "caller" | "tool", "text": ..., ...}]
+    items: Mapped[list] = mapped_column(JSON, default=list)
+    purge_after: Mapped[datetime]  # UTC
+
+
+class TranscriptAccess(Base):
+    """The operator opened a clinic's call transcript, and why. Shown to the
+    clinic, so reading one is never silent."""
+
+    __tablename__ = "transcript_access"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    call_id: Mapped[int] = mapped_column(ForeignKey("calls.id", ondelete="CASCADE"), index=True)
+    clinic_id: Mapped[int] = mapped_column(ForeignKey("clinics.id", ondelete="CASCADE"))
+    email: Mapped[str] = mapped_column(String(254))
+    reason: Mapped[str] = mapped_column(String(300))
+    at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC

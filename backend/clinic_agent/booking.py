@@ -22,6 +22,16 @@ class BookingError(Exception):
     """Something the caller must be told; the message says what and why."""
 
 
+class Changed(str):
+    """The sentence for the LLM, carrying which appointment changed and how
+    ("booked", "moved", "cancelled"), so a call's record can link to it."""
+
+    def __new__(cls, text: str, appointment_id: int, action: str) -> Changed:
+        obj = super().__new__(cls, text)
+        obj.appointment_id, obj.action = appointment_id, action
+        return obj
+
+
 def normalise_phone(raw: str) -> str:
     """A 10-digit Indian mobile number, accepting +91 / 0 prefixes and spaces."""
     digits = re.sub(r"\D", "", raw)
@@ -128,9 +138,10 @@ def book_slot(
         free = _day_slots(s, doctor, day, time_off, now, None)
         offer = f" That day: {_free(free, clinic)}." if free else ""
         raise BookingError(f"That time was just taken by another caller.{offer}") from None
-    return (
+    return Changed(
         f"Booked, appointment number {appt.id}: {doctor.name}, {_day(day)} at {start:%H:%M}, "
-        f"for {appt.patient.name}, mobile {phone}."
+        f"for {appt.patient.name}, mobile {phone}.",
+        appt.id, "booked",
     )
 
 
@@ -214,9 +225,10 @@ def cancel_booking(
 ) -> str:
     appt = _owned(s, clinic_id, appointment_id, patient_phone, patient_name, now)
     repo.cancel_appointment(s, appt.id)
-    return (
+    return Changed(
         f"Cancelled appointment {appt.id}: {appt.doctor.name}, "
-        f"{_day(appt.starts_at.date())} at {appt.starts_at:%H:%M}."
+        f"{_day(appt.starts_at.date())} at {appt.starts_at:%H:%M}.",
+        appt.id, "cancelled",
     )
 
 
@@ -258,9 +270,10 @@ def reschedule_booking(
         raise BookingError(
             "That time was just taken by another caller. The appointment is unchanged."
         ) from None
-    return (
+    return Changed(
         f"Moved appointment {appt.id} from {old} to {doctor.name}, "
-        f"{_day(day)} at {start:%H:%M}."
+        f"{_day(day)} at {start:%H:%M}.",
+        appt.id, "moved",
     )
 
 

@@ -3,9 +3,11 @@ health check. One process, one origin for the dashboard's cookie."""
 
 from __future__ import annotations
 
+import asyncio
 import html
 import logging
 import secrets
+from contextlib import asynccontextmanager
 from pathlib import Path
 from string import Template
 from urllib.parse import urlparse
@@ -20,7 +22,8 @@ from api.limits import RateLimiter
 from api.passes import call_pass
 from clinic_agent.config import ConfigError, Settings, load_settings, require_key
 from clinic_agent.store import repo
-from clinic_agent.store.db import sessions_for
+from clinic_agent.store.db import Sessions, sessions_for
+from clinic_agent.store.purge import purge
 
 logger = logging.getLogger("clinic-agent.api")
 
@@ -32,6 +35,7 @@ NOT_FOUND = Template((HERE / "templates" / "not_found.html").read_text())
 # more than this many browser calls an hour at pilot scale. Tune with real use.
 CALLS_PER_IP = (5, 10 * 60)
 CALLS_PER_CLINIC = (30, 60 * 60)
+PURGE_EVERY = 6 * 60 * 60  # seconds; transcripts expire by the day, so a few hours late is fine
 
 
 def create_app(cfg: Settings | None = None) -> FastAPI:
@@ -57,7 +61,13 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
     per_ip, per_clinic = RateLimiter(*CALLS_PER_IP), RateLimiter(*CALLS_PER_CLINIC)
     csp = _content_security_policy(cfg.livekit_url)
 
-    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        task = asyncio.create_task(_purge_forever(sessions))
+        yield
+        task.cancel()
+
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.cfg, app.state.sessions = cfg, sessions
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     app.add_middleware(
@@ -123,6 +133,16 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
         return {"url": p.url, "token": p.token}
 
     return app
+
+
+async def _purge_forever(sessions: Sessions) -> None:
+    """Delete expired call transcripts and old traces, now and every few hours."""
+    while True:
+        try:
+            await asyncio.to_thread(purge, sessions)
+        except Exception:  # noqa: BLE001 - try again next round
+            logger.exception("purging expired call records failed")
+        await asyncio.sleep(PURGE_EVERY)
 
 
 def _client_ip(request: Request, header: str | None) -> str:

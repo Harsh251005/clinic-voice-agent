@@ -107,6 +107,15 @@ The pipeline is split so each concern lives in exactly one module:
   holidays in the booking window, FAQ, current clinic time). Static facts go in
   the prompt; tools are only for changing data and actions.
 - `clinic_agent/context.py` — `load_clinic(cfg)` and `clinic_now(tz)`.
+- `clinic_agent/call_record.py` — `CallRecorder`: every call's **trace**
+  (`calls` + `call_events`: timings, tool names/ok, vendor error types,
+  end reason, outcome from what tools changed) and **transcript**
+  (`call_transcripts`, patient data, own table). **Never audio;** the
+  session starts with `record=False`. The trace must never hold words from
+  the call (operator sees it; transcripts only via a logged opening,
+  `transcript_access`). Recording failures are logged, never break a call.
+  Tools report changes through `ClinicLink.on_change` (booking functions
+  return `booking.Changed`). `store/purge.py`: transcripts 30 d, traces 180 d.
 - `clinic_agent/tools/call.py` — `end_call` via LiveKit's `beta.tools.EndCallTool`
   (`ignore_on_enter=True`; goodbye text follows the script rules).
 - `clinic_agent/booking.py` — booking rules as plain functions over a session;
