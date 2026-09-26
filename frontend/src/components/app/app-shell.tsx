@@ -4,9 +4,10 @@
 import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, House, LogOut, Plus, Settings2, FlaskConical } from "lucide-react";
+import { CalendarDays, House, LogOut, Plus, Settings2, FlaskConical, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { useMe } from "@/lib/queries";
 import { rememberClinic } from "@/lib/last-clinic";
@@ -14,11 +15,18 @@ import { PRODUCT_NAME } from "@/lib/product";
 import { BrandMark } from "./brand";
 import { ClinicNotFound, FullPageLoading, LoadError, NoClinic, SignIn, signOut } from "./gates";
 
+// `staff`: shows patients, so only the clinic's own members see it. An admin
+// who isn't a member sets the clinic up but never sees its patients.
 const PAGES = [
-  { segment: "today", label: "Today", icon: House },
-  { segment: "appointments", label: "Appointments", icon: CalendarDays },
-  { segment: "setup", label: "Clinic settings", short: "Settings", icon: Settings2 },
+  { segment: "today", label: "Today", icon: House, staff: true },
+  { segment: "appointments", label: "Appointments", icon: CalendarDays, staff: true },
+  { segment: "setup", label: "Clinic settings", short: "Settings", icon: Settings2, staff: false },
 ] as const;
+
+/** Where a clinic opens: Today for its staff, settings for an admin. */
+export function clinicHome(clinic: Schemas["ClinicSummary"]) {
+  return `/clinics/${clinic.id}/${clinic.staff ? "today" : "setup"}`;
+}
 
 export function AppShell({ clinicId, children }: { clinicId: number; children: ReactNode }) {
   const me = useMe();
@@ -37,11 +45,20 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
 
   const { clinics, email, is_admin, login } = me.data;
   const current = pathname.split("/")[3] ?? "today";
-  const clinicName = clinics.find((c) => c.id === clinicId)?.name ?? "";
+  const clinic = clinics.find((c) => c.id === clinicId);
+  const clinicName = clinic?.name ?? "";
+  const staff = clinic?.staff ?? false;
+  const pages = PAGES.filter((p) => staff || !p.staff);
+  const blocked = !staff && PAGES.some((p) => p.segment === current && p.staff);
 
   // Staff of one clinic just see its name; a switcher only when there's a choice.
   const clinicPicker = clinics.length > 1 ? (
-    <Select value={String(clinicId)} onValueChange={(id) => router.push(`/clinics/${id}/${current}`)}>
+    <Select value={String(clinicId)} onValueChange={(id) => {
+      const next = clinics.find((c) => c.id === Number(id));
+      if (!next) return;
+      const page = PAGES.find((p) => p.segment === current);
+      router.push(page && (next.staff || !page.staff) ? `/clinics/${id}/${current}` : clinicHome(next));
+    }}>
       <SelectTrigger aria-label="Clinic"
         className="h-auto w-full border-sidebar-border bg-sidebar-accent/60 py-2 text-left font-medium text-sidebar-accent-foreground [&_svg]:text-sidebar-foreground">
         <SelectValue />
@@ -69,7 +86,7 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
         </div>
 
         <nav className="flex flex-col gap-0.5" aria-label="Pages">
-          {PAGES.map(({ segment, label, icon: Icon }) => (
+          {pages.map(({ segment, label, icon: Icon }) => (
             <Link
               key={segment}
               href={`/clinics/${clinicId}/${segment}`}
@@ -131,8 +148,9 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
         )}
       </header>
       <nav aria-label="Pages"
-        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        {PAGES.map(({ segment, label, icon: Icon, ...rest }) => (
+        style={{ gridTemplateColumns: `repeat(${pages.length}, minmax(0, 1fr))` }}
+        className="fixed inset-x-0 bottom-0 z-20 grid border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        {pages.map(({ segment, label, icon: Icon, ...rest }) => (
           <Link
             key={segment}
             href={`/clinics/${clinicId}/${segment}`}
@@ -153,8 +171,25 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
             <FlaskConical className="size-4" aria-hidden /> Test mode: sign-in is off
           </p>
         )}
-        {children}
+        {blocked ? <StaffOnly clinicId={clinicId} /> : children}
       </main>
+    </div>
+  );
+}
+
+/** An admin on a page with patients on it: say why it's closed, and where to go. */
+function StaffOnly({ clinicId }: { clinicId: number }) {
+  return (
+    <div className="mx-auto max-w-md space-y-4 py-16 text-center">
+      <span className="mx-auto grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground">
+        <ShieldCheck className="size-6" aria-hidden />
+      </span>
+      <h1 className="text-xl font-semibold tracking-tight">For the clinic&apos;s staff only</h1>
+      <p className="text-muted-foreground">
+        This page shows patients&apos; names, numbers and visits. As an admin you can set the clinic up,
+        but only people on its team can see its patients.
+      </p>
+      <Button asChild><Link href={`/clinics/${clinicId}/setup`}>Open clinic settings</Link></Button>
     </div>
   );
 }

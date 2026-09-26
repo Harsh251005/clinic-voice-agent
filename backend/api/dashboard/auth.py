@@ -71,7 +71,7 @@ def router(cfg: Settings) -> APIRouter:
             clinics = [c for c in repo.list_clinics(s) if viewer.may_open(c.id)]
         return Me(
             email=viewer.email, is_admin=viewer.is_admin, login=cfg.dashboard_login,
-            clinics=[ClinicSummary(id=c.id, name=c.name, slug=c.slug) for c in clinics],
+            clinics=[ClinicSummary(id=c.id, name=c.name, slug=c.slug, staff=viewer.is_staff(c.id)) for c in clinics],
         )
 
     return r

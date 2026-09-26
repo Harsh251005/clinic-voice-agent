@@ -127,8 +127,11 @@ in `repo.py`.
   `SESSION_SECRET`, `DASHBOARD_URL`. Google's redirect URI is
   `DASHBOARD_URL/api/auth/callback`.
 - **Access** is re-read from the database on every request, so removing
-  someone takes effect at once. Admins (`ADMIN_EMAILS`) see every clinic;
-  members see theirs; another clinic's URL is a 404.
+  someone takes effect at once. Admins (`ADMIN_EMAILS`) open every clinic's
+  settings; members open theirs; another clinic's URL is a 404. **Patient
+  data (appointments, and from A4 calls) is for members only**
+  (`access.clinic_staff`): an admin who isn't on a clinic's team gets a 403
+  there, even though they can set it up. `/api/me` marks each clinic `staff`.
 - **Every row id is checked against the clinic in the URL**
   (`repo.in_clinic`). Without it, a member of one clinic could change
   another's data by guessing ids. `tests/test_dashboard_api.py` attacks
@@ -191,12 +194,14 @@ instructions in its README); every action below is an `/api` endpoint here.
   with the reason, and adding leave lists the clashing bookings at once.
   The agent sees the same flag when a caller looks their bookings up, and
   offers to move or cancel.
-- **Sign-in is with Google.** Admins (`ADMIN_EMAILS`) see every clinic,
-  create clinics and, on each clinic's **Team** tab, choose the Google
-  accounts that may open it. Everyone else sees only their clinics; an
+- **Sign-in is with Google.** Admins (`ADMIN_EMAILS`) see every clinic's
+  settings, create clinics and, on each clinic's **Team** tab, choose the Google
+  accounts that may open it. **Admins don't see patients:** Today and
+  Appointments show "For the clinic's staff only" unless the admin is also on
+  that clinic's team (add yourself to your own clinic's team to see it). Everyone else sees only their clinics; an
   account no clinic added gets a "No clinic yet" screen. Adding someone sends
   no email: give them the dashboard's address yourself.
-- `DASHBOARD_LOGIN=off` skips sign-in and makes everyone an admin, with a
+- `DASHBOARD_LOGIN=off` skips sign-in and makes everyone an admin and staff of every clinic, with a
   *Test mode* note in the sidebar. Local development only.
 
 ### Setting up Google sign-in

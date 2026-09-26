@@ -476,6 +476,8 @@ export interface components {
             name: string;
             /** Slug */
             slug: string;
+            /** Staff */
+            staff: boolean;
         };
         /** Day */
         Day: {

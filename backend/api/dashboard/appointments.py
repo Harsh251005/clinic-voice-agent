@@ -9,7 +9,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends, Request
 
 from api.dashboard import convert, schemas
-from api.dashboard.access import open_clinic, staff_errors
+from api.dashboard.access import clinic_staff, staff_errors
 from clinic_agent import booking
 from clinic_agent.context import clinic_now
 from clinic_agent.store import repo
@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 @router.get("/api/clinics/{clinic_id}/appointments", response_model=schemas.Day)
-def day(day: date, request: Request, include_cancelled: bool = False, clinic_id: int = Depends(open_clinic)):
+def day(day: date, request: Request, include_cancelled: bool = False, clinic_id: int = Depends(clinic_staff)):
     with request.app.state.sessions() as s:
         rows = repo.appointments_on(s, clinic_id, day, include_cancelled=include_cancelled)
         booked = [a for a in rows if a.status == "booked"]
@@ -35,7 +35,7 @@ def day(day: date, request: Request, include_cancelled: bool = False, clinic_id:
 
 
 @router.post("/api/clinics/{clinic_id}/appointments/{appointment_id}/cancel", response_model=schemas.Appointment)
-def cancel(appointment_id: int, request: Request, clinic_id: int = Depends(open_clinic)):
+def cancel(appointment_id: int, request: Request, clinic_id: int = Depends(clinic_staff)):
     with staff_errors(), request.app.state.sessions() as s:
         appt = repo.in_clinic(s, repo.Appointment, appointment_id, clinic_id)
         repo.cancel_appointment(s, appt.id)
@@ -52,14 +52,14 @@ def _out(s, appt) -> schemas.Appointment:
 
 
 @router.get("/api/clinics/{clinic_id}/doctors/{doctor_id}/free", response_model=schemas.FreeTimes)
-def free(doctor_id: int, day: date, request: Request, clinic_id: int = Depends(open_clinic)):
+def free(doctor_id: int, day: date, request: Request, clinic_id: int = Depends(clinic_staff)):
     with staff_errors(), request.app.state.sessions() as s:
         now = clinic_now(repo.get_clinic(s, clinic_id).timezone)
         return schemas.FreeTimes(times=[t.time() for t in booking.free_times(s, clinic_id, doctor_id, day, now)])
 
 
 @router.post("/api/clinics/{clinic_id}/appointments", response_model=schemas.Appointment)
-def book(body: schemas.AppointmentIn, request: Request, clinic_id: int = Depends(open_clinic)):
+def book(body: schemas.AppointmentIn, request: Request, clinic_id: int = Depends(clinic_staff)):
     with staff_errors(), request.app.state.sessions() as s:
         appt = booking.staff_book(s, clinic_id, body.doctor_id, body.starts_at,
                                   body.patient_name, body.patient_phone, body.reason)
@@ -67,7 +67,7 @@ def book(body: schemas.AppointmentIn, request: Request, clinic_id: int = Depends
 
 
 @router.put("/api/clinics/{clinic_id}/appointments/{appointment_id}", response_model=schemas.Appointment)
-def change(appointment_id: int, body: schemas.AppointmentIn, request: Request, clinic_id: int = Depends(open_clinic)):
+def change(appointment_id: int, body: schemas.AppointmentIn, request: Request, clinic_id: int = Depends(clinic_staff)):
     with staff_errors(), request.app.state.sessions() as s:
         appt = booking.staff_change(
             s, clinic_id, appointment_id, doctor_id=body.doctor_id, starts_at=body.starts_at,
