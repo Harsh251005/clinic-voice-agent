@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends, Request
 
 from api.dashboard import convert, schemas
-from api.dashboard.access import admin, open_clinic, staff_errors
+from api.dashboard.access import Viewer, admin, open_clinic, staff_errors
 from clinic_agent.context import clinic_now
 from clinic_agent.store import repo
 
@@ -28,11 +28,11 @@ def get_clinic(request: Request, clinic_id: int = Depends(open_clinic)):
     return load(request, clinic_id)
 
 
-@router.post("/api/clinics", response_model=schemas.ClinicSummary, dependencies=[Depends(admin)])
-def create_clinic(body: schemas.NewClinic, request: Request):
+@router.post("/api/clinics", response_model=schemas.ClinicSummary)
+def create_clinic(body: schemas.NewClinic, request: Request, viewer: Viewer = Depends(admin)):
     with staff_errors(), request.app.state.sessions() as s:
         c = repo.create_clinic(s, name=body.name.strip(), address=body.address.strip(), phone=body.phone.strip())
-        return schemas.ClinicSummary(id=c.id, name=c.name, slug=c.slug)
+        return schemas.ClinicSummary(id=c.id, name=c.name, slug=c.slug, staff=viewer.is_staff(c.id))
 
 
 @router.patch("/api/clinics/{clinic_id}", response_model=schemas.Clinic)

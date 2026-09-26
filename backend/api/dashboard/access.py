@@ -26,16 +26,25 @@ CSRF_HEADER = "x-clinic-console"
 class Viewer:
     email: str  # "" when sign-in is off
     is_admin: bool
-    clinic_ids: frozenset[int]  # admins may open every clinic regardless
+    clinic_ids: frozenset[int]  # clinics this email is a member (staff) of
+    signed_out: bool = False  # sign-in is off (local testing): sees everything
 
     def may_open(self, clinic_id: int) -> bool:
+        """Settings, doctors, hours: members, and admins (who set clinics up)."""
         return self.is_admin or clinic_id in self.clinic_ids
+
+    def is_staff(self, clinic_id: int) -> bool:
+        """Patient data (appointments, patients, call transcripts): the
+        clinic's own members only. Being admin is not enough: the operator
+        runs the service, not the clinic's diary. An admin who is also a
+        member (their own clinic) sees it as staff."""
+        return self.signed_out or clinic_id in self.clinic_ids
 
 
 def current_viewer(request: Request) -> Viewer:
     cfg = request.app.state.cfg
     if cfg.dashboard_login == "off":
-        return Viewer(email="", is_admin=True, clinic_ids=frozenset())
+        return Viewer(email="", is_admin=True, clinic_ids=frozenset(), signed_out=True)
     email = request.session.get("email")
     if not email:
         raise HTTPException(401, "Sign in first.")
@@ -49,6 +58,15 @@ def open_clinic(clinic_id: int, viewer: Viewer = Depends(current_viewer)) -> int
     so a stranger can't tell which clinic ids exist."""
     if not viewer.may_open(clinic_id):
         raise HTTPException(404, "No such clinic.")
+    return clinic_id
+
+
+def clinic_staff(clinic_id: int, viewer: Viewer = Depends(current_viewer)) -> int:
+    """The clinic in the URL, if this viewer is its staff. Strangers get the
+    same 404 as open_clinic; an admin who isn't a member is told why."""
+    open_clinic(clinic_id, viewer)
+    if not viewer.is_staff(clinic_id):
+        raise HTTPException(403, "Only the clinic's own staff can see its patients and calls.")
     return clinic_id
 
 

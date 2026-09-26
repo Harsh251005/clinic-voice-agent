@@ -250,12 +250,17 @@
           "slug": {
             "title": "Slug",
             "type": "string"
+          },
+          "staff": {
+            "title": "Staff",
+            "type": "boolean"
           }
         },
         "required": [
           "id",
           "name",
-          "slug"
+          "slug",
+          "staff"
         ],
         "title": "ClinicSummary",
         "type": "object"

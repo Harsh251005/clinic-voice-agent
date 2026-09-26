@@ -14,6 +14,7 @@ class ClinicSummary(BaseModel):
     id: int
     name: str
     slug: str
+    staff: bool  # this viewer may see its patients (appointments, calls)
 
 
 class Me(BaseModel):

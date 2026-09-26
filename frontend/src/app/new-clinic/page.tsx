@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { clinicHome } from "@/components/app/app-shell";
 import { Brand } from "@/components/app/brand";
 import { FullPageLoading, LoadError, SignIn } from "@/components/app/gates";
 import { PageHeader } from "@/components/app/page-header";
@@ -35,7 +36,7 @@ export default function NewClinicPage() {
   if (me.isError) return <LoadError onRetry={() => me.refetch()} />;
   if (me.data === null) return <SignIn />;
 
-  const back = me.data.clinics[0] ? `/clinics/${me.data.clinics[0].id}/today` : null;
+  const back = me.data.clinics[0] ? clinicHome(me.data.clinics[0]) : null;
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 md:py-12">
       <div className="mb-8 flex items-center justify-between">

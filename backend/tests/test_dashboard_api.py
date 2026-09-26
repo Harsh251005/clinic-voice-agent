@@ -97,7 +97,8 @@ def test_google_sign_in_sets_a_session_and_sign_out_clears_it(world, monkeypatch
     assert "httponly" in cookie and "samesite=lax" in cookie
     me = c.get("/api/me").json()
     assert me == {"email": "reception@cure.in", "is_admin": False, "login": "google",
-                  "clinics": [{"id": world["cure"], "name": "Cure Dental Clinic", "slug": "cure-dental-clinic"}]}
+                  "clinics": [{"id": world["cure"], "name": "Cure Dental Clinic", "slug": "cure-dental-clinic",
+                               "staff": True}]}
     assert c.post("/api/auth/logout").status_code == 200
     assert c.get("/api/me").status_code == 401
 
@@ -158,6 +159,7 @@ def test_sign_in_off_is_an_admin_with_no_email(world, env):
     env.setenv("DASHBOARD_LOGIN", "off")
     me = client_as().get("/api/me").json()
     assert me["email"] == "" and me["is_admin"] and me["login"] == "off" and len(me["clinics"]) == 2
+    assert all(c["staff"] for c in me["clinics"])  # local testing sees everything
 
 
 # ---------- who may open what ----------
@@ -174,6 +176,48 @@ def test_only_admins_create_clinics_and_manage_teams(world):
     assert c.post("/api/clinics", json={"name": "Mine"}).status_code == 403
     assert c.get(f"/api/clinics/{world['cure']}/members").status_code == 403
     assert c.post(f"/api/clinics/{world['cure']}/members", json={"email": "x@y.in"}).status_code == 403
+
+
+# ---------- patient data is for the clinic's own staff ----------
+
+PATIENT_DATA = [
+    ("GET", "/appointments?day=2026-12-07", None),
+    ("POST", "/appointments/{cure_appt}/cancel", None),
+    ("PUT", "/appointments/{cure_appt}", {"doctor_id": "{khushboo}", "starts_at": "2026-12-08T10:00",
+                                          "patient_name": "X", "patient_phone": "9876543210"}),
+    ("POST", "/appointments", {"doctor_id": "{khushboo}", "starts_at": "2026-12-08T10:00",
+                               "patient_name": "X", "patient_phone": "9876543210"}),
+    ("GET", "/doctors/{khushboo}/free?day=2026-12-07", None),
+]
+
+
+@pytest.mark.parametrize(("method", "path", "body"), PATIENT_DATA)
+def test_an_admin_who_isnt_staff_cant_touch_patient_data(world, method, path, body):
+    c = client_as("harsh@example.com", admin=True)
+    fill = lambda v: int(v.format(**world)) if isinstance(v, str) and v.startswith("{") else v  # noqa: E731
+    body = {k: fill(v) for k, v in body.items()} if body else None
+    r = c.request(method, f"/api/clinics/{world['cure']}" + path.format(**world), json=body)
+    assert r.status_code == 403 and "clinic's own staff" in r.json()["detail"]
+    appts = client_as("reception@cure.in").get(
+        f"/api/clinics/{world['cure']}/appointments", params={"day": "2026-12-07"}).json()["appointments"]
+    assert [(a["patient_name"], a["status"]) for a in appts] == [("Harsh", "booked")]
+
+
+def test_an_admin_still_sets_clinics_up(world):
+    c = client_as("harsh@example.com", admin=True)
+    base = f"/api/clinics/{world['cure']}"
+    assert c.get(base).status_code == 200
+    assert c.patch(f"{base}/doctors/{world['khushboo']}", json={"fee": 700}).json()["fee"] == 700
+    assert all(not x["staff"] for x in c.get("/api/me").json()["clinics"])
+
+
+def test_an_admin_who_is_a_member_is_staff_there_only(world):
+    with client_as("harsh@example.com", admin=True) as c:
+        c.post(f"/api/clinics/{world['cure']}/members", json={"email": "harsh@example.com"})
+        staff = {x["id"]: x["staff"] for x in c.get("/api/me").json()["clinics"]}
+        assert staff == {world["demo"]: False, world["cure"]: True}
+        assert c.get(f"/api/clinics/{world['cure']}/appointments", params={"day": "2026-12-07"}).status_code == 200
+        assert c.get(f"/api/clinics/{world['demo']}/appointments", params={"day": "2026-12-07"}).status_code == 403
 
 
 ATTACKS = [
@@ -229,7 +273,8 @@ def _demo_untouched(world):
     assert any(t["id"] == world["demo_off"] for t in demo["time_off"])
     doctor = next(d for d in demo["doctors"] if d["id"] == world["demo_doctor"])
     assert doctor["fee"] == 500 and doctor["hours"]
-    appts = admin.get(f"/api/clinics/{world['demo']}/appointments", params={"day": "2026-12-07"}).json()
+    staff = client_as("doctor@demo.in")  # the admin can't read appointments
+    appts = staff.get(f"/api/clinics/{world['demo']}/appointments", params={"day": "2026-12-07"}).json()
     assert appts["appointments"][0]["status"] == "booked"
 
 
