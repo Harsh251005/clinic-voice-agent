@@ -11,10 +11,11 @@ import unicodedata
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from clinic_agent.store import migrations
 from clinic_agent.store.models import (
     Appointment,
     Call,
@@ -130,6 +131,24 @@ def update_clinic(s: Session, clinic_id: int, **fields) -> Clinic:
         setattr(clinic, key, value)
     s.commit()
     return clinic
+
+
+def set_clinic_active(s: Session, clinic_id: int, active: bool) -> Clinic:
+    """Pause (False) or resume a clinic's receptionist."""
+    clinic = _get(s, Clinic, clinic_id)
+    clinic.active = active
+    s.commit()
+    return clinic
+
+
+def delete_clinic(s: Session, clinic_id: int) -> None:
+    """Delete a clinic and everything of it: doctors, patients, appointments,
+    calls, team. Irreversible, so a SQLite database is copied first (Postgres
+    relies on its own backups). The database's cascades do the rest."""
+    _get(s, Clinic, clinic_id)
+    migrations.backup(s.get_bind(), f"deleting clinic {clinic_id}")
+    s.execute(delete(Clinic).where(Clinic.id == clinic_id))
+    s.commit()
 
 
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -548,6 +567,92 @@ def purge_expired(s: Session, now: datetime, trace_before: datetime) -> tuple[in
     calls = s.execute(delete(Call).where(Call.started_at < trace_before)).rowcount
     s.commit()
     return transcripts, calls
+
+
+def list_calls(
+    s: Session,
+    *,
+    clinic_id: int | None = None,
+    since: datetime | None = None,
+    outcome: str | None = None,
+    open_before: datetime | None = None,
+    with_errors: bool = False,
+    before_id: int | None = None,
+    limit: int = 50,
+) -> list[Call]:
+    """Newest first. `open_before` keeps only calls never finished that
+    started before it (the dropped ones). Never touches transcripts."""
+    q = select(Call).order_by(Call.id.desc()).limit(limit)
+    if clinic_id is not None:
+        q = q.where(Call.clinic_id == clinic_id)
+    if since is not None:
+        q = q.where(Call.started_at >= since)
+    if outcome:
+        q = q.where(Call.outcome == outcome)
+    if open_before is not None:
+        q = q.where(Call.ended_at.is_(None), Call.started_at < open_before)
+    if with_errors:
+        q = q.where(Call.error_count > 0)
+    if before_id is not None:
+        q = q.where(Call.id < before_id)
+    return list(s.scalars(q))
+
+
+def get_call(s: Session, call_id: int) -> Call:
+    return _get(s, Call, call_id)
+
+
+def call_events(s: Session, call_ids: Iterable[int]) -> list[CallEvent]:
+    ids = list(call_ids)
+    if not ids:
+        return []
+    return list(s.scalars(select(CallEvent).where(CallEvent.call_id.in_(ids)).order_by(CallEvent.call_id, CallEvent.t_ms, CallEvent.id)))
+
+
+def events_since(s: Session, since: datetime, kinds: Iterable[str]) -> list[tuple[CallEvent, str, int]]:
+    """Trace events of calls started since then, with each call's stack and
+    clinic: what the health numbers are computed from."""
+    rows = s.execute(
+        select(CallEvent, Call.stack, Call.clinic_id)
+        .join(Call, Call.id == CallEvent.call_id)
+        .where(Call.started_at >= since, CallEvent.kind.in_(list(kinds)))
+    )
+    return [(e, stack, clinic) for e, stack, clinic in rows]
+
+
+def has_transcript(s: Session, call_id: int) -> bool:
+    return s.scalar(select(func.count()).where(CallTranscript.call_id == call_id)) > 0
+
+
+def get_transcript(s: Session, call_id: int) -> CallTranscript:
+    """Patient data: the dashboard reads it only for a clinic's own staff,
+    or for an admin after log_transcript_access."""
+    return _get(s, CallTranscript, call_id)
+
+
+def log_transcript_access(s: Session, call_id: int, email: str, reason: str) -> TranscriptAccess:
+    call = _get(s, Call, call_id)
+    entry = TranscriptAccess(call_id=call.id, clinic_id=call.clinic_id, email=email, reason=reason)
+    s.add(entry)
+    s.commit()
+    return entry
+
+
+def transcript_accesses(s: Session, call_id: int) -> list[TranscriptAccess]:
+    return list(s.scalars(select(TranscriptAccess).where(TranscriptAccess.call_id == call_id).order_by(TranscriptAccess.at)))
+
+
+def call_counts(s: Session, since: datetime) -> dict[int, tuple[int, int, datetime | None]]:
+    """Per clinic: (calls since then, of those with vendor errors, the last call ever)."""
+    recent = s.execute(
+        select(Call.clinic_id, func.count(), func.sum(case((Call.error_count > 0, 1), else_=0)))
+        .where(Call.started_at >= since).group_by(Call.clinic_id)
+    )
+    last = dict(s.execute(select(Call.clinic_id, func.max(Call.started_at)).group_by(Call.clinic_id)).all())
+    out = {cid: (n, int(errs or 0), last.get(cid)) for cid, n, errs in recent}
+    for cid, at in last.items():
+        out.setdefault(cid, (0, 0, at))
+    return out
 
 
 def _is_slot_clash(err: IntegrityError) -> bool:

@@ -1,6 +1,83 @@
 {
   "components": {
     "schemas": {
+      "ActiveIn": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "active"
+        ],
+        "title": "ActiveIn",
+        "type": "object"
+      },
+      "AdminClinic": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "calls_7d": {
+            "title": "Calls 7D",
+            "type": "integer"
+          },
+          "calls_with_errors_7d": {
+            "title": "Calls With Errors 7D",
+            "type": "integer"
+          },
+          "doctors": {
+            "title": "Doctors",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_call_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Call At"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/Member"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "active",
+          "doctors",
+          "members",
+          "calls_7d",
+          "calls_with_errors_7d",
+          "last_call_at"
+        ],
+        "title": "AdminClinic",
+        "type": "object"
+      },
       "Appointment": {
         "properties": {
           "doctor_id": {
@@ -117,6 +194,274 @@
           "patient_phone"
         ],
         "title": "AppointmentIn",
+        "type": "object"
+      },
+      "Attention": {
+        "properties": {
+          "call_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Call Id"
+          },
+          "clinic_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clinic Id"
+          },
+          "kind": {
+            "enum": [
+              "dropped",
+              "failed",
+              "errors",
+              "quiet"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "Attention",
+        "type": "object"
+      },
+      "CallChange": {
+        "properties": {
+          "action": {
+            "enum": [
+              "booked",
+              "moved",
+              "cancelled"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "action"
+        ],
+        "title": "CallChange",
+        "type": "object"
+      },
+      "CallSummary": {
+        "properties": {
+          "appointments": {
+            "items": {
+              "$ref": "#/components/schemas/CallChange"
+            },
+            "title": "Appointments",
+            "type": "array"
+          },
+          "clinic_id": {
+            "title": "Clinic Id",
+            "type": "integer"
+          },
+          "clinic_name": {
+            "title": "Clinic Name",
+            "type": "string"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "end_reason": {
+            "title": "End Reason",
+            "type": "string"
+          },
+          "error_count": {
+            "title": "Error Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "stack": {
+            "title": "Stack",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "live",
+              "ended",
+              "dropped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tool_failures": {
+            "title": "Tool Failures",
+            "type": "integer"
+          },
+          "turn_count": {
+            "title": "Turn Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "clinic_id",
+          "clinic_name",
+          "started_at",
+          "duration_s",
+          "status",
+          "end_reason",
+          "outcome",
+          "stack",
+          "turn_count",
+          "error_count",
+          "tool_failures",
+          "appointments"
+        ],
+        "title": "CallSummary",
+        "type": "object"
+      },
+      "CallTrace": {
+        "properties": {
+          "accesses": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptAccess"
+            },
+            "title": "Accesses",
+            "type": "array"
+          },
+          "appointments": {
+            "items": {
+              "$ref": "#/components/schemas/CallChange"
+            },
+            "title": "Appointments",
+            "type": "array"
+          },
+          "clinic_id": {
+            "title": "Clinic Id",
+            "type": "integer"
+          },
+          "clinic_name": {
+            "title": "Clinic Name",
+            "type": "string"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "end_reason": {
+            "title": "End Reason",
+            "type": "string"
+          },
+          "error_count": {
+            "title": "Error Count",
+            "type": "integer"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/TraceEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "stack": {
+            "title": "Stack",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "live",
+              "ended",
+              "dropped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tool_failures": {
+            "title": "Tool Failures",
+            "type": "integer"
+          },
+          "transcript_kept": {
+            "title": "Transcript Kept",
+            "type": "boolean"
+          },
+          "turn_count": {
+            "title": "Turn Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "clinic_id",
+          "clinic_name",
+          "started_at",
+          "duration_s",
+          "status",
+          "end_reason",
+          "outcome",
+          "stack",
+          "turn_count",
+          "error_count",
+          "tool_failures",
+          "appointments",
+          "events",
+          "transcript_kept",
+          "accesses"
+        ],
+        "title": "CallTrace",
         "type": "object"
       },
       "Clinic": {
@@ -302,6 +647,19 @@
         "title": "Day",
         "type": "object"
       },
+      "DeleteClinicIn": {
+        "properties": {
+          "confirm_name": {
+            "title": "Confirm Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm_name"
+        ],
+        "title": "DeleteClinicIn",
+        "type": "object"
+      },
       "Doctor": {
         "properties": {
           "active": {
@@ -425,6 +783,43 @@
         "title": "DoctorPatch",
         "type": "object"
       },
+      "ErrorGroup": {
+        "properties": {
+          "call_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Call Ids",
+            "type": "array"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "last_at": {
+            "format": "date-time",
+            "title": "Last At",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "detail",
+          "count",
+          "last_at",
+          "call_ids"
+        ],
+        "title": "ErrorGroup",
+        "type": "object"
+      },
       "Faq": {
         "properties": {
           "answer": {
@@ -498,6 +893,71 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "attention": {
+            "items": {
+              "$ref": "#/components/schemas/Attention"
+            },
+            "title": "Attention",
+            "type": "array"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "calls_today": {
+            "title": "Calls Today",
+            "type": "integer"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "dropped": {
+            "title": "Dropped",
+            "type": "integer"
+          },
+          "outcomes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Outcomes",
+            "type": "object"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/Stage"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "vendors": {
+            "items": {
+              "$ref": "#/components/schemas/VendorErrors"
+            },
+            "title": "Vendors",
+            "type": "array"
+          },
+          "with_errors": {
+            "title": "With Errors",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days",
+          "calls",
+          "calls_today",
+          "outcomes",
+          "dropped",
+          "with_errors",
+          "stages",
+          "vendors",
+          "attention"
+        ],
+        "title": "Health",
         "type": "object"
       },
       "HoursIn": {
@@ -725,6 +1185,39 @@
         "title": "SlugIn",
         "type": "object"
       },
+      "Stage": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "p50_ms": {
+            "title": "P50 Ms",
+            "type": "integer"
+          },
+          "p95_ms": {
+            "title": "P95 Ms",
+            "type": "integer"
+          },
+          "stack": {
+            "title": "Stack",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "stack",
+          "count",
+          "p50_ms",
+          "p95_ms"
+        ],
+        "title": "Stage",
+        "type": "object"
+      },
       "TimeOff": {
         "properties": {
           "date_from": {
@@ -854,6 +1347,157 @@
         "title": "TimeOffIn",
         "type": "object"
       },
+      "TraceEvent": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "t_ms": {
+            "title": "T Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "t_ms",
+          "kind",
+          "name",
+          "duration_ms",
+          "ok",
+          "detail"
+        ],
+        "title": "TraceEvent",
+        "type": "object"
+      },
+      "TranscriptAccess": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "reason",
+          "at"
+        ],
+        "title": "TranscriptAccess",
+        "type": "object"
+      },
+      "TranscriptItem": {
+        "properties": {
+          "args": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Args"
+          },
+          "interrupted": {
+            "default": false,
+            "title": "Interrupted",
+            "type": "boolean"
+          },
+          "ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ok"
+          },
+          "role": {
+            "enum": [
+              "caller",
+              "agent",
+              "tool",
+              "error"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "t_ms": {
+            "title": "T Ms",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "tool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool"
+          }
+        },
+        "required": [
+          "t_ms",
+          "role",
+          "text"
+        ],
+        "title": "TranscriptItem",
+        "type": "object"
+      },
+      "TranscriptReason": {
+        "properties": {
+          "reason": {
+            "maxLength": 300,
+            "minLength": 5,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "TranscriptReason",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -893,6 +1537,29 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VendorErrors": {
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "errors": {
+            "title": "Errors",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "errors",
+          "calls"
+        ],
+        "title": "VendorErrors",
+        "type": "object"
       }
     }
   },
@@ -902,6 +1569,414 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/calls": {
+      "get": {
+        "operationId": "calls_api_admin_calls_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "clinic_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Clinic Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "with_errors",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "With Errors",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CallSummary"
+                  },
+                  "title": "Response Calls Api Admin Calls Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Calls"
+      }
+    },
+    "/api/admin/calls/{call_id}": {
+      "get": {
+        "operationId": "call_trace_api_admin_calls__call_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "call_id",
+            "required": true,
+            "schema": {
+              "title": "Call Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallTrace"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Call Trace"
+      }
+    },
+    "/api/admin/calls/{call_id}/transcript": {
+      "post": {
+        "description": "Break-glass: the reason is logged (and shown to the clinic) before\nthe words are returned.",
+        "operationId": "open_transcript_api_admin_calls__call_id__transcript_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "call_id",
+            "required": true,
+            "schema": {
+              "title": "Call Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranscriptReason"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TranscriptItem"
+                  },
+                  "title": "Response Open Transcript Api Admin Calls  Call Id  Transcript Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Transcript"
+      }
+    },
+    "/api/admin/clinics": {
+      "get": {
+        "operationId": "clinics_api_admin_clinics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminClinic"
+                  },
+                  "title": "Response Clinics Api Admin Clinics Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Clinics"
+      }
+    },
+    "/api/admin/clinics/{clinic_id}": {
+      "delete": {
+        "description": "Irreversible: the clinic must be paused first, and its exact name typed.",
+        "operationId": "delete_clinic_api_admin_clinics__clinic_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteClinicIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Clinic Api Admin Clinics  Clinic Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Clinic"
+      }
+    },
+    "/api/admin/clinics/{clinic_id}/active": {
+      "put": {
+        "operationId": "set_active_api_admin_clinics__clinic_id__active_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActiveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminClinic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Active"
+      }
+    },
+    "/api/admin/errors": {
+      "get": {
+        "operationId": "error_groups_api_admin_errors_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ErrorGroup"
+                  },
+                  "title": "Response Error Groups Api Admin Errors Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Error Groups"
+      }
+    },
+    "/api/admin/health": {
+      "get": {
+        "operationId": "health_api_admin_health_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Health"
+      }
+    },
     "/api/auth/logout": {
       "post": {
         "operationId": "logout_api_auth_logout_post",

@@ -64,7 +64,7 @@ export function NoClinic({ email }: { email: string }) {
   return (
     <CenteredCard
       title="No clinic yet"
-      description={<>You&apos;re signed in as <b>{email}</b>, but no clinic has added this address. Ask the person who set up your clinic to add it on the Team tab.</>}
+      description={<>You&apos;re signed in as <b>{email}</b>, but no clinic has added this address. Ask the person who runs ClinicDesk for your clinic to add it.</>}
     >
       <Button variant="outline" className="w-full" onClick={signOut}>Sign out</Button>
     </CenteredCard>

@@ -189,3 +189,125 @@ class Day(BaseModel):
 
 class Error(BaseModel):
     error: str
+
+
+# ---------- calls (trace: no words from the call) ----------
+
+class CallChange(BaseModel):
+    id: int  # appointment
+    action: Literal["booked", "moved", "cancelled"]
+
+
+class CallSummary(BaseModel):
+    id: int
+    clinic_id: int
+    clinic_name: str
+    started_at: datetime  # UTC, with offset
+    duration_s: int | None  # None while live or never finished
+    # live: still going; ended; dropped: never finished (worker crashed or was killed)
+    status: Literal["live", "ended", "dropped"]
+    end_reason: str
+    outcome: str
+    stack: str
+    turn_count: int
+    error_count: int
+    tool_failures: int
+    appointments: list[CallChange]
+
+
+class TraceEvent(BaseModel):
+    t_ms: int
+    kind: str  # stt | eou | llm | tts | reply | tool | error
+    name: str
+    duration_ms: int | None
+    ok: bool
+    detail: str
+
+
+class TranscriptAccess(BaseModel):
+    email: str
+    reason: str
+    at: datetime  # UTC, with offset
+
+
+class CallTrace(CallSummary):
+    events: list[TraceEvent]
+    transcript_kept: bool  # False once deleted after the retention period
+    accesses: list[TranscriptAccess]
+
+
+class TranscriptItem(BaseModel):
+    t_ms: int
+    role: Literal["caller", "agent", "tool", "error"]
+    text: str
+    tool: str | None = None
+    ok: bool | None = None
+    args: str | None = None  # the tool's arguments as the model sent them (JSON)
+    interrupted: bool = False
+
+
+class TranscriptReason(BaseModel):
+    reason: str = Field(min_length=5, max_length=300)
+
+
+# ---------- admin panel ----------
+
+class Stage(BaseModel):
+    stage: str  # stt | eou | llm | tts | reply
+    stack: str
+    count: int
+    p50_ms: int
+    p95_ms: int
+
+
+class VendorErrors(BaseModel):
+    name: str  # provider/model
+    errors: int
+    calls: int  # calls with at least one error from it
+
+
+class Attention(BaseModel):
+    kind: Literal["dropped", "failed", "errors", "quiet"]
+    text: str
+    call_id: int | None = None
+    clinic_id: int | None = None
+
+
+class Health(BaseModel):
+    days: int
+    calls: int
+    calls_today: int
+    outcomes: dict[str, int]
+    dropped: int
+    with_errors: int
+    stages: list[Stage]
+    vendors: list[VendorErrors]
+    attention: list[Attention]
+
+
+class ErrorGroup(BaseModel):
+    name: str
+    detail: str
+    count: int
+    last_at: datetime  # UTC, with offset
+    call_ids: list[int]  # the latest few
+
+
+class AdminClinic(BaseModel):
+    id: int
+    name: str
+    slug: str
+    active: bool
+    doctors: int
+    members: list[Member]
+    calls_7d: int
+    calls_with_errors_7d: int
+    last_call_at: datetime | None
+
+
+class ActiveIn(BaseModel):
+    active: bool
+
+
+class DeleteClinicIn(BaseModel):
+    confirm_name: str

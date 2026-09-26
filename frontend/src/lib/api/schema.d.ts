@@ -4,6 +4,149 @@
  */
 
 export interface paths {
+    "/api/admin/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Calls */
+        get: operations["calls_api_admin_calls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/calls/{call_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Call Trace */
+        get: operations["call_trace_api_admin_calls__call_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/calls/{call_id}/transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open Transcript
+         * @description Break-glass: the reason is logged (and shown to the clinic) before
+         *     the words are returned.
+         */
+        post: operations["open_transcript_api_admin_calls__call_id__transcript_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/clinics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Clinics */
+        get: operations["clinics_api_admin_clinics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/clinics/{clinic_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Clinic
+         * @description Irreversible: the clinic must be paused first, and its exact name typed.
+         */
+        delete: operations["delete_clinic_api_admin_clinics__clinic_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/clinics/{clinic_id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Active */
+        put: operations["set_active_api_admin_clinics__clinic_id__active_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Error Groups */
+        get: operations["error_groups_api_admin_errors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["health_api_admin_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/logout": {
         parameters: {
             query?: never;
@@ -363,6 +506,32 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActiveIn */
+        ActiveIn: {
+            /** Active */
+            active: boolean;
+        };
+        /** AdminClinic */
+        AdminClinic: {
+            /** Active */
+            active: boolean;
+            /** Calls 7D */
+            calls_7d: number;
+            /** Calls With Errors 7D */
+            calls_with_errors_7d: number;
+            /** Doctors */
+            doctors: number;
+            /** Id */
+            id: number;
+            /** Last Call At */
+            last_call_at: string | null;
+            /** Members */
+            members: components["schemas"]["Member"][];
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+        };
         /** Appointment */
         Appointment: {
             /** Doctor Id */
@@ -421,6 +590,106 @@ export interface components {
              * Format: date-time
              */
             starts_at: string;
+        };
+        /** Attention */
+        Attention: {
+            /** Call Id */
+            call_id?: number | null;
+            /** Clinic Id */
+            clinic_id?: number | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "dropped" | "failed" | "errors" | "quiet";
+            /** Text */
+            text: string;
+        };
+        /** CallChange */
+        CallChange: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "booked" | "moved" | "cancelled";
+            /** Id */
+            id: number;
+        };
+        /** CallSummary */
+        CallSummary: {
+            /** Appointments */
+            appointments: components["schemas"]["CallChange"][];
+            /** Clinic Id */
+            clinic_id: number;
+            /** Clinic Name */
+            clinic_name: string;
+            /** Duration S */
+            duration_s: number | null;
+            /** End Reason */
+            end_reason: string;
+            /** Error Count */
+            error_count: number;
+            /** Id */
+            id: number;
+            /** Outcome */
+            outcome: string;
+            /** Stack */
+            stack: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "live" | "ended" | "dropped";
+            /** Tool Failures */
+            tool_failures: number;
+            /** Turn Count */
+            turn_count: number;
+        };
+        /** CallTrace */
+        CallTrace: {
+            /** Accesses */
+            accesses: components["schemas"]["TranscriptAccess"][];
+            /** Appointments */
+            appointments: components["schemas"]["CallChange"][];
+            /** Clinic Id */
+            clinic_id: number;
+            /** Clinic Name */
+            clinic_name: string;
+            /** Duration S */
+            duration_s: number | null;
+            /** End Reason */
+            end_reason: string;
+            /** Error Count */
+            error_count: number;
+            /** Events */
+            events: components["schemas"]["TraceEvent"][];
+            /** Id */
+            id: number;
+            /** Outcome */
+            outcome: string;
+            /** Stack */
+            stack: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "live" | "ended" | "dropped";
+            /** Tool Failures */
+            tool_failures: number;
+            /** Transcript Kept */
+            transcript_kept: boolean;
+            /** Turn Count */
+            turn_count: number;
         };
         /** Clinic */
         Clinic: {
@@ -495,6 +764,11 @@ export interface components {
             /** Next 7 Days */
             next_7_days: number;
         };
+        /** DeleteClinicIn */
+        DeleteClinicIn: {
+            /** Confirm Name */
+            confirm_name: string;
+        };
         /** Doctor */
         Doctor: {
             /** Active */
@@ -529,6 +803,22 @@ export interface components {
             /** Specialty */
             specialty?: string | null;
         };
+        /** ErrorGroup */
+        ErrorGroup: {
+            /** Call Ids */
+            call_ids: number[];
+            /** Count */
+            count: number;
+            /** Detail */
+            detail: string;
+            /**
+             * Last At
+             * Format: date-time
+             */
+            last_at: string;
+            /** Name */
+            name: string;
+        };
         /** Faq */
         Faq: {
             /** Answer */
@@ -554,6 +844,29 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Health */
+        Health: {
+            /** Attention */
+            attention: components["schemas"]["Attention"][];
+            /** Calls */
+            calls: number;
+            /** Calls Today */
+            calls_today: number;
+            /** Days */
+            days: number;
+            /** Dropped */
+            dropped: number;
+            /** Outcomes */
+            outcomes: {
+                [key: string]: number;
+            };
+            /** Stages */
+            stages: components["schemas"]["Stage"][];
+            /** Vendors */
+            vendors: components["schemas"]["VendorErrors"][];
+            /** With Errors */
+            with_errors: number;
         };
         /** HoursIn */
         HoursIn: {
@@ -652,6 +965,19 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** Stage */
+        Stage: {
+            /** Count */
+            count: number;
+            /** P50 Ms */
+            p50_ms: number;
+            /** P95 Ms */
+            p95_ms: number;
+            /** Stack */
+            stack: string;
+            /** Stage */
+            stage: string;
+        };
         /** TimeOff */
         TimeOff: {
             /**
@@ -712,6 +1038,61 @@ export interface components {
              */
             reason: string;
         };
+        /** TraceEvent */
+        TraceEvent: {
+            /** Detail */
+            detail: string;
+            /** Duration Ms */
+            duration_ms: number | null;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Ok */
+            ok: boolean;
+            /** T Ms */
+            t_ms: number;
+        };
+        /** TranscriptAccess */
+        TranscriptAccess: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Email */
+            email: string;
+            /** Reason */
+            reason: string;
+        };
+        /** TranscriptItem */
+        TranscriptItem: {
+            /** Args */
+            args?: string | null;
+            /**
+             * Interrupted
+             * @default false
+             */
+            interrupted: boolean;
+            /** Ok */
+            ok?: boolean | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "caller" | "agent" | "tool" | "error";
+            /** T Ms */
+            t_ms: number;
+            /** Text */
+            text: string;
+            /** Tool */
+            tool?: string | null;
+        };
+        /** TranscriptReason */
+        TranscriptReason: {
+            /** Reason */
+            reason: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -725,6 +1106,15 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** VendorErrors */
+        VendorErrors: {
+            /** Calls */
+            calls: number;
+            /** Errors */
+            errors: number;
+            /** Name */
+            name: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -734,6 +1124,261 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    calls_api_admin_calls_get: {
+        parameters: {
+            query?: {
+                clinic_id?: number | null;
+                outcome?: string | null;
+                status?: string | null;
+                with_errors?: boolean;
+                before_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    call_trace_api_admin_calls__call_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallTrace"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_transcript_api_admin_calls__call_id__transcript_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TranscriptReason"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clinics_api_admin_clinics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminClinic"][];
+                };
+            };
+        };
+    };
+    delete_clinic_api_admin_clinics__clinic_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteClinicIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_active_api_admin_clinics__clinic_id__active_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActiveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminClinic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    error_groups_api_admin_errors_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorGroup"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    health_api_admin_health_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Health"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     logout_api_auth_logout_post: {
         parameters: {
             query?: never;

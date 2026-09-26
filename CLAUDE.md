@@ -91,7 +91,9 @@ The pipeline is split so each concern lives in exactly one module:
   clinics you can't open; admins open all), `clinic_staff` (patient data:
   members only, admin non-member → 403), `admin`, `same_site` (CSRF header
   `x-clinic-console`), `staff_errors` (ValueError→422). **Every route that
-  takes a row id must go through `repo.in_clinic`** (IDOR); add an entry to
+  takes a row id must go through `repo.in_clinic`** (IDOR; `/api/admin/*` is
+  cross-clinic by design, admins only, and returns no patient data except the
+  logged transcript opening); add an entry to
   `ATTACKS` in `tests/test_dashboard_api.py` for any new row type. Tests
   set the viewer with `dependency_overrides`, never a backdoor.
 - `clinic_agent/config.py` — the **only** place that reads `os.environ`.

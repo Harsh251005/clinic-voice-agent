@@ -141,6 +141,31 @@ in `repo.py`.
 - Rule violations come back as 422 with a message staff can read (bad link
   name, overlapping sittings); rows outside the clinic as 404.
 
+## Admin panel (the operator)
+
+`/admin` in the dashboard, for `ADMIN_EMAILS` only (`/api/admin/*`,
+`api/dashboard/admin.py`). It answers "is the receptionist working, for
+every clinic?" and never shows patients:
+
+- **Health**: calls and how they ended, dropped calls (a record the worker
+  never finished, past `MAX_CALL_MINUTES` + 2 minutes), calls with vendor
+  errors, typical (p50) and slow (p95) time for each step per vendor stack
+  (hearing, end of turn, thinking, voice, the caller's whole wait), vendor
+  errors, and a "needs a look" list (dropped or failed calls, erroring
+  vendors, an active clinic with no calls for 3 days).
+- **Calls**: every call to every clinic, filterable; each opens to its
+  trace (every step, tool and error in order, how it ended, which
+  appointments it changed by number). **Its words are hidden.** "Open for
+  debugging" asks for a reason, logs it (`transcript_access`) and only then
+  shows the transcript; the clinic will see who opened it, when and why.
+- **Errors**: vendor errors grouped by vendor and type, linked to their calls.
+- **Clinics**: add one, see its calls, manage its team (moved here from
+  clinic settings), **pause** it (the call page says it isn't taking calls,
+  the pass endpoint and the worker refuse its calls; data untouched), and
+  **delete** it: only once paused and with its exact name typed; removes
+  everything of it. A SQLite database is copied first
+  (`clinic.db.bak-…`); on Postgres that relies on your own backups.
+
 ## Dashboard (what staff can do)
 
 The dashboard is called **ClinicDesk** (one constant,

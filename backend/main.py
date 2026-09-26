@@ -71,6 +71,12 @@ async def entrypoint(ctx: JobContext) -> None:
         logger.error("refusing call in room %s: %s", ctx.room.name, err)
         ctx.shutdown(reason=f"no clinic: {err}")
         return
+    if not clinic.active:
+        # Paused in the admin panel: its call page already says so; a call
+        # that got through anyway (an old tab) is not answered.
+        logger.warning("refusing call in room %s: clinic %s is paused", ctx.room.name, clinic.id)
+        ctx.shutdown(reason="clinic paused")
+        return
     logger.info("clinic %s: %s", clinic.id, clinic.name)
     instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone))
     sessions = sessions_for(cfg.database_url)

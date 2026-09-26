@@ -16,6 +16,8 @@ function Home() {
     if (!me.data) return null;
     const { clinics, is_admin } = me.data;
     const last = lastClinic();
+    // An admin who isn't on any clinic's team works from the admin panel.
+    if (is_admin && !clinics.some((c) => c.staff)) return "/admin";
     const remembered = clinics.find((c) => c.id === last);
     if (remembered) return clinicHome(remembered);
     if (clinics.length) return clinicHome(clinics[0]);

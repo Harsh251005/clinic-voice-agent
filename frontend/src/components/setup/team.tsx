@@ -44,7 +44,7 @@ export function Team({ clinic }: { clinic: Schemas["Clinic"] }) {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">Nobody yet. Admins can always open every clinic.</p>
+          <p className="text-sm text-muted-foreground">Nobody yet. Admins can set the clinic up but can&apos;t see its patients.</p>
         )}
         <form className="flex flex-col gap-2 sm:flex-row" onSubmit={(e) => {
           e.preventDefault();
