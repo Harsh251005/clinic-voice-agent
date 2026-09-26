@@ -21,6 +21,7 @@ from livekit.agents import JobContext, WorkerOptions, cli
 
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.call_limit import end_after
+from clinic_agent.call_record import CallRecorder, stack_of
 from clinic_agent.config import ConfigError, load_settings
 from clinic_agent.context import clinic_now, load_clinic, local_clinic
 from clinic_agent.dispatch import AGENT_NAME, NoClinic, clinic_id_from
@@ -72,10 +73,17 @@ async def entrypoint(ctx: JobContext) -> None:
         return
     logger.info("clinic %s: %s", clinic.id, clinic.name)
     instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone))
-    link = ClinicLink(clinic.id, clinic.timezone, sessions_for(cfg.database_url))
+    sessions = sessions_for(cfg.database_url)
+    session = build_session(cfg, text_only=TEXT_ONLY)
+    stack = stack_of(session, cfg.stt_provider, cfg.llm_provider, cfg.tts_provider, TEXT_ONLY)
+    record = CallRecorder(sessions, clinic.id, ctx.room.name, stack)
+    await record.start()
+    record.attach(session)
+    ctx.add_shutdown_callback(record.finish)
+
+    link = ClinicLink(clinic.id, clinic.timezone, sessions, on_change=record.on_change)
     tools = [*booking_tools(link), end_call_tool()]
 
-    session = build_session(cfg, text_only=TEXT_ONLY)
     if TEXT_ONLY:
         logger.info("starting text-only session: llm=%s/%s", cfg.llm_provider, session.llm.model)
     else:
@@ -86,9 +94,14 @@ async def entrypoint(ctx: JobContext) -> None:
             cfg.tts_provider, session.tts.model,
         )
     keep_promises(session, [t.info.name for t in tools if t.info.name != "end_call"])
-    await session.start(agent=ClinicAgent(instructions, tools), room=ctx.room)
+    # record=False: no audio, transcript or trace goes to LiveKit Cloud, whatever
+    # the project's setting says. Our own record (above) keeps the transcript
+    # as text only; audio is never stored anywhere.
+    await session.start(agent=ClinicAgent(instructions, tools), room=ctx.room, record=False)
 
-    limit = asyncio.create_task(end_after(session, ctx, cfg.max_call_minutes * 60))
+    limit = asyncio.create_task(
+        end_after(session, ctx, cfg.max_call_minutes * 60, on_limit=lambda: record.mark("time_limit"))
+    )
 
     async def _stop_limit() -> None:
         limit.cancel()

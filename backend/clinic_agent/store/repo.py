@@ -11,12 +11,15 @@ import unicodedata
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from clinic_agent.store.models import (
     Appointment,
+    Call,
+    CallEvent,
+    CallTranscript,
     Clinic,
     ClinicFaq,
     ClinicMember,
@@ -24,6 +27,7 @@ from clinic_agent.store.models import (
     DoctorHours,
     Patient,
     TimeOff,
+    TranscriptAccess,
 )
 
 
@@ -495,6 +499,55 @@ def _patient(s: Session, clinic_id: int, name: str, phone: str) -> Patient:
         patient = Patient(clinic_id=clinic_id, name=name.strip(), phone=phone)
         s.add(patient)
     return patient
+
+
+# ---------- calls ----------
+
+def start_call(s: Session, clinic_id: int, room: str, stack: str, started_at: datetime) -> Call:
+    """Open a call's record as it starts, so a call the worker never
+    finishes still leaves a trace."""
+    call = Call(clinic_id=clinic_id, room=room, stack=stack, started_at=started_at)
+    s.add(call)
+    s.commit()
+    return call
+
+
+def finish_call(
+    s: Session,
+    call_id: int,
+    *,
+    ended_at: datetime,
+    end_reason: str,
+    outcome: str,
+    turn_count: int,
+    error_count: int,
+    appointments: list[dict],
+    events: list[dict],
+    transcript: list[dict],
+    purge_after: datetime,
+) -> Call:
+    """Close a call's record: its outcome, trace and transcript, in one write."""
+    call = _get(s, Call, call_id)
+    call.ended_at, call.end_reason, call.outcome = ended_at, end_reason, outcome
+    call.turn_count, call.error_count, call.appointments = turn_count, error_count, appointments
+    s.add_all(CallEvent(call_id=call_id, **e) for e in events)
+    s.add(CallTranscript(call_id=call_id, items=transcript, purge_after=purge_after))
+    s.commit()
+    return call
+
+
+def purge_expired(s: Session, now: datetime, trace_before: datetime) -> tuple[int, int]:
+    """Delete transcripts past their purge date, and whole calls (trace,
+    access log) that started before `trace_before`. Returns (transcripts,
+    calls) deleted."""
+    transcripts = s.execute(delete(CallTranscript).where(CallTranscript.purge_after <= now)).rowcount
+    old = select(Call.id).where(Call.started_at < trace_before)
+    s.execute(delete(CallTranscript).where(CallTranscript.call_id.in_(old)))
+    s.execute(delete(TranscriptAccess).where(TranscriptAccess.call_id.in_(old)))
+    s.execute(delete(CallEvent).where(CallEvent.call_id.in_(old)))
+    calls = s.execute(delete(Call).where(Call.started_at < trace_before)).rowcount
+    s.commit()
+    return transcripts, calls
 
 
 def _is_slot_clash(err: IntegrityError) -> bool:

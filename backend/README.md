@@ -261,6 +261,7 @@ api/                    call-link server: page + signed join pass (python -m api
     ├── context.py      loads the call's clinic and its local time
     ├── dispatch.py     which clinic a call is for: the agent name + metadata format
     ├── call_limit.py   hard cap on call length: goodbye, then close the room
+    ├── call_record.py  each call's trace (timings, tools, errors) + transcript
     ├── booking.py      booking rules: find slots, validate, book — no LiveKit
     ├── tools/booking.py  slots, book, find/cancel/reschedule as LiveKit tools
     ├── tools/call.py     end_call — speaks the model's goodbye, then hangs up
@@ -274,8 +275,9 @@ api/                    call-link server: page + signed join pass (python -m api
     └── store/          clinic data — the only package that imports SQLAlchemy
         ├── db.py       engine + sessions from DATABASE_URL
         ├── migrations.py  schema upgrades (Alembic); `python -m` runs them
+        ├── purge.py    deletes expired transcripts and old calls; `python -m` runs it
         ├── alembic/    revisions, one file per schema change
-        ├── models.py   clinics, FAQ, doctors, hours, time off, patients, appointments
+        ├── models.py   clinics, FAQ, doctors, hours, time off, patients, appointments, calls
         └── repo.py     every query the agent and dashboard make
     scheduling.py       free-slot rules — pure functions, no DB, no LiveKit
 seeds/demo_clinic.py    fictional clinic for tests and a first run
@@ -377,6 +379,25 @@ write the same tables through `store/repo.py`.
 - **Calls have a time limit** (`MAX_CALL_MINUTES`, default 10). At the limit
   the receptionist apologises, says goodbye (it can't be interrupted), and
   closes the room, which disconnects the caller.
+- **Every call is recorded as text, never audio.** The worker writes two
+  things per call (`call_record.py`):
+  - the **trace**: when each turn happened and how long each step took (STT,
+    end of turn, LLM first token, TTS first audio, the caller's whole wait),
+    each tool's name, result and duration, vendor errors by type, how the
+    call ended (`caller_left`, `agent_ended`, `time_limit`, `shutdown`,
+    `error`) and its outcome (`booked`, `moved`, `cancelled`, `info_only`,
+    `no_action`, `failed`, worked out from what the tools changed, not from
+    what the model said). It never holds anything that was said;
+  - the **transcript**: what the caller and receptionist said, with tool
+    arguments and results. This is patient data and lives in its own table.
+
+  The record opens when the call starts. A call the worker never finishes
+  (a crash or kill) stays open with no end time. Recording can't break a
+  call: any failure is logged and the call goes on. Transcripts are deleted
+  after 30 days and traces after 180 (`clinic_agent/store/purge.py`). The API
+  server purges every 6 hours; run `uv run python -m clinic_agent.store.purge`
+  to do it now. The session starts with `record=False`, so nothing goes to
+  LiveKit Cloud's own recording, whatever the project's setting says.
 - **`console` refuses to start** if its clinic isn't in the database (or there
   are several and no `--clinic`), naming the fix.
 
