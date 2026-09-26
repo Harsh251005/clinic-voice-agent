@@ -44,6 +44,9 @@ class Clinic(Base):
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Kolkata")
     booking_window_days: Mapped[int] = mapped_column(default=30)
     slots_offered: Mapped[int] = mapped_column(default=3)
+    # Paused by the operator (admin panel): the call page says the clinic isn't
+    # taking calls and the worker refuses its calls. Nothing else changes.
+    active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
 
     doctors: Mapped[list[Doctor]] = relationship(
         back_populates="clinic", cascade="all, delete-orphan", order_by="Doctor.id"

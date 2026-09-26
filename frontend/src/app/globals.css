@@ -19,6 +19,12 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-ops: var(--ops);
+  --color-ops-foreground: var(--ops-foreground);
+  --color-ops-accent: var(--ops-accent);
+  --color-ops-accent-foreground: var(--ops-accent-foreground);
+  --color-ops-primary: var(--ops-primary);
+  --color-ops-border: var(--ops-border);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -92,6 +98,14 @@
   --sidebar-accent-foreground: oklch(0.99 0 0);
   --sidebar-border: oklch(1 0 0 / 9%);
   --sidebar-ring: oklch(0.8 0.12 180);
+  /* The operator's admin panel: slate ink with an amber mark, so it never
+     reads as a clinic's own (teal) screens. */
+  --ops: oklch(0.21 0.02 265);
+  --ops-foreground: oklch(0.78 0.015 265);
+  --ops-accent: oklch(0.29 0.025 265);
+  --ops-accent-foreground: oklch(0.99 0 0);
+  --ops-primary: oklch(0.83 0.14 78);
+  --ops-border: oklch(1 0 0 / 9%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -126,6 +140,12 @@
     --sidebar-accent-foreground: oklch(0.99 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.704 0.14 182.503);
+    --ops: oklch(0.16 0.02 265);
+    --ops-foreground: oklch(0.76 0.015 265);
+    --ops-accent: oklch(0.25 0.025 265);
+    --ops-accent-foreground: oklch(0.99 0 0);
+    --ops-primary: oklch(0.83 0.14 78);
+    --ops-border: oklch(1 0 0 / 10%);
   }
 }
 

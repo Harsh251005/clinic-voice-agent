@@ -63,7 +63,7 @@ def upgrade(engine: Engine) -> None:
     if rev is None and _has_tables(engine):
         _adopt(engine)
     elif rev is not None:
-        _backup(engine)
+        backup(engine)
     if engine.dialect.name == "sqlite":
         _upgrade_sqlite(engine)
     else:
@@ -123,7 +123,7 @@ def _adopt(engine: Engine) -> None:
             f"{engine.url.database} predates migrations and does not match the "
             "baseline schema, so it can't be upgraded automatically"
         )
-    _backup(engine)
+    backup(engine)
     with engine.begin() as conn:
         command.stamp(_config(conn), BASELINE)
     logger.info("adopted a pre-Alembic database at revision %s", BASELINE)
@@ -146,7 +146,7 @@ def _shape(engine: Engine) -> dict:
     return shape
 
 
-def _backup(engine: Engine) -> None:
+def backup(engine: Engine, why: str = "upgrading") -> None:
     """Copy a SQLite file before changing it. Postgres is backed up by pg_dump."""
     path = engine.url.database
     if engine.dialect.name != "sqlite" or not path or path == ":memory:":
@@ -154,7 +154,7 @@ def _backup(engine: Engine) -> None:
     src = Path(path)
     dst = src.with_name(f"{src.name}.bak-{datetime.now():%Y%m%d-%H%M%S}")
     shutil.copy2(src, dst)
-    logger.info("backed up %s to %s before upgrading", src, dst)
+    logger.info("backed up %s to %s before %s", src, dst, why)
 
 
 if __name__ == "__main__":

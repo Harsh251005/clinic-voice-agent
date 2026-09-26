@@ -45,11 +45,15 @@ src/app/                         routes
   clinics/[clinicId]/today        home: the day at a glance
   clinics/[clinicId]/appointments, setup
   new-clinic/                    admins only
+  admin/                         the operator's admin panel (admins only): health, calls, errors, clinics
 src/components/app/              app pieces: shell, gates (sign-in, no access), brand
+src/components/admin/            the admin panel's shell (slate ink + amber, never teal) and shared bits
+src/components/calls/            a call's transcript as a conversation
 src/components/today/            the Today page's panels
 src/components/ui/               shadcn/ui components (ours to edit)
 src/lib/api/                     typed API client, generated schema
 src/lib/queries.ts               data hooks (TanStack Query)
+src/lib/admin.ts                 admin panel hooks and the words for outcomes, end reasons, timings
 src/lib/dates.ts                 clinic-local dates; 12-hour times for everything staff read
 src/lib/clinic-day.ts            open now?, who's in today, setup checklist
 src/lib/product.ts               the product name

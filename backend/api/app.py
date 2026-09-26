@@ -30,6 +30,7 @@ logger = logging.getLogger("clinic-agent.api")
 HERE = Path(__file__).parent
 PAGE = Template((HERE / "templates" / "call.html").read_text())
 NOT_FOUND = Template((HERE / "templates" / "not_found.html").read_text())
+PAUSED = Template((HERE / "templates" / "paused.html").read_text())
 
 # A patient rarely needs more than a couple of tries; a clinic rarely gets
 # more than this many browser calls an hour at pilot scale. Tune with real use.
@@ -107,12 +108,10 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
         except repo.NotFound:
             return HTMLResponse(NOT_FOUND.substitute(), status_code=404)
         e = html.escape
-        phone = (
-            f'<a class="fallback" href="tel:{e(clinic.phone)}">Or call the clinic: {e(clinic.phone)}</a>'
-            if clinic.phone else ""
-        )
+        if not clinic.active:
+            return HTMLResponse(PAUSED.substitute(name=e(clinic.name), phone=_call_the_clinic(clinic)), status_code=503)
         return PAGE.substitute(
-            name=e(clinic.name), address=e(clinic.address), slug=e(clinic.slug), phone=phone,
+            name=e(clinic.name), address=e(clinic.address), slug=e(clinic.slug), phone=_call_the_clinic(clinic),
         )
 
     @app.post("/call/{slug}/pass")
@@ -121,6 +120,8 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
             clinic = clinic_for(slug)
         except repo.NotFound:
             return JSONResponse({"error": "This call link doesn't exist."}, status_code=404)
+        if not clinic.active:
+            return JSONResponse({"error": "This clinic isn't taking calls here right now."}, status_code=503)
         ip = _client_ip(request, cfg.client_ip_header)
         if not per_ip.allow(ip) or not per_clinic.allow(clinic.slug):
             logger.warning("rate limited a call to %s from %s", clinic.slug, ip)
@@ -133,6 +134,13 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
         return {"url": p.url, "token": p.token}
 
     return app
+
+
+def _call_the_clinic(clinic) -> str:
+    if not clinic.phone:
+        return ""
+    phone = html.escape(clinic.phone)
+    return f'<a class="fallback" href="tel:{phone}">Or call the clinic: {phone}</a>'
 
 
 async def _purge_forever(sessions: Sessions) -> None:

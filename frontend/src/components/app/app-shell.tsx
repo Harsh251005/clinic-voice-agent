@@ -4,7 +4,7 @@
 import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, House, LogOut, Plus, Settings2, FlaskConical, ShieldCheck } from "lucide-react";
+import { CalendarDays, Gauge, House, LogOut, Settings2, FlaskConical, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Schemas } from "@/lib/api/client";
@@ -105,9 +105,9 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
           {is_admin && (
             <div className="space-y-1.5 px-2">
               <p className="text-[11px] font-semibold tracking-wider uppercase opacity-70">Admin</p>
-              <Link href="/new-clinic"
+              <Link href="/admin"
                 className="-mx-1 flex items-center gap-2 rounded-md px-1 py-1.5 text-sm hover:text-sidebar-accent-foreground">
-                <Plus className="size-4" aria-hidden /> Add a clinic
+                <Gauge className="size-4" aria-hidden /> Admin panel
               </Link>
             </div>
           )}
@@ -135,9 +135,9 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
         <BrandMark className="size-7 bg-sidebar-primary text-sidebar-primary-foreground" />
         <div className="min-w-0 flex-1">{clinicPicker}</div>
         {is_admin && (
-          <Button variant="ghost" size="icon" asChild aria-label="Add a clinic" title="Add a clinic"
+          <Button variant="ghost" size="icon" asChild aria-label="Admin panel" title="Admin panel"
             className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-            <Link href="/new-clinic"><Plus /></Link>
+            <Link href="/admin"><Gauge /></Link>
           </Button>
         )}
         {login !== "off" && (

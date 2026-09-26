@@ -56,3 +56,24 @@ async def test_entrypoint_refuses_a_call_without_a_known_clinic(env, tmp_path, m
     await main.entrypoint(ctx)
     assert ctx.shutdown_reason.startswith("no clinic")
     assert built == []  # no session, so nothing speaks for a clinic it isn't
+
+
+async def test_entrypoint_refuses_a_paused_clinic(env, tmp_path, monkeypatch):
+    import main
+    from clinic_agent.store import migrations, repo
+    from clinic_agent.store.db import make_engine, session_factory
+    from seeds.demo_clinic import seed_demo
+
+    url = f"sqlite:///{tmp_path}/calls.db"
+    engine = make_engine(url)
+    migrations.upgrade(engine)
+    with session_factory(engine)() as s:
+        clinic_id = seed_demo(s)
+        repo.set_clinic_active(s, clinic_id, False)
+    env.setenv("DATABASE_URL", url)
+    built = []
+    monkeypatch.setattr(main, "build_session", lambda *a, **k: built.append(1))
+
+    ctx = _Ctx(metadata_for(clinic_id))
+    await main.entrypoint(ctx)
+    assert ctx.shutdown_reason == "clinic paused" and built == []
