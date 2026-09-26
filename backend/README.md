@@ -400,8 +400,9 @@ write the same tables through `store/repo.py`.
   question ("चेक करूँ?") or "चेकअप" doesn't count, and a forced follow-up is
   never forced again.
 - **It says it is automated.** The first line names the clinic and says it
-  is the clinic's automated assistant ("ऑटोमेटेड असिस्टेंट" in Hindi). The
-  call page says so too.
+  is the clinic's automated assistant ("ऑटोमेटेड असिस्टेंट" in Hindi), and
+  that the conversation is saved as text for the clinic's records. The call
+  page says both, plus "for 30 days. No audio is recorded."
 - **She speaks as a woman.** Every voice is female, so in Hindi everything
   she says about herself is feminine ("बात कर रही हूँ", "बताती हूँ", "की
   ऑटोमेटेड असिस्टेंट"). The caller's gender is still never assumed ("ji").

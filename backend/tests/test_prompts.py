@@ -89,6 +89,15 @@ def test_the_receptionist_says_it_is_automated(db):
     assert "automated assistant" in opening and "ऑटोमेटेड असिस्टेंट" in opening
 
 
+def test_the_receptionist_says_the_call_is_saved_as_text(db):
+    # Every call's transcript is kept (call_record.py): callers are told, in their language.
+    s, clinic_id = db
+    text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW)
+    opening = text[text.index("Opening the call:"):text.index("How you speak:")]
+    assert "saved as text for\nthe clinic's records" in opening
+    assert "लिखित\nरूप में सेव होती है" in opening
+
+
 def test_visit_reason_is_asked_for_in_english():
     # The dashboard is English only: the agent speaks Hindi but files the reason in English.
     from clinic_agent.prompts import RULES
