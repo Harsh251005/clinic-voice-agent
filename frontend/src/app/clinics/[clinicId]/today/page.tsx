@@ -15,7 +15,7 @@ import { OpenBadge } from "@/components/today/open-badge";
 import { Receptionist } from "@/components/today/receptionist";
 import { Summary } from "@/components/today/summary";
 import { longDay, nowIn } from "@/lib/dates";
-import { useClinic, useDay } from "@/lib/queries";
+import { useCallsToday, useClinic, useDay } from "@/lib/queries";
 
 function greeting(time: string) {
   const hour = Number(time.slice(0, 2));
@@ -40,6 +40,7 @@ export default function TodayPage() {
   const clinic = useClinic(clinicId);
   const now = useClinicNow(clinic.data?.timezone);
   const day = useDay(clinicId, now?.day ?? "", false);
+  const calls = useCallsToday(clinicId);
   const [adding, setAdding] = useState(false);
 
   if (clinic.isError) {
@@ -96,8 +97,8 @@ export default function TodayPage() {
         </section>
 
         <aside className="space-y-6">
-          {day.data && <Attention clinicId={clinicId} appointments={appointments} />}
-          <Receptionist clinic={c} />
+          {day.data && <Attention clinicId={clinicId} appointments={appointments} calls={calls.data?.unhelped} />}
+          <Receptionist clinic={c} today={calls.data} />
         </aside>
       </div>
     </div>

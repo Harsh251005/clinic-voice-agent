@@ -63,7 +63,8 @@ export function openState(clinic: Clinic, day: string, now: string): OpenState {
   return next ? { kind: "opens", at: next.start } : { kind: "done" };
 }
 
-export type SetupStep = { id: string; label: string; hint: string; done: boolean; tab: string };
+/** `tab`: the settings tab that fixes it; `href`: an outside page instead (the call link). */
+export type SetupStep = { id: string; label: string; hint: string; done: boolean; tab?: string; href?: string };
 
 /** What the receptionist needs before it can answer callers well. */
 export function setupSteps(clinic: Clinic): SetupStep[] {
@@ -88,6 +89,11 @@ export function setupSteps(clinic: Clinic): SetupStep[] {
       id: "faq", tab: "faq", done: clinic.faq.length > 0,
       label: "Answer common questions",
       hint: "Parking, payment, reports: anything patients often ask.",
+    },
+    {
+      id: "test-call", href: clinic.call_link, done: clinic.has_calls,
+      label: "Make a test call",
+      hint: "Call your receptionist once and book a pretend visit, to hear it as patients will.",
     },
   ];
 }

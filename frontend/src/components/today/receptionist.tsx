@@ -1,16 +1,16 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Check, CircleCheck, Circle, Copy, Headset } from "lucide-react";
+import { Check, ChevronRight, CircleCheck, Circle, Copy, Headset } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { Schemas } from "@/lib/api/client";
-import { setupSteps } from "@/lib/clinic-day";
+import { setupSteps, type SetupStep } from "@/lib/clinic-day";
 import { cn } from "@/lib/utils";
 
 /** The receptionist as something the clinic owns: ready or not, what's left
  *  to set up, and a way to try it and share it. */
-export function Receptionist({ clinic }: { clinic: Schemas["Clinic"] }) {
+export function Receptionist({ clinic, today }: { clinic: Schemas["Clinic"]; today?: Schemas["CallsToday"] }) {
   const steps = setupSteps(clinic);
   const done = steps.filter((s) => s.done).length;
   const ready = done === steps.length;
@@ -40,6 +40,24 @@ export function Receptionist({ clinic }: { clinic: Schemas["Clinic"] }) {
         </div>
       </div>
 
+      {today && (
+        <Link href={`/clinics/${clinic.id}/calls`} className="flex items-center justify-between gap-3 border-b px-5 py-3 hover:bg-muted/60">
+          <span className="text-sm">
+            {today.calls ? (
+              <>
+                <span className="font-semibold tabular-nums">{plural(today.calls, "call")}</span> today
+                <span className="block text-xs text-muted-foreground">
+                  {plural(today.changed, "booking")} made or changed · {plural(today.questions, "question")} answered
+                </span>
+              </>
+            ) : <span className="text-muted-foreground">No calls yet today</span>}
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary">
+            See calls <ChevronRight className="size-4" aria-hidden />
+          </span>
+        </Link>
+      )}
+
       {!ready && (
         <>
           <div className="px-5 pt-4" aria-hidden>
@@ -50,8 +68,7 @@ export function Receptionist({ clinic }: { clinic: Schemas["Clinic"] }) {
           <ol className="space-y-1 p-3">
             {steps.map((s) => (
               <li key={s.id}>
-                <Link href={`/clinics/${clinic.id}/setup?tab=${s.tab}`}
-                  className={cn("flex gap-3 rounded-lg px-2 py-2 hover:bg-muted", s.done && "pointer-events-none")}>
+                <StepLink step={s} href={s.href ?? `/clinics/${clinic.id}/setup?tab=${s.tab}`}>
                   {s.done
                     ? <CircleCheck className="mt-0.5 size-5 shrink-0 text-success-foreground" aria-label="Done" />
                     : <Circle className="mt-0.5 size-5 shrink-0 text-muted-foreground/50" aria-label="To do" />}
@@ -59,7 +76,7 @@ export function Receptionist({ clinic }: { clinic: Schemas["Clinic"] }) {
                     <span className={cn("block text-sm font-medium", s.done && "text-muted-foreground line-through")}>{s.label}</span>
                     {!s.done && <span className="block text-xs text-muted-foreground">{s.hint}</span>}
                   </span>
-                </Link>
+                </StepLink>
               </li>
             ))}
           </ol>
@@ -76,4 +93,14 @@ export function Receptionist({ clinic }: { clinic: Schemas["Clinic"] }) {
       </div>
     </section>
   );
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** A setup step: a settings tab, or (the test call) the call page in a new tab. */
+function StepLink({ step, href, children }: { step: SetupStep; href: string; children: ReactNode }) {
+  const className = cn("flex gap-3 rounded-lg px-2 py-2 hover:bg-muted", step.done && "pointer-events-none");
+  return step.href
+    ? <a href={href} target="_blank" rel="noreferrer" className={className}>{children}</a>
+    : <Link href={href} className={className}>{children}</Link>;
 }

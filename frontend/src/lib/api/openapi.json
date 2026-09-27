@@ -464,6 +464,38 @@
         "title": "CallTrace",
         "type": "object"
       },
+      "CallsToday": {
+        "description": "Today in the clinic's timezone: how busy the receptionist was, and the\ncalls where the caller may not have been helped (cut off or failed).",
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "integer"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          },
+          "unhelped": {
+            "items": {
+              "$ref": "#/components/schemas/ClinicCall"
+            },
+            "title": "Unhelped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "calls",
+          "changed",
+          "questions",
+          "unhelped"
+        ],
+        "title": "CallsToday",
+        "type": "object"
+      },
       "Clinic": {
         "properties": {
           "address": {
@@ -491,6 +523,10 @@
             },
             "title": "Faq",
             "type": "array"
+          },
+          "has_calls": {
+            "title": "Has Calls",
+            "type": "boolean"
           },
           "id": {
             "title": "Id",
@@ -536,7 +572,8 @@
           "slots_offered",
           "doctors",
           "faq",
-          "time_off"
+          "time_off",
+          "has_calls"
         ],
         "title": "Clinic",
         "type": "object"
@@ -2633,6 +2670,46 @@
           }
         },
         "summary": "Calls"
+      }
+    },
+    "/api/clinics/{clinic_id}/calls/today": {
+      "get": {
+        "description": "Declared before /{call_id}, which would otherwise catch \"today\".",
+        "operationId": "today_api_clinics__clinic_id__calls_today_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallsToday"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Today"
       }
     },
     "/api/clinics/{clinic_id}/calls/{call_id}": {

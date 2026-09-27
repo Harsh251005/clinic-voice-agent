@@ -268,6 +268,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clinics/{clinic_id}/calls/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today
+         * @description Declared before /{call_id}, which would otherwise catch "today".
+         */
+        get: operations["today_api_clinics__clinic_id__calls_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/clinics/{clinic_id}/calls/{call_id}": {
         parameters: {
             query?: never;
@@ -725,6 +745,21 @@ export interface components {
             /** Turn Count */
             turn_count: number;
         };
+        /**
+         * CallsToday
+         * @description Today in the clinic's timezone: how busy the receptionist was, and the
+         *     calls where the caller may not have been helped (cut off or failed).
+         */
+        CallsToday: {
+            /** Calls */
+            calls: number;
+            /** Changed */
+            changed: number;
+            /** Questions */
+            questions: number;
+            /** Unhelped */
+            unhelped: components["schemas"]["ClinicCall"][];
+        };
         /** Clinic */
         Clinic: {
             /** Address */
@@ -737,6 +772,8 @@ export interface components {
             doctors: components["schemas"]["Doctor"][];
             /** Faq */
             faq: components["schemas"]["Faq"][];
+            /** Has Calls */
+            has_calls: boolean;
             /** Id */
             id: number;
             /** Name */
@@ -1793,6 +1830,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClinicCall"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    today_api_clinics__clinic_id__calls_today_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallsToday"];
                 };
             };
             /** @description Validation Error */

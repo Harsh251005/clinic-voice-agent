@@ -69,6 +69,7 @@ class Clinic(BaseModel):
     doctors: list[Doctor]
     faq: list[Faq]
     time_off: list[TimeOff]  # today onwards, in the clinic's timezone
+    has_calls: bool  # the receptionist has taken at least one call (a test call counts)
 
 
 class NewClinic(BaseModel):
@@ -284,6 +285,15 @@ class SupportView(BaseModel):
     """ClinicDesk support opened this call's transcript, and why."""
     reason: str
     at: datetime  # UTC, with offset
+
+
+class CallsToday(BaseModel):
+    """Today in the clinic's timezone: how busy the receptionist was, and the
+    calls where the caller may not have been helped (cut off or failed)."""
+    calls: int
+    changed: int  # calls that booked, moved or cancelled something
+    questions: int  # calls that only asked something
+    unhelped: list[ClinicCall]
 
 
 class ClinicCallDetail(ClinicCall):

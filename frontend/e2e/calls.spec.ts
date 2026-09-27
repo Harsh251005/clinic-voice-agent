@@ -40,3 +40,27 @@ test("the clinic sees when support opened a call, and why", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Viewed by ClinicDesk support" })).toBeVisible();
   await expect(page.getByText("“Receptionist answered slowly”")).toBeVisible();
 });
+
+test("Today counts the calls and flags a caller who may not have been helped", async ({ page }) => {
+  await page.goto("/clinics/1/today");
+  await expect(page.getByText("3 calls", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 booking made or changed · 1 question answered")).toBeVisible();
+  const attention = page.getByRole("region", { name: /Needs attention/ });
+  await expect(attention.getByText("A caller may not have been helped", { exact: false })).toBeVisible();
+  await expect(attention.getByText("The call was cut off.")).toBeVisible();
+  await attention.getByRole("link", { name: "Read the call" }).click();
+  await expect(page).toHaveURL(/\/clinics\/1\/calls\/\d+$/);
+  await expect(page.getByText("The call was cut off. The caller may not have been helped.")).toBeVisible();
+});
+
+test("a clinic with no calls yet is asked to make a test call", async ({ page, request }) => {
+  const made = await request.post("/api/clinics", {
+    headers: { "x-clinic-console": "1" }, data: { name: "Quiet Test Clinic", address: "", phone: "" },
+  });
+  const { id } = await made.json();
+  await page.goto(`/clinics/${id}/today`);
+  await expect(page.getByText("No calls yet today")).toBeVisible();
+  const step = page.getByRole("link", { name: /Make a test call/ });
+  await expect(step).toHaveAttribute("target", "_blank");
+  await expect(step).toHaveAttribute("href", /\/call\/quiet-test-clinic$/);
+});

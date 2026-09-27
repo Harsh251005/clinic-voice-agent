@@ -578,10 +578,11 @@ def list_calls(
     open_before: datetime | None = None,
     with_errors: bool = False,
     before_id: int | None = None,
-    limit: int = 50,
+    limit: int | None = 50,
 ) -> list[Call]:
     """Newest first. `open_before` keeps only calls never finished that
-    started before it (the dropped ones). Never touches transcripts."""
+    started before it (the dropped ones). `limit=None` returns them all.
+    Never touches transcripts."""
     q = select(Call).order_by(Call.id.desc()).limit(limit)
     if clinic_id is not None:
         q = q.where(Call.clinic_id == clinic_id)
@@ -596,6 +597,10 @@ def list_calls(
     if before_id is not None:
         q = q.where(Call.id < before_id)
     return list(s.scalars(q))
+
+
+def has_calls(s: Session, clinic_id: int) -> bool:
+    return s.scalar(select(Call.id).where(Call.clinic_id == clinic_id).limit(1)) is not None
 
 
 def get_call(s: Session, call_id: int) -> Call:

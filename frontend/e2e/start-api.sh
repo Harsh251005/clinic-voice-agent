@@ -52,6 +52,6 @@ with sessions_for(load_settings().database_url)() as s:
     call(timedelta(minutes=20), "info_only", [
         ev(800, "llm", 2900), ev(900, "error", None, "sarvam/bulbul:v3", False, "APIConnectionError, retried"),
     ], [{"t_ms": 0, "role": "caller", "text": "पार्किंग है क्या?"}])
-    call(timedelta(hours=3), "", [], [], finished=False)
+    call(timedelta(minutes=20), "", [], [], finished=False)  # past the time limit, still today
 PY
 exec uv run python -m api
