@@ -202,9 +202,11 @@ instructions in its README); every action below is an `/api` endpoint here.
   defaults to Mon–Sat, 10 am–1 pm and 5–8 pm (or another pattern, a
   colleague's hours, or none). They are bookable at once, so the confirmation
   says to check them. Patterns live in `api/dashboard/patterns.py`.
-- **Weekly hours** is one row per day: *Open*, a sitting, and an optional
-  second sitting. *Fill the week* applies a pattern or a colleague's week;
-  *Copy Monday to all open days* fills the rest. Nothing is saved until *Save
+- **Weekly hours** is one row per day holding any number of sittings, in
+  any part of the day (evening-only is fine); a day with none is closed.
+  *Add* offers Morning, Afternoon, Evening or another free hour; each day's
+  menu copies it to Mon–Fri, Mon–Sat or every day, or closes it. *Fill the
+  week* applies a pattern or a colleague's week. Nothing is saved until *Save
   hours*. The preview is the receptionist's own description
   (`prompts.weekly_hours`, via `/api/hours/preview`). Overlapping sittings
   are refused, by the form and by `repo.check_sittings`.

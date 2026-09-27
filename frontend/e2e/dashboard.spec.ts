@@ -117,20 +117,49 @@ test("weekly hours: apply a pattern, see it described, save", async ({ page }) =
 test("weekly hours: overlapping sessions are explained and can't be saved", async ({ page }) => {
   await page.goto(`${SETUP}?tab=hours`);
   await pick(page, "Doctor", "Dr. Asha Mehta");
-  await page.getByLabel("Tuesday second from").fill("12:00");
-  await expect(page.getByText("Tuesday: the second session starts before the first one ends.")).toBeVisible();
+  await page.getByLabel("Tuesday session 2 from").fill("12:00");
+  await expect(page.getByText("Tuesday: 10 am–1 pm and 12–8 pm overlap.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save hours" })).toBeDisabled();
   await page.getByRole("button", { name: "Discard changes" }).click();
   await expect(page.getByText("Unsaved changes")).toBeHidden();
 });
 
-test("weekly hours: copy Monday to the other open days", async ({ page }) => {
+test("weekly hours: a day can have only an evening session", async ({ page }) => {
   await page.goto(`${SETUP}?tab=hours`);
   await pick(page, "Doctor", "Dr. Asha Mehta");
-  await page.getByLabel("Monday from", { exact: true }).fill("09:00");
-  await page.getByRole("button", { name: "Copy Monday to all open days" }).click();
-  await expect(page.getByLabel("Saturday from", { exact: true })).toHaveValue("09:00");
-  await expect(page.getByLabel("Sunday from", { exact: true })).toBeDisabled(); // closed days stay closed
+  await page.getByRole("button", { name: "Remove Wednesday session 1" }).click();
+  await expect(page.getByLabel("Wednesday session 1 from")).toHaveValue("17:00");
+  await expect(page.getByLabel("Wednesday session 2 from")).toHaveCount(0);
+  await page.getByRole("button", { name: "Save hours" }).click();
+  await expect(page.getByText("Hours saved for Dr. Asha Mehta")).toBeVisible();
+  await page.reload();
+  await pick(page, "Doctor", "Dr. Asha Mehta");
+  await expect(page.getByLabel("Wednesday session 1 from")).toHaveValue("17:00");
+});
+
+test("weekly hours: a closed day opens with any session, and days can be closed", async ({ page }) => {
+  await page.goto(`${SETUP}?tab=hours`);
+  await pick(page, "Doctor", "Dr. Asha Mehta");
+  await page.getByRole("button", { name: "More for Thursday" }).click();
+  await page.getByRole("menuitem", { name: "Mark Thursday closed" }).click();
+  await expect(page.getByLabel("Thursday session 1 from")).toHaveCount(0);
+  await page.getByRole("button", { name: "Add a session on Thursday" }).click();
+  await page.getByRole("menuitem", { name: /Afternoon/ }).click();
+  await expect(page.getByLabel("Thursday session 1 from")).toHaveValue("14:00");
+  await expect(page.getByLabel("Thursday session 1 to")).toHaveValue("17:00");
+  await page.getByRole("button", { name: "Discard changes" }).click();
+});
+
+test("weekly hours: copy Monday to Monday–Saturday", async ({ page }) => {
+  await page.goto(`${SETUP}?tab=hours`);
+  await pick(page, "Doctor", "Dr. Asha Mehta");
+  const sundayBefore = await page.getByLabel(/^Sunday session/).count();
+  await page.getByLabel("Monday session 1 from").fill("09:00");
+  await page.getByRole("button", { name: "More for Monday" }).click();
+  await page.getByRole("menuitem", { name: "Copy Monday's hours to Monday to Saturday" }).click();
+  await expect(page.getByLabel("Saturday session 1 from")).toHaveValue("09:00");
+  await expect(page.getByLabel(/^Sunday session/)).toHaveCount(sundayBefore); // Sunday untouched
+  await page.getByRole("button", { name: "Discard changes" }).click();
 });
 
 test("answers to common questions can be added and removed", async ({ page }) => {

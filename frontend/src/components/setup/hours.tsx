@@ -1,53 +1,81 @@
 "use client";
-// Weekly hours: one row per day, up to two sittings (a morning and an
-// evening, say). Quick fills do the common cases; nothing is saved until Save.
+// Weekly hours: each day holds any number of sessions (none = closed), in
+// any order of the day: evening-only is as easy as morning-only. Quick fills
+// and per-day copies do the common cases; nothing is saved until Save.
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Copy, MessageSquareQuote, TriangleAlert, Wand2 } from "lucide-react";
+import { Copy, MessageSquareQuote, MoreHorizontal, Plus, TriangleAlert, Wand2, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
+import { span12, time12 } from "@/lib/dates";
 import { useClinicChange, usePatterns } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { Section } from "./section";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const MORNING = ["10:00", "13:00"] as const;
-const EVENING = ["17:00", "20:00"] as const;
+const PRESETS = [
+  { name: "Morning", start: "10:00", end: "13:00" },
+  { name: "Afternoon", start: "14:00", end: "17:00" },
+  { name: "Evening", start: "17:00", end: "20:00" },
+] as const;
+const COPIES = [
+  { name: "Monday to Friday", days: [0, 1, 2, 3, 4] },
+  { name: "Monday to Saturday", days: [0, 1, 2, 3, 4, 5] },
+  { name: "every day", days: [0, 1, 2, 3, 4, 5, 6] },
+];
 
 type Sitting = Schemas["Sitting"];
-type Day = { open: boolean; s1: string; e1: string; two: boolean; s2: string; e2: string };
+/** One session being edited; `key` keeps inputs stable while times change. */
+type Span = { key: number; start: string; end: string };
+type Week = Span[][];
 
+let nextKey = 0;
+const makeSpan = (start: string, end: string): Span => ({ key: nextKey++, start, end });
 const hhmm = (t: string) => t.slice(0, 5);
+const byStart = (a: Span, b: Span) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end);
+const overlaps = (spans: Span[], start: string, end: string) => spans.some((s) => start < s.end && s.start < end);
 
-function toWeek(sittings: Sitting[]): Day[] {
-  return DAYS.map((_, day) => {
-    const spans = sittings.filter((s) => s.weekday === day).map((s) => [hhmm(s.start), hhmm(s.end)]).sort();
-    const [first, second] = [spans[0] ?? MORNING, spans[1] ?? EVENING];
-    return { open: spans.length > 0, s1: first[0], e1: first[1], two: spans.length > 1, s2: second[0], e2: second[1] };
-  });
+function toWeek(sittings: Sitting[]): Week {
+  return DAYS.map((_, day) => sittings.filter((s) => s.weekday === day)
+    .map((s) => makeSpan(hhmm(s.start), hhmm(s.end))).sort(byStart));
 }
 
-function toSittings(week: Day[]): Sitting[] {
-  return week.flatMap((d, weekday) => !d.open ? [] : [
-    { weekday, start: d.s1, end: d.e1 },
-    ...(d.two ? [{ weekday, start: d.s2, end: d.e2 }] : []),
-  ]);
+function toSittings(week: Week): Sitting[] {
+  return week.flatMap((spans, weekday) => [...spans].sort(byStart).map(({ start, end }) => ({ weekday, start, end })));
+}
+
+/** A free hour for "Other time": after the day's last session, else the first gap from 8 am. */
+function freeHour(spans: Span[]): Span | undefined {
+  const pad = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const last = spans.reduce((m, s) => Math.max(m, Number(s.end.slice(0, 2)) * 60 + Number(s.end.slice(3))), 0);
+  for (const from of [last, ...Array.from({ length: 29 }, (_, i) => 8 * 60 + i * 30)]) {
+    if (from >= 8 * 60 && from + 60 < 24 * 60 && !overlaps(spans, pad(from), pad(from + 60))) {
+      return makeSpan(pad(from), pad(from + 60));
+    }
+  }
 }
 
 /** The same checks the API makes, shown while typing. */
-function problems(week: Day[]): string[] {
-  return week.flatMap((d, i) => {
-    if (!d.open) return [];
+function problems(week: Week): string[] {
+  return week.flatMap((spans, i) => {
     const out: string[] = [];
-    if (d.e1 <= d.s1) out.push(`${DAYS[i]}: the session must end after it starts.`);
-    if (d.two && d.e2 <= d.s2) out.push(`${DAYS[i]}: the second session must end after it starts.`);
-    else if (d.two && d.s2 < d.e1) out.push(`${DAYS[i]}: the second session starts before the first one ends.`);
+    const valid = [...spans].sort(byStart).filter((s) => {
+      if (s.end > s.start) return true;
+      out.push(`${DAYS[i]}: the session starting ${time12(s.start)} must end after it starts.`);
+      return false;
+    });
+    for (let k = 1; k < valid.length; k++) {
+      const [a, b] = [valid[k - 1], valid[k]];
+      if (b.start < a.end) out.push(`${DAYS[i]}: ${span12(a.start, a.end)} and ${span12(b.start, b.end)} overlap.`);
+    }
     return out;
   });
 }
@@ -77,13 +105,12 @@ export function Hours({ clinic }: { clinic: Schemas["Clinic"] }) {
 
 function WeekEditor({ clinic, doctor }: { clinic: Schemas["Clinic"]; doctor: Schemas["Doctor"] }) {
   const saved = useMemo(() => toWeek(doctor.hours), [doctor.hours]);
-  const [week, setWeek] = useState<Day[]>(saved);
+  const [week, setWeek] = useState<Week>(saved);
   const [pattern, setPattern] = useState<string>("");
   const patterns = usePatterns();
   const sittings = toSittings(week);
-  const dirty = JSON.stringify(week) !== JSON.stringify(saved);
+  const dirty = JSON.stringify(sittings) !== JSON.stringify(toSittings(saved));
   const issues = problems(week);
-  const extra = DAYS.some((_, i) => doctor.hours.filter((h) => h.weekday === i).length > 2);
 
   const fills = new Map<string, Sitting[]>();
   for (const p of patterns.data ?? []) fills.set(p.name, p.sittings);
@@ -100,8 +127,9 @@ function WeekEditor({ clinic, doctor }: { clinic: Schemas["Clinic"]; doctor: Sch
       params: { path: { clinic_id: clinic.id, doctor_id: doctor.id } }, body: { sittings: body },
     })), `Hours saved for ${doctor.name}`);
 
-  const setDay = (i: number, patch: Partial<Day>) => setWeek((w) => w.map((d, j) => (j === i ? { ...d, ...patch } : d)));
-  const copyMonday = () => setWeek((w) => w.map((d, i) => (i === 0 || !d.open ? d : { ...w[0], open: true })));
+  const setDay = (i: number, spans: Span[]) => setWeek((w) => w.map((d, j) => (j === i ? spans : d)));
+  const copyDay = (i: number, days: number[]) => setWeek((w) =>
+    w.map((d, j) => (j !== i && days.includes(j) ? w[i].map((s) => makeSpan(s.start, s.end)) : d)));
 
   return (
     <>
@@ -116,43 +144,22 @@ function WeekEditor({ clinic, doctor }: { clinic: Schemas["Clinic"]; doctor: Sch
           <Button variant="outline" disabled={!pattern} onClick={() => setWeek(toWeek(fills.get(pattern) ?? []))}>
             <Wand2 /> Apply
           </Button>
-          <Button variant="outline" onClick={copyMonday}><Copy /> Copy Monday to all open days</Button>
         </div>
       </Section>
 
       <Section title={`${doctor.name}'s week`}
+        description="Add as many sessions a day as the doctor sits. A day with no sessions is closed."
         action={dirty ? <Badge className="bg-warning text-warning-foreground">Unsaved changes</Badge> : undefined}>
-        {extra && (
-          <Alert className="mb-4"><TriangleAlert /><AlertDescription>Some days have more than two sessions. This table shows and saves the first two.</AlertDescription></Alert>
-        )}
-        <div className="hidden grid-cols-[8rem_4rem_1fr_1fr_7rem_1fr_1fr] gap-3 pb-2 text-xs font-medium text-muted-foreground md:grid">
-          <span>Day</span><span>Open</span><span>From</span><span>To</span><span>Second session</span><span>From</span><span>To</span>
-        </div>
-        <div className="divide-y md:divide-y-0">
-          {week.map((d, i) => (
-            <div key={DAYS[i]} className="grid grid-cols-2 items-center gap-x-3 gap-y-2 py-3 md:grid-cols-[8rem_4rem_1fr_1fr_7rem_1fr_1fr] md:py-1.5">
-              <span className={cn("font-medium", !d.open && "text-muted-foreground")}>{DAYS[i]}</span>
-              <div className="justify-self-end md:justify-self-start">
-                <Switch checked={d.open} onCheckedChange={(open) => setDay(i, { open })} aria-label={`${DAYS[i]} open`} />
-              </div>
-              <Time label={`${DAYS[i]} from`} value={d.s1} disabled={!d.open} onChange={(s1) => setDay(i, { s1 })} />
-              <Time label={`${DAYS[i]} to`} value={d.e1} disabled={!d.open} onChange={(e1) => setDay(i, { e1 })} />
-              <div className="col-span-2 flex items-center gap-2 md:col-span-1">
-                <Switch checked={d.two} disabled={!d.open} onCheckedChange={(two) => setDay(i, { two })} aria-label={`${DAYS[i]} second session`} />
-                <span className="text-sm text-muted-foreground md:hidden">Second session</span>
-              </div>
-              <Time label={`${DAYS[i]} second from`} value={d.s2} disabled={!d.open || !d.two} onChange={(s2) => setDay(i, { s2 })}
-                hidden={!d.open || !d.two} />
-              <Time label={`${DAYS[i]} second to`} value={d.e2} disabled={!d.open || !d.two} onChange={(e2) => setDay(i, { e2 })}
-                hidden={!d.open || !d.two} />
-            </div>
+        <div className="divide-y">
+          {week.map((spans, i) => (
+            <DayRow key={DAYS[i]} day={i} spans={spans} onChange={(next) => setDay(i, next)} onCopy={(days) => copyDay(i, days)} />
           ))}
         </div>
 
         {issues.length > 0 ? (
           <Alert variant="destructive" className="mt-4">
             <TriangleAlert />
-            <AlertDescription><ul className="list-disc pl-4">{issues.map((m) => <li key={m}>{m}</li>)}</ul></AlertDescription>
+            <AlertDescription><ul className="list-disc pl-4">{issues.map((m, k) => <li key={k}>{m}</li>)}</ul></AlertDescription>
           </Alert>
         ) : (
           <p className="mt-4 flex items-start gap-2 rounded-lg bg-muted px-3 py-2.5 text-sm">
@@ -172,11 +179,72 @@ function WeekEditor({ clinic, doctor }: { clinic: Schemas["Clinic"]; doctor: Sch
   );
 }
 
-function Time({ label, value, disabled, hidden, onChange }: {
-  label: string; value: string; disabled: boolean; hidden?: boolean; onChange: (v: string) => void;
+function DayRow({ day, spans, onChange, onCopy }: {
+  day: number; spans: Span[]; onChange: (spans: Span[]) => void; onCopy: (days: number[]) => void;
 }) {
+  const name = DAYS[day];
+  const other = freeHour(spans);
+  const add = (s: Span) => onChange([...spans, s].sort(byStart));
+  const edit = (key: number, patch: Partial<Span>) => onChange(spans.map((s) => (s.key === key ? { ...s, ...patch } : s)));
+
   return (
-    <Input type="time" step={900} aria-label={label} value={value} disabled={disabled}
-      className={cn("tabular-nums", hidden && "max-md:hidden")} onChange={(e) => e.target.value && onChange(e.target.value)} />
+    <div className="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-2 py-3 md:grid-cols-[8rem_1fr_auto]">
+      <span className={cn("flex min-h-[42px] items-center font-medium", !spans.length && "text-muted-foreground")}>{name}</span>
+
+      <div className="col-span-2 row-start-2 flex min-h-[42px] flex-wrap items-center gap-2 md:col-span-1 md:col-start-2 md:row-start-1">
+        {!spans.length && <span className="px-1 text-sm text-muted-foreground">Closed</span>}
+        {spans.map((s, n) => (
+          <div key={s.key} className="flex items-center gap-1 rounded-lg border bg-card p-1">
+            <Time label={`${name} session ${n + 1} from`} value={s.start} onChange={(start) => edit(s.key, { start })} />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Time label={`${name} session ${n + 1} to`} value={s.end} onChange={(end) => edit(s.key, { end })} />
+            <Button variant="ghost" size="icon" className="size-8 text-muted-foreground"
+              aria-label={`Remove ${name} session ${n + 1}`} onClick={() => onChange(spans.filter((x) => x.key !== s.key))}>
+              <X />
+            </Button>
+          </div>
+        ))}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" aria-label={`Add a session on ${name}`}><Plus /> Add</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="min-w-56">
+            {PRESETS.map((p) => (
+              <DropdownMenuItem key={p.name} disabled={overlaps(spans, p.start, p.end)} onSelect={() => add(makeSpan(p.start, p.end))}>
+                {p.name} <span className="ml-auto pl-4 whitespace-nowrap text-muted-foreground">{span12(p.start, p.end)}</span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={!other} onSelect={() => other && add(other)}>Other time</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <div className="col-start-2 row-start-1 flex min-h-[42px] items-center md:col-start-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={`More for ${name}`}><MoreHorizontal /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {COPIES.map((c) => (
+              <DropdownMenuItem key={c.name} onSelect={() => onCopy(c.days)}>
+                <Copy /> Copy {name}&apos;s hours to {c.name}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" disabled={!spans.length} onSelect={() => onChange([])}>
+              <X /> Mark {name} closed
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+}
+
+function Time({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <Input type="time" step={900} aria-label={label} value={value}
+      className="h-8 w-[7.25rem] border-0 tabular-nums shadow-none" onChange={(e) => e.target.value && onChange(e.target.value)} />
   );
 }
