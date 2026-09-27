@@ -4,7 +4,7 @@
 import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Gauge, House, LogOut, Settings2, FlaskConical, ShieldCheck } from "lucide-react";
+import { CalendarDays, Gauge, House, LogOut, Phone, Settings2, FlaskConical, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Schemas } from "@/lib/api/client";
@@ -20,6 +20,7 @@ import { ClinicNotFound, FullPageLoading, LoadError, NoClinic, SignIn, signOut }
 const PAGES = [
   { segment: "today", label: "Today", icon: House, staff: true },
   { segment: "appointments", label: "Appointments", icon: CalendarDays, staff: true },
+  { segment: "calls", label: "Calls", icon: Phone, staff: true },
   { segment: "setup", label: "Clinic settings", short: "Settings", icon: Settings2, staff: false },
 ] as const;
 
@@ -186,7 +187,7 @@ function StaffOnly({ clinicId }: { clinicId: number }) {
       </span>
       <h1 className="text-xl font-semibold tracking-tight">For the clinic&apos;s staff only</h1>
       <p className="text-muted-foreground">
-        This page shows patients&apos; names, numbers and visits. As an admin you can set the clinic up,
+        This page shows patients&apos; names, numbers, visits and calls. As an admin you can set the clinic up,
         but only people on its team can see its patients.
       </p>
       <Button asChild><Link href={`/clinics/${clinicId}/setup`}>Open clinic settings</Link></Button>

@@ -8,6 +8,7 @@ export const keys = {
   me: ["me"] as const,
   clinic: (id: number) => ["clinic", id] as const,
   appointments: (id: number) => ["appointments", id] as const,
+  calls: (id: number) => ["calls", id] as const,
 };
 
 /** The signed-in viewer, or null when signed out (a 401 is a state, not an error). */
@@ -41,6 +42,27 @@ export function useDay(clinicId: number, day: string, includeCancelled: boolean)
       })),
     placeholderData: (previous) => previous, // keep the last day on screen while the next loads
     refetchInterval: 30_000, // bookings from calls appear without a reload
+  });
+}
+
+/** A clinic's calls, newest first, a page (50) at a time. */
+export function useClinicCalls(clinicId: number, beforeId?: number) {
+  return useQuery({
+    queryKey: [...keys.calls(clinicId), beforeId ?? null],
+    queryFn: () => unwrap(api.GET("/api/clinics/{clinic_id}/calls", {
+      params: { path: { clinic_id: clinicId }, query: { before_id: beforeId } },
+    })),
+    refetchInterval: beforeId ? false : 30_000, // new calls appear without a reload
+  });
+}
+
+/** One call with what was said: the caller and the receptionist only. */
+export function useClinicCall(clinicId: number, callId: number) {
+  return useQuery({
+    queryKey: [...keys.calls(clinicId), "call", callId],
+    queryFn: () => unwrap(api.GET("/api/clinics/{clinic_id}/calls/{call_id}", {
+      params: { path: { clinic_id: clinicId, call_id: callId } },
+    })),
   });
 }
 

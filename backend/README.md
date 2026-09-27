@@ -129,7 +129,7 @@ in `repo.py`.
 - **Access** is re-read from the database on every request, so removing
   someone takes effect at once. Admins (`ADMIN_EMAILS`) open every clinic's
   settings; members open theirs; another clinic's URL is a 404. **Patient
-  data (appointments, and from A4 calls) is for members only**
+  data (appointments and calls) is for members only**
   (`access.clinic_staff`): an admin who isn't on a clinic's team gets a 403
   there, even though they can set it up. `/api/me` marks each clinic `staff`.
 - **Every row id is checked against the clinic in the URL**
@@ -157,7 +157,8 @@ every clinic?" and never shows patients:
   trace (every step, tool and error in order, how it ended, which
   appointments it changed by number). **Its words are hidden.** "Open for
   debugging" asks for a reason, logs it (`transcript_access`) and only then
-  shows the transcript; the clinic will see who opened it, when and why.
+  shows the transcript; the clinic's Calls page shows it was opened by
+  ClinicDesk support, when and why (not the operator's email).
 - **Errors**: vendor errors grouped by vendor and type, linked to their calls.
 - **Clinics**: add one, see its calls, manage its team (moved here from
   clinic settings), **pause** it (the call page says it isn't taking calls,
@@ -181,6 +182,14 @@ instructions in its README); every action below is an `/api` endpoint here.
 - **Appointments**, one day at a time, grouped by doctor, each tagged
   *By receptionist* or *By staff*, with the reason for the visit.
   Counters for the day, bookings from calls, and the next seven days.
+- **Calls** (`api/dashboard/calls.py`, members only): every call newest
+  first, in plain words ("Booked Riya Sharma with Dr. Asha Mehta · Sun, 27
+  Sept, 10:00 am", "The caller asked a question", "The call was cut off").
+  A call opens to **what was said**, the caller and the receptionist only:
+  the tools it used, vendors and errors are left out by the API, not just
+  hidden, since they are the operator's. The words are deleted after 30
+  days; the call's line stays. Each time ClinicDesk support opened the
+  transcript is listed with the reason given.
 - **Staff have the final say.** *New appointment* books a walk-in or a
   booking taken on the clinic's own phone; *Edit* on any row changes the
   doctor, day, time, patient's name and number, or the reason; *Cancel*
@@ -196,7 +205,7 @@ instructions in its README); every action below is an `/api` endpoint here.
   "Blurred vision"), since the dashboard is English only. It is shown on the row; staff can add or change it. It is health
   information: shown to the clinic, never written to logs.
 - **Clinic settings**: details, booking rules, the receptionist link, doctors, weekly
-  hours (split shifts), leave and holidays, FAQ answers, and (admins) the
+  hours (any number of sessions a day), leave and holidays, FAQ answers, and (admins) the
   team. Everything the agent knows about a clinic is entered here.
 - **A new doctor starts with hours**, not an empty week: *Starting hours*
   defaults to Mon–Sat, 10 am–1 pm and 5–8 pm (or another pattern, a

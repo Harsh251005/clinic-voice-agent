@@ -60,6 +60,22 @@ def world(tmp_path, env):
     return ids
 
 
+@pytest.fixture
+def world_calls(world):
+    """The world plus one finished call per clinic, for the access tests."""
+    from clinic_agent.store.db import sessions_for
+    with sessions_for(load_settings().database_url)() as s:
+        for name in ("demo", "cure"):
+            call = repo.start_call(s, world[name], "room", "stack", datetime(2026, 12, 7, 9, 0))
+            repo.finish_call(s, call.id, ended_at=datetime(2026, 12, 7, 9, 2), end_reason="agent_ended",
+                             outcome="booked", turn_count=1, error_count=0,
+                             appointments=[{"id": world[f"{name}_appt"], "action": "booked"}], events=[],
+                             transcript=[{"t_ms": 0, "role": "caller", "text": "Namaste"}],
+                             purge_after=datetime(2027, 1, 6))
+            world[f"{name}_call"] = call.id
+    return world
+
+
 def client_as(email=None, admin=False):
     """A client whose viewer is set directly (no Google), or signed out."""
     from api.app import create_app
@@ -188,11 +204,14 @@ PATIENT_DATA = [
     ("POST", "/appointments", {"doctor_id": "{khushboo}", "starts_at": "2026-12-08T10:00",
                                "patient_name": "X", "patient_phone": "9876543210"}),
     ("GET", "/doctors/{khushboo}/free?day=2026-12-07", None),
+    ("GET", "/calls", None),
+    ("GET", "/calls/{cure_call}", None),
 ]
 
 
 @pytest.mark.parametrize(("method", "path", "body"), PATIENT_DATA)
-def test_an_admin_who_isnt_staff_cant_touch_patient_data(world, method, path, body):
+def test_an_admin_who_isnt_staff_cant_touch_patient_data(world_calls, method, path, body):
+    world = world_calls
     c = client_as("harsh@example.com", admin=True)
     fill = lambda v: int(v.format(**world)) if isinstance(v, str) and v.startswith("{") else v  # noqa: E731
     body = {k: fill(v) for k, v in body.items()} if body else None
@@ -237,11 +256,13 @@ ATTACKS = [
     # moving your own booking onto another clinic's doctor
     ("PUT", "/appointments/{cure_appt}", {"doctor_id": "{demo_doctor}", "starts_at": "2026-12-08T10:00",
                                           "patient_name": "X", "patient_phone": "9876543210"}),
+    ("GET", "/calls/{demo_call}", None),
 ]
 
 
 @pytest.mark.parametrize(("method", "path", "body"), ATTACKS)
-def test_another_clinics_rows_cant_be_reached_through_your_own_clinic(world, method, path, body):
+def test_another_clinics_rows_cant_be_reached_through_your_own_clinic(world_calls, method, path, body):
+    world = world_calls
     c = client_as("reception@cure.in")
     fill = lambda v: int(v.format(**world)) if isinstance(v, str) and v.startswith("{") else v  # noqa: E731
     body = {k: fill(v) for k, v in body.items()} if body else None
@@ -251,7 +272,8 @@ def test_another_clinics_rows_cant_be_reached_through_your_own_clinic(world, met
 
 
 @pytest.mark.parametrize(("method", "path", "body"), ATTACKS[:8])
-def test_another_clinics_rows_cant_be_reached_through_its_url(world, method, path, body):
+def test_another_clinics_rows_cant_be_reached_through_its_url(world_calls, method, path, body):
+    world = world_calls
     c = client_as("reception@cure.in")
     fill = lambda v: int(v.format(**world)) if isinstance(v, str) and v.startswith("{") else v  # noqa: E731
     body = {k: fill(v) for k, v in body.items()} if body else None

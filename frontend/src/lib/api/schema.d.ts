@@ -251,6 +251,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clinics/{clinic_id}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Calls */
+        get: operations["calls_api_clinics__clinic_id__calls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clinics/{clinic_id}/calls/{call_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Call */
+        get: operations["call_api_clinics__clinic_id__calls__call_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/clinics/{clinic_id}/doctors": {
         parameters: {
             query?: never;
@@ -718,6 +752,74 @@ export interface components {
             /** Timezone */
             timezone: string;
         };
+        /** ClinicCall */
+        ClinicCall: {
+            /** Changes */
+            changes: components["schemas"]["ClinicCallChange"][];
+            /** Duration S */
+            duration_s: number | null;
+            /** Id */
+            id: number;
+            /** Outcome */
+            outcome: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "live" | "ended" | "dropped";
+        };
+        /**
+         * ClinicCallChange
+         * @description An appointment a call made, moved or cancelled, as staff read it.
+         *     Details are None when the appointment was deleted since.
+         */
+        ClinicCallChange: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "booked" | "moved" | "cancelled";
+            /** Appointment Id */
+            appointment_id: number;
+            /** Doctor Name */
+            doctor_name: string | null;
+            /** Patient Name */
+            patient_name: string | null;
+            /** Starts At */
+            starts_at: string | null;
+        };
+        /** ClinicCallDetail */
+        ClinicCallDetail: {
+            /** Changes */
+            changes: components["schemas"]["ClinicCallChange"][];
+            /** Conversation */
+            conversation: components["schemas"]["SpokenLine"][];
+            /** Duration S */
+            duration_s: number | null;
+            /** Id */
+            id: number;
+            /** Outcome */
+            outcome: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "live" | "ended" | "dropped";
+            /** Support Views */
+            support_views: components["schemas"]["SupportView"][];
+            /** Transcript Kept */
+            transcript_kept: boolean;
+        };
         /** ClinicDetails */
         ClinicDetails: {
             /**
@@ -965,6 +1067,27 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /**
+         * SpokenLine
+         * @description One thing said on a call. Only the caller and the receptionist: the
+         *     tools it used and vendor errors stay in the operator's trace.
+         */
+        SpokenLine: {
+            /**
+             * Interrupted
+             * @default false
+             */
+            interrupted: boolean;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "caller" | "agent";
+            /** T Ms */
+            t_ms: number;
+            /** Text */
+            text: string;
+        };
         /** Stage */
         Stage: {
             /** Count */
@@ -977,6 +1100,19 @@ export interface components {
             stack: string;
             /** Stage */
             stage: string;
+        };
+        /**
+         * SupportView
+         * @description ClinicDesk support opened this call's transcript, and why.
+         */
+        SupportView: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Reason */
+            reason: string;
         };
         /** TimeOff */
         TimeOff: {
@@ -1624,6 +1760,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    calls_api_clinics__clinic_id__calls_get: {
+        parameters: {
+            query?: {
+                before_id?: number | null;
+            };
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicCall"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    call_api_clinics__clinic_id__calls__call_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: number;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicCallDetail"];
                 };
             };
             /** @description Validation Error */

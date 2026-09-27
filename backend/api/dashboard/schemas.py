@@ -250,6 +250,48 @@ class TranscriptReason(BaseModel):
     reason: str = Field(min_length=5, max_length=300)
 
 
+# ---------- a clinic's own calls ----------
+
+class ClinicCallChange(BaseModel):
+    """An appointment a call made, moved or cancelled, as staff read it.
+    Details are None when the appointment was deleted since."""
+    action: Literal["booked", "moved", "cancelled"]
+    appointment_id: int
+    patient_name: str | None
+    doctor_name: str | None
+    starts_at: datetime | None  # clinic-local
+
+
+class ClinicCall(BaseModel):
+    id: int
+    started_at: datetime  # UTC, with offset
+    duration_s: int | None
+    status: Literal["live", "ended", "dropped"]
+    outcome: str
+    changes: list[ClinicCallChange]
+
+
+class SpokenLine(BaseModel):
+    """One thing said on a call. Only the caller and the receptionist: the
+    tools it used and vendor errors stay in the operator's trace."""
+    t_ms: int
+    role: Literal["caller", "agent"]
+    text: str
+    interrupted: bool = False
+
+
+class SupportView(BaseModel):
+    """ClinicDesk support opened this call's transcript, and why."""
+    reason: str
+    at: datetime  # UTC, with offset
+
+
+class ClinicCallDetail(ClinicCall):
+    transcript_kept: bool  # False once deleted after the retention period
+    conversation: list[SpokenLine]
+    support_views: list[SupportView]
+
+
 # ---------- admin panel ----------
 
 class Stage(BaseModel):
