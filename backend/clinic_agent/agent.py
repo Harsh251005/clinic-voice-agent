@@ -17,5 +17,7 @@ class ClinicAgent(Agent):
         super().__init__(instructions=instructions, tools=tools or [])
 
     async def on_enter(self) -> None:
-        """Speak first, the way a receptionist picks up the phone."""
-        self.session.generate_reply()
+        """Speak first, the way a receptionist picks up the phone. No tools on
+        this turn: nobody has asked for anything yet (seen live: the greeting
+        looked up tomorrow evening's slots and offered them unprompted)."""
+        self.session.generate_reply(tool_choice="none")
