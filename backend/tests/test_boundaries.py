@@ -34,3 +34,8 @@ def test_only_store_imports_the_database_library():
 
 def test_only_providers_import_a_vendor_package():
     assert _offenders(VENDORS, "providers") == []
+
+
+
+def test_only_errors_imports_sentry():
+    assert _offenders(("sentry_sdk",), "errors.py") == []

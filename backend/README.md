@@ -266,6 +266,23 @@ ten minutes):
 Google's console moves things around; if a name above has changed, the
 client type is still "OAuth client ID, Web application".
 
+## Error tracking (Sentry, optional)
+
+Off until `SENTRY_DSN` is set in `.env` (a Sentry project's DSN; the free
+tier is enough). Then the worker (each call's process) and the API report
+crashes and every log line at ERROR or above, tagged `component: worker` or
+`api` and grouped by `SENTRY_ENVIRONMENT`. Performance tracing is off.
+
+Calls carry patient data, so `clinic_agent/errors.py` (the only file that
+imports `sentry_sdk`, enforced by `tests/test_boundaries.py`) sends the
+error and where it happened, and nothing a caller said:
+no request bodies, cookies, headers, query strings or user; no local
+variables; no breadcrumbs; log arguments dropped; phone numbers and Hindi
+text in the remaining error text replaced with `[number]` and `[hindi]`.
+Reports do include the lines of our own source code around each frame.
+`tests/test_errors.py` pushes real errors through Sentry's pipeline and
+checks what would be sent.
+
 ## Test
 
 ```bash
@@ -306,6 +323,7 @@ api/                    call-link server: page + signed join pass (python -m api
     ├── dispatch.py     which clinic a call is for: the agent name + metadata format
     ├── call_limit.py   hard cap on call length: goodbye, then close the room
     ├── call_record.py  each call's trace (timings, tools, errors) + transcript
+    ├── errors.py       error tracking (Sentry), with patient data stripped
     ├── booking.py      booking rules: find slots, validate, book — no LiveKit
     ├── tools/booking.py  slots, book, find/cancel/reschedule as LiveKit tools
     ├── tools/call.py     end_call — speaks the model's goodbye, then hangs up
@@ -558,6 +576,8 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
 | `PUBLIC_BASE_URL` | `http://localhost:8080` | Where the call-link server is reachable; the dashboard builds each clinic's link from it. Your tunnel's https address for a demo from outside. |
 | `MAX_CALL_MINUTES` | `10` | Longest a call may last before a goodbye and hang-up. Guards against forgotten or abused calls spending minutes. |
+| `SENTRY_DSN` | blank (off) | Sentry project DSN: report worker and API errors, without patient data (see *Error tracking*). |
+| `SENTRY_ENVIRONMENT` | `development` | Groups Sentry reports: `production`, `staging`, `development`. |
 | `DASHBOARD_LOGIN` | `google` | `off` skips sign-in (everyone is an admin): local development only. |
 | `ADMIN_EMAILS` | blank | Comma-separated Google emails that see every clinic and manage access. |
 | `API_HOST` / `API_PORT` | `127.0.0.1` / `8080` | Where the call-link server listens. `0.0.0.0` inside a container. |

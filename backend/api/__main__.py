@@ -13,7 +13,10 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 try:
     from api.app import create_app
 
+    from clinic_agent import errors
+
     cfg = load_settings()
+    errors.start(cfg, "api")
     app = create_app(cfg)
 except (ConfigError, SchemaOutdated) as err:
     sys.exit(f"configuration error: {err}")
