@@ -119,8 +119,13 @@ The pipeline is split so each concern lives in exactly one module:
   `transcript_access`). Recording failures are logged, never break a call.
   Tools report changes through `ClinicLink.on_change` (booking functions
   return `booking.Changed`). `store/purge.py`: transcripts 30 d, traces 180 d.
-- `clinic_agent/tools/call.py` — `end_call` via LiveKit's `beta.tools.EndCallTool`
-  (`ignore_on_enter=True`; goodbye text follows the script rules).
+- `clinic_agent/tools/call.py` — our own `end_call` (not LiveKit's
+  `EndCallTool`, which could hang up in silence): the goodbye is an argument
+  of the tool call, spoken with interruptions off, then the room is deleted.
+  Hidden during the greeting (`IGNORE_ON_ENTER`).
+- `clinic_agent/errors.py` — Sentry, the **only** importer of `sentry_sdk`;
+  off without `SENTRY_DSN`. Reports never carry patient data (no bodies,
+  locals, breadcrumbs, log args; numbers and Hindi scrubbed).
 - `clinic_agent/booking.py` — booking rules as plain functions over a session;
   raise `BookingError` with a caller-sayable message. `clinic_agent/tools/`
   holds the LiveKit `@function_tool` wrappers only: run the rule in
