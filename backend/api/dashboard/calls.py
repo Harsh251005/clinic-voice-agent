@@ -5,11 +5,15 @@ each time ClinicDesk support opened a transcript, with the reason given."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, time
+from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, Depends, Request
 
 from api.dashboard import convert, schemas
 from api.dashboard.access import clinic_staff, staff_errors
 from api.dashboard.admin import dropped_before
+from clinic_agent.context import clinic_now
 from clinic_agent.store import repo
 from clinic_agent.store.models import utc_now
 
@@ -39,6 +43,22 @@ def _call(s, call, request: Request) -> schemas.ClinicCall:
 def calls(request: Request, before_id: int | None = None, clinic_id: int = Depends(clinic_staff)):
     with request.app.state.sessions() as s:
         return [_call(s, c, request) for c in repo.list_calls(s, clinic_id=clinic_id, before_id=before_id)]
+
+
+@router.get("/today", response_model=schemas.CallsToday)
+def today(request: Request, clinic_id: int = Depends(clinic_staff)):
+    """Declared before /{call_id}, which would otherwise catch "today"."""
+    with request.app.state.sessions() as s:
+        tz = repo.get_clinic(s, clinic_id).timezone
+        midnight = datetime.combine(clinic_now(tz).date(), time(0), tzinfo=ZoneInfo(tz))
+        since = midnight.astimezone(UTC).replace(tzinfo=None)  # stored naive UTC
+        found = [_call(s, c, request) for c in repo.list_calls(s, clinic_id=clinic_id, since=since, limit=None)]
+        return schemas.CallsToday(
+            calls=len(found),
+            changed=sum(1 for c in found if c.changes),
+            questions=sum(1 for c in found if c.outcome == "info_only"),
+            unhelped=[c for c in found if c.status == "dropped" or c.outcome == "failed"],
+        )
 
 
 @router.get("/{call_id}", response_model=schemas.ClinicCallDetail)

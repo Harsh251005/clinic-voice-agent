@@ -56,6 +56,15 @@ export function useClinicCalls(clinicId: number, beforeId?: number) {
   });
 }
 
+/** Today's calls in the clinic's timezone: counts, and callers who may not have been helped. */
+export function useCallsToday(clinicId: number) {
+  return useQuery({
+    queryKey: [...keys.calls(clinicId), "today"],
+    queryFn: () => unwrap(api.GET("/api/clinics/{clinic_id}/calls/today", { params: { path: { clinic_id: clinicId } } })),
+    refetchInterval: 30_000,
+  });
+}
+
 /** One call with what was said: the caller and the receptionist only. */
 export function useClinicCall(clinicId: number, callId: number) {
   return useQuery({

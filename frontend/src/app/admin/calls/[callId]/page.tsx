@@ -55,7 +55,12 @@ function Body({ t }: { t: Schemas["CallTrace"] }) {
           <Fact label="Caller spoke">{t.turn_count} times</Fact>
           <div className="col-span-2 sm:col-span-4">
             <dt className="text-xs text-muted-foreground">Vendors</dt>
-            <dd className="font-mono text-[13px] break-all">{t.stack}</dd>
+            <dd className="font-mono text-[13px]">
+              {/* Wraps between vendors, never inside a model name. */}
+              {t.stack.split(" · ").map((part, i) => (
+                <span key={i}>{i > 0 && " · "}<span className="whitespace-nowrap">{part}</span></span>
+              ))}
+            </dd>
           </div>
           {t.appointments.length > 0 && (
             <div className="col-span-2 sm:col-span-4">

@@ -176,8 +176,11 @@ instructions in its README); every action below is an `/api` endpoint here.
 - **Today** is the home page: whether the clinic is open right now (from the
   doctors' hours, leave and holidays), the next patient, each doctor's day
   with the patient in the chair marked, bookings that need a call to the
-  patient, and the receptionist's setup checklist (address and phone,
-  doctors, their hours, common questions) with *Try a call* and *Copy link*.
+  patient and today's callers who may not have been helped (cut off, or the
+  call failed: *Read the call*), today's calls (how many, bookings made or
+  changed, questions answered; `/calls/today`, in the clinic's timezone),
+  and the receptionist's setup checklist (address and phone, doctors, their
+  hours, common questions, a test call) with *Try a call* and *Copy link*.
   All times are shown as 12-hour clock times.
 - **Appointments**, one day at a time, grouped by doctor, each tagged
   *By receptionist* or *By staff*, with the reason for the visit.

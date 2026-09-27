@@ -83,3 +83,29 @@ def test_a_change_pointing_at_another_clinics_appointment_shows_nothing_of_it(wo
     call = _with_change(world["demo"], world["cure_appt"])
     r = client_as("doctor@demo.in").get(f"/api/clinics/{world['demo']}/calls/{call}")
     assert r.json()["changes"][0]["patient_name"] is None and "Harsh" not in r.text
+
+
+def test_today_counts_the_clinics_calls_and_flags_callers_not_helped(world, monkeypatch):  # noqa: F811
+    # An hour behind the real clock: today's midnight is always before every call made below.
+    from api.dashboard import calls
+    real = calls.clinic_now
+    monkeypatch.setattr(calls, "clinic_now", lambda tz: real(tz) - timedelta(hours=1))
+    booked = _with_change(world["demo"], world["demo_appt"])
+    _call(world["demo"], ago=timedelta(minutes=10), outcome="info_only")
+    failed = _call(world["demo"], ago=timedelta(minutes=5), outcome="failed")
+    dropped = _call(world["demo"], ago=timedelta(minutes=15), finished=False)  # past the time limit
+    _call(world["demo"], ago=timedelta(minutes=1), finished=False)  # still on the line
+    _call(world["demo"], ago=timedelta(days=2), outcome="failed")  # not today
+    _call(world["cure"], ago=timedelta(minutes=5), outcome="failed")  # not this clinic
+    today = client_as("doctor@demo.in").get(f"/api/clinics/{world['demo']}/calls/today").json()
+    assert (today["calls"], today["changed"], today["questions"]) == (5, 1, 1)
+    assert sorted(c["id"] for c in today["unhelped"]) == sorted([failed, dropped])
+    assert booked not in [c["id"] for c in today["unhelped"]]
+
+
+def test_the_clinic_knows_whether_its_receptionist_took_a_call(world):  # noqa: F811
+    admin = client_as(ADMIN, admin=True)  # not patient data: the setup checklist is for admins too
+    assert admin.get(f"/api/clinics/{world['demo']}").json()["has_calls"] is False
+    _call(world["demo"])
+    assert admin.get(f"/api/clinics/{world['demo']}").json()["has_calls"] is True
+    assert admin.get(f"/api/clinics/{world['cure']}").json()["has_calls"] is False

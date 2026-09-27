@@ -205,6 +205,7 @@ PATIENT_DATA = [
                                "patient_name": "X", "patient_phone": "9876543210"}),
     ("GET", "/doctors/{khushboo}/free?day=2026-12-07", None),
     ("GET", "/calls", None),
+    ("GET", "/calls/today", None),
     ("GET", "/calls/{cure_call}", None),
 ]
 
