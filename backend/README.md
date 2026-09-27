@@ -413,6 +413,9 @@ write the same tables through `store/repo.py`.
   reply after the tool, and the call ended in silence when that reply was
   empty or interrupted.) Hidden during the greeting; a caller who only says
   thanks is asked "anything else?" first.
+- **The greeting calls no tool** (`tool_choice="none"` in `on_enter`). Seen
+  live: with the booking tools available, the greeting looked up tomorrow
+  evening's slots and offered them before the caller had said a word.
 - **The voice gets whole sentences.** The reply streams from the model a few
   words at a time; Sarvam voices each piece it is handed as one take, so a
   piece cut mid-sentence changed the tone halfway through. LiveKit's own
