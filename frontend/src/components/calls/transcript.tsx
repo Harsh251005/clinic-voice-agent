@@ -1,7 +1,8 @@
 "use client";
 // A call's transcript as a conversation: the caller on the left, the
-// receptionist on the right, each tool it used as a line between. Used by
-// the clinic's Calls page and by the operator after a logged opening.
+// receptionist on the right. The operator (after a logged opening) also sees
+// each tool it used and vendor errors as lines between; the clinic's Calls
+// page gets only the spoken lines from the API.
 import { CircleCheck, CircleX, TriangleAlert, Wrench } from "lucide-react";
 import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
@@ -11,7 +12,9 @@ export function offset(tMs: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export function Transcript({ items, showTools = true }: { items: Schemas["TranscriptItem"][]; showTools?: boolean }) {
+type Line = Schemas["TranscriptItem"] | Schemas["SpokenLine"];
+
+export function Transcript({ items, showTools = true }: { items: Line[]; showTools?: boolean }) {
   if (!items.length) return <p className="text-sm text-muted-foreground">Nothing was said on this call.</p>;
   return (
     <ol className="space-y-3">

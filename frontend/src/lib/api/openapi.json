@@ -541,6 +541,196 @@
         "title": "Clinic",
         "type": "object"
       },
+      "ClinicCall": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ClinicCallChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "live",
+              "ended",
+              "dropped"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "started_at",
+          "duration_s",
+          "status",
+          "outcome",
+          "changes"
+        ],
+        "title": "ClinicCall",
+        "type": "object"
+      },
+      "ClinicCallChange": {
+        "description": "An appointment a call made, moved or cancelled, as staff read it.\nDetails are None when the appointment was deleted since.",
+        "properties": {
+          "action": {
+            "enum": [
+              "booked",
+              "moved",
+              "cancelled"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "appointment_id": {
+            "title": "Appointment Id",
+            "type": "integer"
+          },
+          "doctor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doctor Name"
+          },
+          "patient_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Name"
+          },
+          "starts_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts At"
+          }
+        },
+        "required": [
+          "action",
+          "appointment_id",
+          "patient_name",
+          "doctor_name",
+          "starts_at"
+        ],
+        "title": "ClinicCallChange",
+        "type": "object"
+      },
+      "ClinicCallDetail": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ClinicCallChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "conversation": {
+            "items": {
+              "$ref": "#/components/schemas/SpokenLine"
+            },
+            "title": "Conversation",
+            "type": "array"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "live",
+              "ended",
+              "dropped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "support_views": {
+            "items": {
+              "$ref": "#/components/schemas/SupportView"
+            },
+            "title": "Support Views",
+            "type": "array"
+          },
+          "transcript_kept": {
+            "title": "Transcript Kept",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "started_at",
+          "duration_s",
+          "status",
+          "outcome",
+          "changes",
+          "transcript_kept",
+          "conversation",
+          "support_views"
+        ],
+        "title": "ClinicCallDetail",
+        "type": "object"
+      },
       "ClinicDetails": {
         "properties": {
           "address": {
@@ -1185,6 +1375,39 @@
         "title": "SlugIn",
         "type": "object"
       },
+      "SpokenLine": {
+        "description": "One thing said on a call. Only the caller and the receptionist: the\ntools it used and vendor errors stay in the operator's trace.",
+        "properties": {
+          "interrupted": {
+            "default": false,
+            "title": "Interrupted",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "caller",
+              "agent"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "t_ms": {
+            "title": "T Ms",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "t_ms",
+          "role",
+          "text"
+        ],
+        "title": "SpokenLine",
+        "type": "object"
+      },
       "Stage": {
         "properties": {
           "count": {
@@ -1216,6 +1439,26 @@
           "p95_ms"
         ],
         "title": "Stage",
+        "type": "object"
+      },
+      "SupportView": {
+        "description": "ClinicDesk support opened this call's transcript, and why.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "at"
+        ],
+        "title": "SupportView",
         "type": "object"
       },
       "TimeOff": {
@@ -2331,6 +2574,113 @@
           }
         },
         "summary": "Cancel"
+      }
+    },
+    "/api/clinics/{clinic_id}/calls": {
+      "get": {
+        "operationId": "calls_api_clinics__clinic_id__calls_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClinicCall"
+                  },
+                  "title": "Response Calls Api Clinics  Clinic Id  Calls Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Calls"
+      }
+    },
+    "/api/clinics/{clinic_id}/calls/{call_id}": {
+      "get": {
+        "operationId": "call_api_clinics__clinic_id__calls__call_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "call_id",
+            "required": true,
+            "schema": {
+              "title": "Call Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicCallDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Call"
       }
     },
     "/api/clinics/{clinic_id}/doctors": {
