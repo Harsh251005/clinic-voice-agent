@@ -2,6 +2,7 @@
 // fresh database (e2e/start-api.sh: the demo clinic plus one booking today).
 // Tests share that database and run in order.
 import { expect, test, type Page } from "@playwright/test";
+import { heartbeat } from "./backend";
 
 const SETUP = "/clinics/1/setup";
 
@@ -21,8 +22,11 @@ test("home opens the clinic's Today page", async ({ page }) => {
 });
 
 test("Today shows the receptionist is ready and the appointments page is one click away", async ({ page }) => {
+  test.setTimeout(120_000);
+  heartbeat();  // a worker is connected: without one, Today rightly says it's offline
   await page.goto("/clinics/1/today");
-  await expect(page.getByText("Ready. It answers from your clinic's details.")).toBeVisible();
+  // The API re-checks every 30 s and the page refreshes every 30 s.
+  await expect(page.getByText("Ready. It answers from your clinic's details.")).toBeVisible({ timeout: 75_000 });
   await expect(page.getByRole("link", { name: "Try a call" })).toHaveAttribute("href", /\/call\/demo-family-clinic$/);
   await page.getByRole("link", { name: "Open diary" }).click();
   await expect(page.getByRole("heading", { name: "Appointments" })).toBeVisible();

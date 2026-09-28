@@ -10,10 +10,14 @@ import { cn } from "@/lib/utils";
 
 /** The receptionist as something the clinic owns: ready or not, what's left
  *  to set up, and a way to try it and share it. */
-export function Receptionist({ clinic, today }: { clinic: Schemas["Clinic"]; today?: Schemas["CallsToday"] }) {
+export function Receptionist({ clinic, today, down }: {
+  clinic: Schemas["Clinic"];
+  today?: Schemas["CallsToday"];
+  down?: string; // why it can't answer right now (offline, paused), from the live problems
+}) {
   const steps = setupSteps(clinic);
   const done = steps.filter((s) => s.done).length;
-  const ready = done === steps.length;
+  const ready = done === steps.length && !down;
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -29,13 +33,14 @@ export function Receptionist({ clinic, today }: { clinic: Schemas["Clinic"]; tod
   return (
     <section aria-labelledby="receptionist" className="rounded-xl border bg-card">
       <div className="flex items-start gap-3 border-b px-5 py-4">
-        <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", ready ? "bg-success text-success-foreground" : "bg-warning text-warning-foreground")}>
+        <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg",
+          down ? "bg-destructive text-white" : ready ? "bg-success text-success-foreground" : "bg-warning text-warning-foreground")}>
           <Headset className="size-5" aria-hidden />
         </span>
         <div>
           <h2 id="receptionist" className="font-semibold">Your receptionist</h2>
           <p className="text-sm text-muted-foreground">
-            {ready ? "Ready. It answers from your clinic's details." : `Setup ${done} of ${steps.length} done`}
+            {down ?? (ready ? "Ready. It answers from your clinic's details." : `Setup ${done} of ${steps.length} done`)}
           </p>
         </div>
       </div>

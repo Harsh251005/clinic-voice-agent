@@ -413,3 +413,26 @@ class ActiveIn(BaseModel):
 
 class DeleteClinicIn(BaseModel):
     confirm_name: str
+
+
+# ---------- problems (incidents): no patient data ----------
+
+class Problem(BaseModel):
+    id: int
+    kind: str
+    severity: Literal["critical", "warning", "info"]
+    title: str  # what's wrong, in the reader's words (clinic: plain; admin: technical)
+    action: str  # what to do about it; "" if nothing
+    link: str | None  # a dashboard path to look at
+    clinic_id: int | None  # None: the whole system
+    clinic_name: str | None  # admin only
+    count: int  # times it happened while open
+    since: datetime
+    last_seen: datetime
+    resolved_at: datetime | None
+    seen: bool  # acknowledged on this side
+
+
+class Problems(BaseModel):
+    open: list[Problem]  # worst first
+    recent: list[Problem]  # resolved in the last 7 days, newest first

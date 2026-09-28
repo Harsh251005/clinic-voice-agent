@@ -245,3 +245,52 @@ class TranscriptAccess(Base):
     email: Mapped[str] = mapped_column(String(254))
     reason: Mapped[str] = mapped_column(String(300))
     at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
+
+
+# ---------- health: is the receptionist up, and what's going wrong ----------
+
+
+class WorkerHeartbeat(Base):
+    """A worker connected to LiveKit and ready for calls, checking in. None
+    fresh = the receptionist is offline, whatever the reason."""
+
+    __tablename__ = "worker_heartbeats"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    worker: Mapped[str] = mapped_column(String(100), unique=True)  # LiveKit's worker id
+    host: Mapped[str] = mapped_column(String(200), default="")
+    started_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
+    last_seen: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
+
+
+class Incident(Base):
+    """A problem worth someone's attention: the receptionist offline, a
+    vendor failing, patients who couldn't get through. Opened and closed by
+    clinic_agent/incidents.py. Never patient data: `subject` and `detail` are
+    codes, vendor names, counts, doctor names."""
+
+    __tablename__ = "incidents"
+    __table_args__ = (
+        # One open incident per problem; a repeat is counted on it.
+        Index(
+            "uq_incident_open", "key", unique=True,
+            sqlite_where=text("resolved_at IS NULL"),
+            postgresql_where=text("resolved_at IS NULL"),
+        ),
+        Index("ix_incidents_clinic_id_opened_at", "clinic_id", "opened_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(200))  # kind:clinic:subject
+    kind: Mapped[str] = mapped_column(String(40))
+    subject: Mapped[str] = mapped_column(String(100), default="")
+    clinic_id: Mapped[int | None] = mapped_column(ForeignKey("clinics.id", ondelete="CASCADE"), default=None)
+    severity: Mapped[str] = mapped_column(String(10))  # critical | warning | info
+    detail: Mapped[str] = mapped_column(String(300), default="")
+    count: Mapped[int] = mapped_column(default=1)  # times reported while open
+    opened_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
+    last_seen_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
+    resolved_at: Mapped[datetime | None] = mapped_column(default=None)  # UTC
+    # Acknowledged ("Seen") on each side, so the admin seeing it doesn't hide it from the clinic.
+    seen_by_clinic_at: Mapped[datetime | None] = mapped_column(default=None)
+    seen_by_admin_at: Mapped[datetime | None] = mapped_column(default=None)

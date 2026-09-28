@@ -3,7 +3,7 @@
     uv run python main.py console   talk to it locally (no LiveKit minutes)
     uv run python main.py console --text
                                     type to it: LLM only, no STT/TTS cost
-    uv run python main.py dev       join LiveKit rooms it is dispatched to, reload on save
+    uv run python main.py dev       join LiveKit rooms it is dispatched to (restart it after a code change)
     uv run python main.py start     production worker
 
 One worker answers for every clinic: each call's dispatch names its clinic
@@ -17,8 +17,9 @@ import asyncio
 import logging
 import sys
 
-from livekit.agents import JobContext, WorkerOptions, cli
+from livekit.agents import AgentServer, JobContext, WorkerOptions, cli
 
+from clinic_agent import heartbeat
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.call_limit import end_after
 from clinic_agent.call_record import CallRecorder, stack_of
@@ -136,4 +137,8 @@ if __name__ == "__main__":
     except (ConfigError, SchemaOutdated, ValueError) as err:
         sys.exit(f"configuration error: {err}")
 
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, agent_name=AGENT_NAME))
+    server = AgentServer.from_server_options(WorkerOptions(entrypoint_fnc=entrypoint, agent_name=AGENT_NAME))
+    if not CONSOLE:
+        # dev and start answer patients: check in, so the dashboards can tell when they stop.
+        heartbeat.attach(server, sessions_for(cfg.database_url))
+    cli.run_app(server)

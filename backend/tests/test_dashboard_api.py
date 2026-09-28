@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.dashboard.access import Viewer, current_viewer
+from clinic_agent import incidents
 from clinic_agent.config import ConfigError, load_settings
 from clinic_agent.store import migrations, repo
 from clinic_agent.store.db import make_engine, session_factory
@@ -47,6 +48,8 @@ def world(tmp_path, env):
         }
         repo.add_member(s, demo, "doctor@demo.in")
         ids["demo_member"] = repo.list_members(s, demo)[0].id
+        incidents.report(s, "patients_cant_connect", datetime(2026, 12, 7, 10), clinic_id=demo, subject="dropped")
+        ids["demo_problem"] = repo.open_incidents(s)[0].id
     env.setenv("DATABASE_URL", url)
     env.setenv("LIVEKIT_URL", "wss://x.livekit.cloud")
     env.setenv("LIVEKIT_API_KEY", "APIkey")
@@ -264,6 +267,7 @@ ATTACKS = [
     ("PUT", "/appointments/{cure_appt}", {"doctor_id": "{demo_doctor}", "starts_at": "2026-12-08T10:00",
                                           "patient_name": "X", "patient_phone": "9876543210"}),
     ("GET", "/calls/{demo_call}", None),
+    ("POST", "/problems/{demo_problem}/seen", None),
 ]
 
 
@@ -305,6 +309,8 @@ def _demo_untouched(world):
     staff = client_as("doctor@demo.in")  # the admin can't read appointments
     appts = staff.get(f"/api/clinics/{world['demo']}/appointments", params={"day": "2026-12-07"}).json()
     assert (appts["appointments"][0]["status"], appts["appointments"][0]["visit"]) == ("booked", None)
+    problems = staff.get(f"/api/clinics/{world['demo']}/problems").json()["open"]
+    assert not next(p for p in problems if p["id"] == world["demo_problem"])["seen"]
 
 
 # ---------- each screen's actions ----------

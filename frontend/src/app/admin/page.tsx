@@ -11,6 +11,8 @@ import { PageHeader } from "@/components/app/page-header";
 import { DaysPicker, Stat } from "@/components/admin/bits";
 import { ms, OUTCOMES, STAGES, useHealth, vendorsOf } from "@/lib/admin";
 import type { Schemas } from "@/lib/api/client";
+import { ProblemList } from "@/components/problems/problems";
+import { useAdminProblems, useSeenProblem } from "@/lib/queries";
 
 export default function HealthPage() {
   const [days, setDays] = useState(7);
@@ -43,6 +45,8 @@ function Body({ h }: { h: Schemas["Health"] }) {
         <Stat label="Dropped calls" value={h.dropped} hint="never finished" tone={h.dropped ? "bad" : undefined} />
         <Stat label="Calls with vendor errors" value={h.with_errors} hint="retried or fatal" tone={h.with_errors ? "bad" : undefined} />
       </div>
+
+      <OpenProblems />
 
       <section aria-labelledby="attention" className="rounded-xl border bg-card">
         <h2 id="attention" className="border-b px-5 py-3.5 font-semibold">Needs a look</h2>
@@ -152,6 +156,22 @@ function Latency({ stages }: { stages: Schemas["Stage"][] }) {
           ))}
         </ul>
       ) : <p className="px-5 py-4 text-sm text-muted-foreground">No timings yet. They appear after the first calls.</p>}
+    </section>
+  );
+}
+
+/** Live problems right now, all of them: the banner shows only the first few. */
+function OpenProblems() {
+  const problems = useAdminProblems();
+  const seen = useSeenProblem("admin");
+  return (
+    <section aria-labelledby="open-problems" className="rounded-xl border bg-card">
+      <h2 id="open-problems" className="border-b px-5 py-3.5 font-semibold">
+        Open problems {problems.data && problems.data.open.length > 0 && (
+          <span className="ml-1 rounded-full bg-destructive px-2 py-0.5 text-xs text-white tabular-nums">{problems.data.open.length}</span>
+        )}
+      </h2>
+      {problems.data ? <ProblemList open={problems.data.open} onSeen={(id) => seen.mutate(id)} /> : <Skeleton className="m-5 h-10" />}
     </section>
   );
 }

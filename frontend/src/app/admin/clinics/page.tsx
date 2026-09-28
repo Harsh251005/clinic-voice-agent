@@ -7,11 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/app/page-header";
 import { ActiveBadge, Empty } from "@/components/admin/bits";
+import { SEVERITY_DOT, SEVERITY_WORD, worstByClinic } from "@/components/problems/problems";
 import { useAdminClinics, when } from "@/lib/admin";
+import { useAdminProblems } from "@/lib/queries";
+import { cn } from "@/lib/utils";
 import type { Schemas } from "@/lib/api/client";
 
 export default function ClinicsPage() {
   const clinics = useAdminClinics();
+  const worst = worstByClinic(useAdminProblems().data?.open ?? []);
   return (
     <div className="space-y-5">
       <PageHeader title="Clinics" description="Add, pause or remove a clinic, and choose who on its team can sign in."
@@ -24,19 +28,22 @@ export default function ClinicsPage() {
         <Empty icon={<Building2 className="size-5" />} title="No clinics yet">Add the first clinic to give it a receptionist.</Empty>
       ) : (
         <ul className="divide-y overflow-hidden rounded-xl border bg-card">
-          {clinics.data.map((c) => <Row key={c.id} c={c} />)}
+          {clinics.data.map((c) => <Row key={c.id} c={c} problem={worst.get(c.id)} />)}
         </ul>
       )}
     </div>
   );
 }
 
-function Row({ c }: { c: Schemas["AdminClinic"] }) {
+function Row({ c, problem }: { c: Schemas["AdminClinic"]; problem?: Schemas["Problem"]["severity"] }) {
   return (
     <li>
       <Link href={`/admin/clinics/${c.id}`} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-5 py-4 hover:bg-muted/60 sm:grid-cols-[1fr_9rem_7rem_8rem_1.25rem]">
         <div className="min-w-0">
-          <p className="truncate font-medium">{c.name}</p>
+          <p className="flex items-center gap-2 truncate font-medium">
+            {problem && <span className={cn("size-2.5 shrink-0 rounded-full", SEVERITY_DOT[problem])} title={SEVERITY_WORD[problem]} aria-label={`${SEVERITY_WORD[problem]}:`} role="img" />}
+            {c.name}
+          </p>
           <p className="truncate text-xs text-muted-foreground">
             {c.doctors} {c.doctors === 1 ? "doctor" : "doctors"} · {c.members.length} on the team · /call/{c.slug}
           </p>

@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.dashboard import convert, schemas
 from api.dashboard.access import Viewer, admin, staff_errors
+from clinic_agent import incidents
 from clinic_agent.store import repo
 from clinic_agent.store.models import utc_now
 
@@ -24,11 +25,10 @@ router = APIRouter(prefix="/api/admin")
 
 STAGES = ("stt", "eou", "llm", "tts", "reply")
 QUIET_AFTER = timedelta(days=3)  # an active clinic with no calls for this long is worth a look
-DROPPED_GRACE = timedelta(minutes=2)  # past the time limit: the worker would have ended it
 
 
 def dropped_before(request: Request, now: datetime) -> datetime:
-    return now - timedelta(minutes=request.app.state.cfg.max_call_minutes) - DROPPED_GRACE
+    return incidents.dropped_before(now, request.app.state.cfg.max_call_minutes)
 
 
 def _summaries(s, calls, request: Request) -> list[schemas.CallSummary]:

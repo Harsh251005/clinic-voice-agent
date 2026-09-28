@@ -9,6 +9,7 @@ export const keys = {
   clinic: (id: number) => ["clinic", id] as const,
   appointments: (id: number) => ["appointments", id] as const,
   calls: (id: number) => ["calls", id] as const,
+  problems: (id: number | "admin") => ["problems", id] as const,
 };
 
 /** The signed-in viewer, or null when signed out (a 401 is a state, not an error). */
@@ -97,6 +98,42 @@ export function useClinicCall(clinicId: number, callId: number) {
     queryFn: () => unwrap(api.GET("/api/clinics/{clinic_id}/calls/{call_id}", {
       params: { path: { clinic_id: clinicId, call_id: callId } },
     })),
+  });
+}
+
+// Problems keep refreshing in a background tab too: the tab title and desktop
+// alerts are how a problem reaches someone working in another window.
+const PROBLEMS_EVERY = { refetchInterval: 30_000, refetchIntervalInBackground: true } as const;
+
+/** This clinic's open problems (and the last week's), in plain words. */
+export function useProblems(clinicId: number, enabled = true) {
+  return useQuery({
+    queryKey: keys.problems(clinicId),
+    queryFn: () => unwrap(api.GET("/api/clinics/{clinic_id}/problems", { params: { path: { clinic_id: clinicId } } })),
+    enabled,
+    ...PROBLEMS_EVERY,
+  });
+}
+
+/** Every problem across clinics and the system, for the operator. */
+export function useAdminProblems(enabled = true) {
+  return useQuery({
+    queryKey: keys.problems("admin"),
+    queryFn: () => unwrap(api.GET("/api/admin/problems")),
+    enabled,
+    ...PROBLEMS_EVERY,
+  });
+}
+
+/** "Seen": folds a warning into the bell. On the clinic's side or the operator's. */
+export function useSeenProblem(scope: number | "admin") {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => unwrap(scope === "admin"
+      ? api.POST("/api/admin/problems/{problem_id}/seen", { params: { path: { problem_id: id } } })
+      : api.POST("/api/clinics/{clinic_id}/problems/{problem_id}/seen", { params: { path: { clinic_id: scope, problem_id: id } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.problems(scope) }),
+    onError: (err) => toast.error(err.message),
   });
 }
 

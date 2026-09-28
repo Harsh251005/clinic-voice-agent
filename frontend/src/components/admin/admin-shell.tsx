@@ -8,7 +8,8 @@ import { usePathname } from "next/navigation";
 import { Activity, Building2, LayoutDashboard, LogOut, PhoneCall, TriangleAlert, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useMe } from "@/lib/queries";
+import { useAdminProblems, useMe, useSeenProblem } from "@/lib/queries";
+import { ProblemBanner, ProblemBell, useProblemAlerts } from "@/components/problems/problems";
 import { PRODUCT_NAME } from "@/lib/product";
 import { BrandMark } from "@/components/app/brand";
 import { CenteredCard, FullPageLoading, LoadError, SignIn, signOut } from "@/components/app/gates";
@@ -27,6 +28,9 @@ function isCurrent(pathname: string, href: string) {
 export function AdminShell({ children }: { children: ReactNode }) {
   const me = useMe();
   const pathname = usePathname();
+  const problems = useAdminProblems(!!me.data?.is_admin);
+  const seen = useSeenProblem("admin");
+  useProblemAlerts(problems.data?.open, `${PRODUCT_NAME} operator`);
 
   if (me.isPending) return <FullPageLoading />;
   if (me.isError) return <LoadError onRetry={() => me.refetch()} />;
@@ -40,16 +44,21 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }
   const { email, login, clinics } = me.data;
   const hasClinics = clinics.length > 0;
+  const bell = (
+    <ProblemBell open={problems.data?.open ?? []} recent={problems.data?.recent ?? []} onSeen={(id) => seen.mutate(id)}
+      className="text-ops-foreground hover:bg-ops-accent hover:text-ops-accent-foreground" />
+  );
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[232px_1fr]">
       <aside className="hidden flex-col gap-6 bg-ops p-4 text-ops-foreground md:sticky md:top-0 md:flex md:h-screen">
         <div className="flex items-center gap-2.5 px-2 pt-1">
           <BrandMark className="bg-ops-primary text-ops" />
-          <div className="leading-tight">
+          <div className="flex-1 leading-tight">
             <p className="text-base font-semibold tracking-tight text-ops-accent-foreground">{PRODUCT_NAME}</p>
             <p className="text-[11px] font-semibold tracking-wider text-ops-primary uppercase">Operator</p>
           </div>
+          {bell}
         </div>
 
         <nav className="flex flex-col gap-0.5" aria-label="Admin pages">
@@ -97,6 +106,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <p className="flex-1 font-semibold text-ops-accent-foreground">
           {PRODUCT_NAME} <span className="text-xs font-semibold tracking-wider text-ops-primary uppercase">Operator</span>
         </p>
+        {bell}
         {hasClinics && (
           <Button variant="ghost" size="icon" asChild aria-label="Clinic dashboard" title="Clinic dashboard"
             className="text-ops-foreground hover:bg-ops-accent hover:text-ops-accent-foreground">
@@ -123,7 +133,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
         })}
       </nav>
 
-      <main className="mx-auto w-full max-w-6xl px-4 pt-6 pb-28 md:px-10 md:py-10">{children}</main>
+      <main className="mx-auto w-full max-w-6xl px-4 pt-6 pb-28 md:px-10 md:py-10">
+        <ProblemBanner open={problems.data?.open ?? []} onSeen={(id) => seen.mutate(id)} seenPending={seen.isPending} />
+        {children}
+      </main>
     </div>
   );
 }
