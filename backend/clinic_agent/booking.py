@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime, time, timedelta
+from typing import NamedTuple
 
 from clinic_agent import scheduling
 from clinic_agent.spoken import hindi_time
@@ -174,7 +175,10 @@ def find_appointments(
     """
     phone = normalise_phone(patient_phone)
     who = _spoken_person(patient_name)
-    appts = [a for a in repo.upcoming_for_phone(s, clinic_id, phone, now) if _person_key(a.patient.name) == who]
+    appts = [
+        a for a in repo.upcoming_for_phone(s, clinic_id, phone, now)
+        if _person_key(a.patient.name) == who and a.visit is None  # already at the clinic: not the caller's to change
+    ]
     if not appts:
         raise BookingError(
             f"No upcoming appointments for {patient_name.strip()} with mobile {phone}. "
@@ -293,6 +297,26 @@ def free_times(s: Session, clinic_id: int, doctor_id: int, day: date, now: datet
     return _day_slots(s, doctor, day, time_off, now, None, lead_minutes=0)
 
 
+class DayPlan(NamedTuple):
+    """A doctor's day as the diary draws it."""
+    sittings: list[tuple[time, time]]  # working hours that weekday
+    off: str | None  # why the doctor isn't in, though the hours say so
+    free: list[datetime]  # bookable slots left (none before now)
+
+
+def day_plan(s: Session, doctor: Doctor, day: date, time_off: list[TimeOff], now: datetime) -> DayPlan:
+    sittings = sorted((h.start, h.end) for h in doctor.hours if h.weekday == day.weekday())
+    off = None
+    for t in time_off:
+        if t.date_from <= day <= t.date_to and t.doctor_id in (None, doctor.id):
+            label = "Clinic closed" if t.doctor_id is None else "On leave"
+            off = f"{label}: {t.reason}" if t.reason else label
+            if t.doctor_id is None:
+                break  # the clinic closing says more than one doctor's leave
+    free = [] if off or not doctor.active else _day_slots(s, doctor, day, time_off, now, None, lead_minutes=0)
+    return DayPlan(sittings, off, free)
+
+
 def staff_book(
     s: Session, clinic_id: int, doctor_id: int, starts_at: datetime,
     patient_name: str, patient_phone: str, reason: str = "",
@@ -326,6 +350,36 @@ def staff_change(
     return repo.update_appointment_details(s, appt.id, name, phone, _reason(reason))
 
 
+VISITS = ("arrived", "done", "no_show")
+
+
+def staff_visit(s: Session, clinic_id: int, appointment_id: int, visit: str | None, now: datetime) -> Appointment:
+    """Mark what happened at the clinic (arrived, done, no-show), or clear it."""
+    appt = repo.in_clinic(s, Appointment, appointment_id, clinic_id)
+    if visit is not None and visit not in VISITS:
+        raise BookingError(f"'{visit}' isn't a visit mark.")
+    if appt.status != "booked":
+        raise BookingError("This appointment is cancelled. Restore it before marking the visit.")
+    if visit is not None and appt.starts_at.date() > now.date():
+        raise BookingError("A visit can be marked on the day of the appointment or later.")
+    return repo.set_visit(s, appt.id, visit)
+
+
+def staff_restore(s: Session, clinic_id: int, appointment_id: int) -> Appointment:
+    """Undo a cancellation: the same doctor and time, if nobody has taken it since."""
+    appt = repo.in_clinic(s, Appointment, appointment_id, clinic_id)
+    if appt.status == "booked":
+        return appt
+    taken = f"{_clock(appt.starts_at)} on {appt.starts_at.day} {appt.starts_at:%b} was booked by someone else after the cancellation. " \
+        "The appointment stays cancelled; book a new time instead."
+    if repo.overlapping(s, appt.doctor_id, appt.starts_at, appt.ends_at, exclude_id=appt.id):
+        raise BookingError(taken)
+    try:
+        return repo.restore_appointment(s, appt.id)
+    except repo.SlotTaken:
+        raise BookingError(taken) from None
+
+
 def _staff_patient(name: str, phone: str) -> tuple[str, str]:
     if not name.strip():
         raise BookingError("Enter the patient's name.")
@@ -348,6 +402,11 @@ def _refuse_overlap(s: Session, doctor: Doctor, starts_at: datetime, exclude_id:
 # ---------- helpers ----------
 
 REASON_MAX = 300
+
+
+def _clock(at: datetime) -> str:
+    """'10:30 am' for staff; callers hear times through the LLM instead."""
+    return f"{at.hour % 12 or 12}:{at.minute:02d} {'am' if at.hour < 12 else 'pm'}"
 
 
 def _reason(text: str) -> str:
@@ -380,6 +439,11 @@ def _owned(
         )
     if appt.status != "booked":
         raise BookingError(f"Appointment {appointment_id} is already cancelled.")
+    if appt.visit is not None:
+        raise BookingError(
+            f"Appointment {appointment_id} is already under way at the clinic. "
+            "It can't be changed on a call; the front desk can help."
+        )
     if appt.starts_at < now:
         raise BookingError(f"Appointment {appointment_id} has already passed.")
     return appt
