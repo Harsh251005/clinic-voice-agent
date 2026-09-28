@@ -4,6 +4,7 @@ import { doctorToday } from "@/lib/clinic-day";
 import { clockTime, span12 } from "@/lib/dates";
 import { formatPhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
+import { visitInfo } from "@/lib/visit";
 
 type Appointment = Schemas["Appointment"];
 
@@ -41,6 +42,7 @@ export function DoctorDay({ clinic, doctor, day, now, appointments }: {
         <ol className="divide-y">
           {rows.map((a, i) => {
             const past = a.ends_at.slice(11, 16) <= now;
+            const visit = visitInfo(a.visit);
             return (
               <li key={a.id} className={cn("flex items-start gap-4 px-5 py-3", i === nowIdx && "bg-accent/40", past && "text-muted-foreground")}>
                 <p className={cn("w-[4.5rem] shrink-0 pt-0.5 text-sm font-semibold tabular-nums", past && "font-medium")}>{clockTime(a.starts_at)}</p>
@@ -49,6 +51,7 @@ export function DoctorDay({ clinic, doctor, day, now, appointments }: {
                     {a.patient_name}
                     {i === nowIdx && <Tag className="bg-primary text-primary-foreground">Now</Tag>}
                     {i === nextIdx && <Tag className="bg-accent text-accent-foreground">Next</Tag>}
+                    {visit && <Tag className={visit.tone}>{visit.label}</Tag>}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     <a href={`tel:${a.patient_phone}`} className="tabular-nums hover:text-foreground">{formatPhone(a.patient_phone)}</a>

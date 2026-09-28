@@ -30,22 +30,27 @@ test("Today shows the receptionist is ready and the appointments page is one cli
 
 test("moving between days keeps the day in the URL", async ({ page }) => {
   await page.goto("/clinics/1/appointments");
+  await expect(page.getByRole("button", { name: /Riya Sharma/ })).toBeVisible();
   await page.getByRole("button", { name: "Next day" }).click();
   await expect(page).toHaveURL(/day=\d{4}-\d{2}-\d{2}/);
-  await expect(page.getByText(/No appointments on/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Riya Sharma/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Today" }).click();
-  await expect(page.getByText("Riya Sharma")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Riya Sharma/ })).toBeVisible();
 });
 
-test("cancelling asks first, then frees the slot", async ({ page }) => {
+test("cancelling frees the slot at once, and Undo brings it back", async ({ page }) => {
   await page.goto("/clinics/1/appointments");
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByRole("alertdialog")).toContainText("Cancel Riya Sharma's appointment?");
-  await page.getByRole("button", { name: "Yes, cancel" }).click();
-  await expect(page.getByText(/Cancelled Riya Sharma's .* appointment/)).toBeVisible();
-  await expect(page.getByText(/No appointments on/)).toBeVisible();
+  await page.getByRole("button", { name: /Riya Sharma/ }).click();
+  await page.getByRole("menuitem", { name: "Cancel appointment" }).click();
+  await expect(page.getByText(/Cancelled Riya Sharma's 10:00 am appointment/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Riya Sharma/ })).toHaveCount(0);
+
   await page.getByText("Show cancelled").click();
-  await expect(page.getByText("Cancelled", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Riya Sharma, Cancelled/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByText("Riya Sharma's 10:00 am appointment is back on.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /10:00 am, Riya Sharma, Booked/ })).toBeVisible();
 });
 
 test("staff book a walk-in, then change it", async ({ page }) => {
@@ -58,15 +63,15 @@ test("staff book a walk-in, then change it", async ({ page }) => {
   await page.getByLabel("Time", { exact: true }).fill("11:05");  // off the grid: a walk-in
   await page.getByRole("button", { name: "Book appointment" }).click();
   await expect(page.getByText(/^Booked: Meena Joshi with Dr. Asha Mehta/)).toBeVisible();
-  await expect(page.getByText("Tooth pain since Monday")).toBeVisible();
-  await expect(page.getByText("By staff", { exact: true })).toBeVisible();
 
-  const row = page.locator("div").filter({ hasText: /^11:05 am/ }).first();
-  await row.getByRole("button", { name: "Edit" }).click();
+  const block = page.getByRole("button", { name: /^11:05 am, Meena Joshi, Booked, by staff/ });
+  await block.click();
+  await expect(page.getByRole("menu")).toContainText("Tooth pain since Monday");
+  await page.getByRole("menuitem", { name: "Edit" }).click();
   await page.getByLabel("Patient name").fill("Meena R Joshi");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText(/^Saved: Meena R Joshi/)).toBeVisible();
-  await expect(page.getByText("Meena R Joshi", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^11:05 am, Meena R Joshi/ })).toBeVisible();
 });
 
 test("a double booking is refused with a reason", async ({ page }) => {

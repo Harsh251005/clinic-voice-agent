@@ -1,10 +1,15 @@
 import { Card, CardContent } from "@/components/ui/card";
+import type { Schemas } from "@/lib/api/client";
 
-export function Stats({ booked, onCalls, week }: { booked: number; onCalls: number; week: number }) {
+export function Stats({ day }: { day: Schemas["Day"] }) {
+  const booked = day.appointments.filter((a) => a.status === "booked");
+  const count = (visit: string) => booked.filter((a) => a.visit === visit).length;
+  const seen = [[count("arrived"), "arrived"], [count("done"), "done"], [count("no_show"), "no-show"]]
+    .filter(([n]) => n).map(([n, word]) => `${n} ${word}`).join(" · ");
   const items = [
-    { label: "Booked this day", value: booked },
-    { label: "Booked by receptionist", value: onCalls, hint: "from calls" },
-    { label: "Next 7 days", value: week, hint: "from this day" },
+    { label: "Booked this day", value: day.booked, hint: seen || undefined },
+    { label: "Booked by receptionist", value: day.booked_on_calls, hint: "from calls" },
+    { label: "Next 7 days", value: day.next_7_days, hint: "from this day" },
   ];
   return (
     <div className="grid grid-cols-3 gap-3">

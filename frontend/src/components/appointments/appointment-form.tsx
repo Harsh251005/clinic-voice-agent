@@ -18,12 +18,16 @@ import { keys } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 type Appointment = Schemas["Appointment"];
+/** A doctor and a time ("10:15"), as a free slot in the diary offers them. */
+export type Slot = { doctorId: number; time: string };
+
 type Form = { doctor: string; day: string; time: string; name: string; phone: string; reason: string };
 
-export function AppointmentDialog({ clinic, day, editing, open, onOpenChange }: {
+export function AppointmentDialog({ clinic, day, editing, at, open, onOpenChange }: {
   clinic: Schemas["Clinic"];
   day: string;
   editing?: Appointment; // absent = a new booking
+  at?: Slot; // a new booking in this free slot (clicked in the diary)
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -39,23 +43,23 @@ export function AppointmentDialog({ clinic, day, editing, open, onOpenChange }: 
           </DialogDescription>
         </DialogHeader>
         {open && (
-          <AppointmentForm key={editing?.id ?? "new"} clinic={clinic} day={day} editing={editing} onDone={() => onOpenChange(false)} />
+          <AppointmentForm clinic={clinic} day={day} editing={editing} at={at} onDone={() => onOpenChange(false)} />
         )}
       </DialogContent>
     </Dialog>
   );
 }
 
-function AppointmentForm({ clinic, day, editing, onDone }: {
-  clinic: Schemas["Clinic"]; day: string; editing?: Appointment; onDone: () => void;
+function AppointmentForm({ clinic, day, editing, at, onDone }: {
+  clinic: Schemas["Clinic"]; day: string; editing?: Appointment; at?: Slot; onDone: () => void;
 }) {
   const queryClient = useQueryClient();
   // Doctors taking bookings first; an inactive one only if this booking is theirs.
   const doctors = clinic.doctors.filter((d) => d.active || d.id === editing?.doctor_id);
   const [f, setF] = useState<Form>(() => ({
-    doctor: String(editing?.doctor_id ?? doctors[0]?.id ?? ""),
+    doctor: String(editing?.doctor_id ?? at?.doctorId ?? doctors[0]?.id ?? ""),
     day: editing?.starts_at.slice(0, 10) ?? day,
-    time: editing?.starts_at.slice(11, 16) ?? "",
+    time: editing?.starts_at.slice(11, 16) ?? at?.time ?? "",
     name: editing?.patient_name ?? "",
     phone: editing?.patient_phone ?? "",
     reason: editing?.reason ?? "",

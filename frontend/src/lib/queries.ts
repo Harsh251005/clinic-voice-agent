@@ -45,6 +45,31 @@ export function useDay(clinicId: number, day: string, includeCancelled: boolean)
   });
 }
 
+/** Seven days from `start`: booked appointments and each doctor's day. */
+export function useWeek(clinicId: number, start: string) {
+  return useQuery({
+    queryKey: [...keys.appointments(clinicId), "week", start],
+    queryFn: () => unwrap(api.GET("/api/clinics/{clinic_id}/appointments/week", {
+      params: { path: { clinic_id: clinicId }, query: { start } },
+    })),
+    enabled: !!start,
+    placeholderData: (previous) => previous,
+    refetchInterval: 30_000,
+  });
+}
+
+/** Appointments by patient name or number (2+ characters), upcoming first. */
+export function useAppointmentSearch(clinicId: number, q: string) {
+  return useQuery({
+    queryKey: [...keys.appointments(clinicId), "search", q],
+    queryFn: () => unwrap(api.GET("/api/clinics/{clinic_id}/appointments/search", {
+      params: { path: { clinic_id: clinicId }, query: { q } },
+    })),
+    enabled: q.trim().length >= 2,
+    placeholderData: (previous) => previous,
+  });
+}
+
 /** A clinic's calls, newest first, a page (50) at a time. */
 export function useClinicCalls(clinicId: number, beforeId?: number) {
   return useQuery({
