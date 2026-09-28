@@ -15,15 +15,16 @@ tests always pin that stack. Switch with the three `*_PROVIDER` lines in
 settings (`SARVAM_TTS_SPEAKER`, `ELEVENLABS_TTS_VOICE`, …), so nothing else
 changes. The old shared names (`TTS_SPEAKER`, …) are refused at startup.
 
-Current state: **Stage 2 built** (plan:
-`~/.claude/plans/distributed-munching-wall.md`); **Stage 3 production setup in
-progress, no telephony** (plan: `~/.claude/plans/stage-3-production-setup.md`): clinic database, free-slot
-rules, agent answering from clinic data, booking + cancel/reschedule tools,
-end-call tool, `console --text`. Stage 3 so far: Postgres + Alembic, one
-worker for all clinics (dispatch), browser call links (`api/`), Google
-sign-in, and the **Next.js dashboard** (`frontend/`, Stage 3b; Streamlit
-retired). Not yet: Docker/CI (slice 5), telephony (identity is by spoken
-mobile number until caller ID exists). The
+Current state (2026-09-28): Stages 2, 3 and 5 built, Stage 4 in progress.
+Built: clinic database (Postgres + Alembic), free-slot rules, booking +
+cancel/reschedule tools with code-enforced confirmation, end-call tool,
+`console --text`, one worker for all clinics (dispatch), browser call links
+(`api/`), Google sign-in, the **Next.js dashboard** (`frontend/`: Today,
+diary, calls, settings), call records and transcripts, the admin panel, and
+problems flagged on every page. Not yet: Docker/CI, telephony (identity is
+by spoken mobile number until caller ID exists), vendor fallback, the
+patient front door. Plans: `~/.claude/plans/` (current:
+`portfolio-ready.md`, then `stage-4-pb-fallback-and-alerts.md`). The
 instructions (`clinic_agent/prompts.py`) may only describe what is built: no
 promised checks, holds, messages or callbacks. Add a capability to them in the
 same change that builds it.
@@ -143,7 +144,10 @@ The pipeline is split so each concern lives in exactly one module:
   code**: `check_booking` validates and returns the read-back; the no-argument
   `book_appointment` books only what was checked, and only after the caller
   has spoken since (`tools/booking.py`, the one piece of call state kept in a
-  wrapper). Never go back to trusting a `caller_confirmed` flag for booking.
+  wrapper). Cancel and reschedule use the same rule, **confirm by
+  repeating**: the first call is only the check and read-back, the same
+  call again acts once the caller has spoken (`confirmed` in the wrapper).
+  Never go back to trusting a `caller_confirmed` flag.
 - `clinic_agent/store/` — clinic data (SQLAlchemy, sync). `repo.py` holds every
   query; writes commit before returning; callers see `repo.NotFound` /
   `repo.SlotTaken`, never SQLAlchemy errors. **Only `store/` imports

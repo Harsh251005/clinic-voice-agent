@@ -15,7 +15,7 @@ import re
 from datetime import datetime
 
 import pytest
-from livekit.agents import AgentSession, utils
+from livekit.agents import AgentSession
 from livekit.agents.utils import http_context
 
 from clinic_agent.agent import ClinicAgent
@@ -402,7 +402,15 @@ async def test_cancel_flow_looks_up_reads_back_then_cancels(session):
     async def find_my_appointments(patient_phone: str, patient_name: str):
         return "Appointment 7: Dr. Asha Mehta, Tuesday 22 September 2026 at 17:00, for Ravi."
 
-    async def cancel_appointment(appointment_id: int, patient_phone: str, patient_name: str, caller_confirmed: bool):
+    checked: list[int] = []
+
+    async def cancel_appointment(appointment_id: int, patient_phone: str, patient_name: str):
+        # As the real tool: the first call only reads back, the same call again cancels.
+        if appointment_id not in checked:
+            checked.append(appointment_id)
+            return ("Not cancelled yet. Read this back to the caller in one sentence and ask if they want it "
+                    "cancelled: appointment 7: Dr. Asha Mehta, Tuesday 22 September 2026, 17:00 (पाँच बजे). "
+                    "If they say yes, call cancel_appointment again with the same appointment.")
         return "Cancelled appointment 7: Dr. Asha Mehta, Tuesday 22 September 2026 at 17:00."
 
     with mock_tools(ClinicAgent, {
@@ -419,8 +427,8 @@ async def test_cancel_flow_looks_up_reads_back_then_cancels(session):
         r1 = await session.run(user_input="रवि")
         (found,) = _calls(r1, "find_my_appointments")
         assert found["patient_name"].strip().lower().startswith("ravi")  # Roman letters
-        assert _calls(r1, "cancel_appointment") == [], "cancelled before reading back"
+        assert len(_calls(r1, "cancel_appointment")) <= 1, "cancelled before the caller answered the read-back"
 
         r2 = await session.run(user_input="हाँ, कैंसल कर दीजिए")
-        (c,) = _calls(r2, "cancel_appointment")
-        assert c["appointment_id"] == 7 and c["caller_confirmed"] is True
+        assert [c["appointment_id"] for c in _calls(r2, "cancel_appointment")][-1:] == [7]
+        assert len(_calls(r1, "cancel_appointment")) + len(_calls(r2, "cancel_appointment")) == 2

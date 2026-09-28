@@ -111,7 +111,7 @@ def test_undo_refuses_when_the_slot_was_taken_meanwhile(db, taken_at):
     a = _staff_booking(s, clinic_id)
     repo.cancel_appointment(s, a.id)
     _staff_booking(s, clinic_id, at=taken_at, name="Meena")  # same slot, or overlapping it
-    with pytest.raises(BookingError, match="10:00 am on 22 Sep was booked by someone else"):
+    with pytest.raises(BookingError, match="10 am on 22 Sep was booked by someone else"):
         booking.staff_restore(s, clinic_id, a.id)
     assert repo.get_appointment(s, a.id).status == "cancelled"
 

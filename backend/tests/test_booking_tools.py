@@ -110,19 +110,14 @@ async def test_find_cancel_through_the_tools(tools):
     mine, cancel, move = _manage(sessions, clinic_id)
     listed = await mine(None, patient_phone="9876543210", patient_name="Ravi")
     appt_id = int(listed.split(":")[0].removeprefix("Appointment "))
-    with pytest.raises(ToolError, match="Not cancelled"):
-        await cancel(None, appointment_id=appt_id, patient_phone="9876543210", patient_name="Ravi", caller_confirmed=False)
-    with pytest.raises(ToolError, match="Not moved"):
-        await move(None, 
-            appointment_id=appt_id, patient_phone="9876543210", patient_name="Ravi", date=day, time="17:15",
-            caller_confirmed=False,
-        )
-    moved = await move(None, 
-        appointment_id=appt_id, patient_phone="9876543210", patient_name="Ravi", date=day, time="17:15",
-        caller_confirmed=True,
-    )
+    # Direct calls have no caller to wait for; the gate itself is tested in test_booking_readback.py.
+    args = dict(appointment_id=appt_id, patient_phone="9876543210", patient_name="Ravi")
+    first = await move(None, **args, date=day, time="17:15")
+    assert first.startswith("Not moved yet") and "to Dr. Asha Mehta" in first
+    moved = await move(None, **args, date=day, time="17:15")
     assert moved.startswith(f"Moved appointment {appt_id}")
-    cancelled = await cancel(None, appointment_id=appt_id, patient_phone="9876543210", patient_name="Ravi", caller_confirmed=True)
+    assert (await cancel(None, **args)).startswith("Not cancelled yet")
+    cancelled = await cancel(None, **args)
     assert cancelled.startswith(f"Cancelled appointment {appt_id}")
 
 

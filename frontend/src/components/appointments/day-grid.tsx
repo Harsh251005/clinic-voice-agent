@@ -16,7 +16,7 @@ type Appointment = Schemas["Appointment"];
 type DoctorDay = Schemas["DoctorDay"];
 
 /** "10:15" or "10:15:00" → minutes after midnight. */
-export const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const startOf = (a: Appointment) => minutes(a.starts_at.slice(11, 16));
 // A booking past midnight (typed by staff) is drawn to the end of the day.
@@ -199,7 +199,7 @@ function Column({ clinic, doctor, today, appointments, height, hours, top, px, n
   );
 }
 
-export function blockTone(appt: Appointment) {
+function blockTone(appt: Appointment) {
   const base = "overflow-hidden rounded-md px-2 py-1 text-left text-xs shadow-xs transition-[filter] hover:brightness-95";
   if (appt.status === "cancelled") return cn(base, "border border-dashed bg-muted text-muted-foreground shadow-none");
   const visit = visitInfo(appt.visit);

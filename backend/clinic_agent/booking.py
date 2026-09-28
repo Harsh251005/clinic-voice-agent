@@ -13,6 +13,7 @@ from datetime import date, datetime, time, timedelta
 from typing import NamedTuple
 
 from clinic_agent import scheduling
+from clinic_agent.clock import clock12
 from clinic_agent.spoken import hindi_time
 from clinic_agent.store import repo
 from clinic_agent.store.db import Session
@@ -224,6 +225,14 @@ def appointment_problem(appt: Appointment, time_off: list[TimeOff]) -> str | Non
     return None
 
 
+def check_cancel(
+    s: Session, clinic_id: int, appointment_id: int, patient_phone: str, patient_name: str, now: datetime
+) -> str:
+    """Everything cancel_booking checks, without cancelling: what to read back."""
+    appt = _owned(s, clinic_id, appointment_id, patient_phone, patient_name, now)
+    return f"appointment {appt.id}: {_when(appt.doctor.name, appt.starts_at)}"
+
+
 def cancel_booking(
     s: Session, clinic_id: int, appointment_id: int, patient_phone: str, patient_name: str, now: datetime
 ) -> str:
@@ -234,6 +243,15 @@ def cancel_booking(
         f"{_day(appt.starts_at.date())} at {appt.starts_at:%H:%M}.",
         appt.id, "cancelled",
     )
+
+
+def check_reschedule(
+    s: Session, clinic_id: int, appointment_id: int, patient_phone: str, patient_name: str,
+    day: date, start: time, now: datetime, doctor_name: str | None = None,
+) -> str:
+    """Everything reschedule_booking checks, without moving: what to read back."""
+    appt, doctor, starts_at = _move_plan(s, clinic_id, appointment_id, patient_phone, patient_name, day, start, now, doctor_name)
+    return f"appointment {appt.id} from {_when(appt.doctor.name, appt.starts_at)} to {_when(doctor.name, starts_at)}"
 
 
 def reschedule_booking(
@@ -247,27 +265,8 @@ def reschedule_booking(
     now: datetime,
     doctor_name: str | None = None,
 ) -> str:
-    appt = _owned(s, clinic_id, appointment_id, patient_phone, patient_name, now)
-    clinic = repo.get_clinic(s, clinic_id)
-    doctor = resolve_doctor(clinic, doctor_name) if doctor_name else appt.doctor
-    if not doctor.active:  # resolve_doctor only finds active ones; the booked doctor may not be
-        names = ", ".join(d.name for d in clinic.doctors if d.active) or "none"
-        raise BookingError(
-            f"{doctor.name} is no longer taking appointments. Offer another doctor: {names}."
-        )
-    _check_day(day, now, clinic)
-
+    appt, doctor, starts_at = _move_plan(s, clinic_id, appointment_id, patient_phone, patient_name, day, start, now, doctor_name)
     old = f"{appt.doctor.name}, {_day(appt.starts_at.date())} at {appt.starts_at:%H:%M}"
-    starts_at = datetime.combine(day, start)
-    if doctor.id == appt.doctor_id and starts_at == appt.starts_at:
-        raise BookingError(f"Appointment {appt.id} is already at that time.")
-
-    time_off = repo.time_off_overlapping(s, clinic.id, day, day)
-    free = _day_slots(s, doctor, day, time_off, now, None)
-    if starts_at not in free:
-        offer = f" That day: {_free(free, clinic)}." if free else ""
-        raise BookingError(f"{doctor.name} is not free at {start:%H:%M} on {_day(day)}.{offer}")
-
     try:
         repo.move_appointment(s, appt.id, doctor.id, starts_at)
     except repo.SlotTaken:
@@ -279,6 +278,34 @@ def reschedule_booking(
         f"{_day(day)} at {start:%H:%M}.",
         appt.id, "moved",
     )
+
+
+def _move_plan(s, clinic_id, appointment_id, patient_phone, patient_name, day, start, now, doctor_name):
+    """The caller's appointment, the doctor and the new time, if the move can
+    happen; a BookingError saying why not otherwise."""
+    appt = _owned(s, clinic_id, appointment_id, patient_phone, patient_name, now)
+    clinic = repo.get_clinic(s, clinic_id)
+    doctor = resolve_doctor(clinic, doctor_name) if doctor_name else appt.doctor
+    if not doctor.active:  # resolve_doctor only finds active ones; the booked doctor may not be
+        names = ", ".join(d.name for d in clinic.doctors if d.active) or "none"
+        raise BookingError(
+            f"{doctor.name} is no longer taking appointments. Offer another doctor: {names}."
+        )
+    _check_day(day, now, clinic)
+    starts_at = datetime.combine(day, start)
+    if doctor.id == appt.doctor_id and starts_at == appt.starts_at:
+        raise BookingError(f"Appointment {appt.id} is already at that time.")
+    time_off = repo.time_off_overlapping(s, clinic.id, day, day)
+    free = _day_slots(s, doctor, day, time_off, now, None)
+    if starts_at not in free:
+        offer = f" That day: {_free(free, clinic)}." if free else ""
+        raise BookingError(f"{doctor.name} is not free at {start:%H:%M} on {_day(day)}.{offer}")
+    return appt, doctor, starts_at
+
+
+def _when(doctor_name: str, at: datetime) -> str:
+    """'Dr. Asha Mehta, Tuesday 22 September 2026, 10:00 (दस बजे)': a read-back."""
+    return f"{doctor_name}, {_day(at.date())}, {at:%H:%M} ({hindi_time(at.time())})"
 
 
 # ---------- staff (dashboard) ----------
@@ -327,7 +354,7 @@ def staff_book(
     try:
         return repo.book(s, clinic_id, doctor.id, starts_at, name, phone, source="dashboard", reason=_reason(reason))
     except repo.SlotTaken:
-        raise BookingError(f"{doctor.name} is already booked at {starts_at:%H:%M} that day.") from None
+        raise BookingError(f"{doctor.name} is already booked at {clock12(starts_at)} that day.") from None
 
 
 def staff_change(
@@ -346,7 +373,7 @@ def staff_change(
         try:
             repo.move_appointment(s, appt.id, doctor.id, starts_at)
         except repo.SlotTaken:
-            raise BookingError(f"{doctor.name} is already booked at {starts_at:%H:%M} that day.") from None
+            raise BookingError(f"{doctor.name} is already booked at {clock12(starts_at)} that day.") from None
     return repo.update_appointment_details(s, appt.id, name, phone, _reason(reason))
 
 
@@ -370,7 +397,7 @@ def staff_restore(s: Session, clinic_id: int, appointment_id: int) -> Appointmen
     appt = repo.in_clinic(s, Appointment, appointment_id, clinic_id)
     if appt.status == "booked":
         return appt
-    taken = f"{_clock(appt.starts_at)} on {appt.starts_at.day} {appt.starts_at:%b} was booked by someone else after the cancellation. " \
+    taken = f"{clock12(appt.starts_at)} on {appt.starts_at.day} {appt.starts_at:%b} was booked by someone else after the cancellation. " \
         "The appointment stays cancelled; book a new time instead."
     if repo.overlapping(s, appt.doctor_id, appt.starts_at, appt.ends_at, exclude_id=appt.id):
         raise BookingError(taken)
@@ -394,7 +421,7 @@ def _refuse_overlap(s: Session, doctor: Doctor, starts_at: datetime, exclude_id:
     if clash := repo.overlapping(s, doctor.id, starts_at, ends_at, exclude_id):
         a = clash[0]
         raise BookingError(
-            f"{doctor.name} already has {a.patient.name} from {a.starts_at:%H:%M} to {a.ends_at:%H:%M}. "
+            f"{doctor.name} already has {a.patient.name} from {clock12(a.starts_at)} to {clock12(a.ends_at)}. "
             "Pick a time that doesn't overlap, or move that booking first."
         )
 
@@ -402,11 +429,6 @@ def _refuse_overlap(s: Session, doctor: Doctor, starts_at: datetime, exclude_id:
 # ---------- helpers ----------
 
 REASON_MAX = 300
-
-
-def _clock(at: datetime) -> str:
-    """'10:30 am' for staff; callers hear times through the LLM instead."""
-    return f"{at.hour % 12 or 12}:{at.minute:02d} {'am' if at.hour < 12 else 'pm'}"
 
 
 def _reason(text: str) -> str:

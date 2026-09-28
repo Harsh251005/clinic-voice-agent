@@ -19,7 +19,7 @@ type Appointment = Schemas["Appointment"];
 
 const UNDO_MS = 8_000;
 
-export function useAppointmentActions(clinicId: number) {
+function useAppointmentActions(clinicId: number) {
   const queryClient = useQueryClient();
   const refresh = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: keys.appointments(clinicId) }),

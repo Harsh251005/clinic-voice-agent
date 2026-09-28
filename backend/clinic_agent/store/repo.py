@@ -15,6 +15,7 @@ from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from clinic_agent.clock import clock12
 from clinic_agent.store import migrations
 from clinic_agent.store.models import (
     Appointment,
@@ -272,13 +273,13 @@ def check_sittings(sittings: list[tuple[int, time, time]]) -> None:
         if not 0 <= weekday <= 6:
             raise ValueError(f"weekday must be 0-6, got {weekday}")
         if start >= end:
-            raise ValueError(f"sitting must end after it starts: {start}-{end}")
+            raise ValueError(f"A session must end after it starts ({clock12(start)} to {clock12(end)}).")
     for day in range(7):
         # Overlapping sittings would offer the same slot twice.
         spans = sorted((a, b) for w, a, b in sittings if w == day)
         for (_, end), (start, _) in zip(spans, spans[1:]):
             if start < end:
-                raise ValueError(f"sittings on {DAY_NAMES[day]} overlap: one starts at {start:%H:%M} before the other ends at {end:%H:%M}")
+                raise ValueError(f"Sessions on {DAY_NAMES[day]} overlap: one starts at {clock12(start)}, before the other ends at {clock12(end)}.")
 
 
 # ---------- time off ----------
