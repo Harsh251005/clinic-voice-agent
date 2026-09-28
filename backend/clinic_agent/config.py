@@ -70,10 +70,6 @@ class Settings:
     # --- clinic data ---
     database_url: str
 
-    # --- error tracking (clinic_agent/errors.py) ---
-    sentry_dsn: str  # blank: off
-    sentry_environment: str  # "production", "staging"...: groups reports in Sentry
-
     # --- LiveKit (the worker's CLI reads these itself; the call-link server
     # signs join passes with them) ---
     livekit_url: str
@@ -207,8 +203,6 @@ def load_settings() -> Settings:
         google_client_id=_text("GOOGLE_CLIENT_ID", ""),
         google_client_secret=_text("GOOGLE_CLIENT_SECRET", ""),
         database_url=_text("DATABASE_URL", "sqlite:///data/clinic.db"),
-        sentry_dsn=_text("SENTRY_DSN", ""),
-        sentry_environment=_text("SENTRY_ENVIRONMENT", "development"),
         livekit_url=_text("LIVEKIT_URL", ""),
         livekit_api_key=_text("LIVEKIT_API_KEY", ""),
         livekit_api_secret=_text("LIVEKIT_API_SECRET", ""),
