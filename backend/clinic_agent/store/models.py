@@ -159,6 +159,10 @@ class Appointment(Base):
     starts_at: Mapped[datetime]
     ends_at: Mapped[datetime]
     status: Mapped[str] = mapped_column(String(20), default="booked")  # booked | cancelled
+    # What happened at the clinic, set by staff: arrived | done | no_show, or
+    # None. Kept apart from status on purpose: the slot guard and every slot
+    # query look at status, so a patient checked in still holds their slot.
+    visit: Mapped[str | None] = mapped_column(String(20), default=None)
     source: Mapped[str] = mapped_column(String(20), default="voice")  # voice | dashboard
     # Why the patient is coming, in the caller's or staff's words ("आँखों से
     # धुंधला दिखता है"). Health information: shown to the clinic, never logged.

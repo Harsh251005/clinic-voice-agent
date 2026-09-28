@@ -140,6 +140,22 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "visit": {
+            "anyOf": [
+              {
+                "enum": [
+                  "arrived",
+                  "done",
+                  "no_show"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visit"
           }
         },
         "required": [
@@ -859,6 +875,13 @@
             "title": "Day",
             "type": "string"
           },
+          "doctors": {
+            "items": {
+              "$ref": "#/components/schemas/DoctorDay"
+            },
+            "title": "Doctors",
+            "type": "array"
+          },
           "next_7_days": {
             "title": "Next 7 Days",
             "type": "integer"
@@ -867,6 +890,7 @@
         "required": [
           "day",
           "appointments",
+          "doctors",
           "booked",
           "booked_on_calls",
           "next_7_days"
@@ -943,6 +967,64 @@
         "title": "Doctor",
         "type": "object"
       },
+      "DoctorDay": {
+        "description": "One diary column: what the doctor's day looks like.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "free": {
+            "items": {
+              "format": "time",
+              "type": "string"
+            },
+            "title": "Free",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "off": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Off"
+          },
+          "sittings": {
+            "items": {
+              "$ref": "#/components/schemas/Span"
+            },
+            "title": "Sittings",
+            "type": "array"
+          },
+          "slot_minutes": {
+            "title": "Slot Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slot_minutes",
+          "active",
+          "sittings",
+          "off",
+          "free"
+        ],
+        "title": "DoctorDay",
+        "type": "object"
+      },
       "DoctorPatch": {
         "properties": {
           "active": {
@@ -1008,6 +1090,24 @@
           }
         },
         "title": "DoctorPatch",
+        "type": "object"
+      },
+      "DoctorRef": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "DoctorRef",
         "type": "object"
       },
       "ErrorGroup": {
@@ -1410,6 +1510,26 @@
           "slug"
         ],
         "title": "SlugIn",
+        "type": "object"
+      },
+      "Span": {
+        "properties": {
+          "end": {
+            "format": "time",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "format": "time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "Span",
         "type": "object"
       },
       "SpokenLine": {
@@ -1839,6 +1959,126 @@
           "calls"
         ],
         "title": "VendorErrors",
+        "type": "object"
+      },
+      "VisitIn": {
+        "properties": {
+          "visit": {
+            "anyOf": [
+              {
+                "enum": [
+                  "arrived",
+                  "done",
+                  "no_show"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visit"
+          }
+        },
+        "required": [
+          "visit"
+        ],
+        "title": "VisitIn",
+        "type": "object"
+      },
+      "Week": {
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/WeekDay"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "doctors": {
+            "items": {
+              "$ref": "#/components/schemas/DoctorRef"
+            },
+            "title": "Doctors",
+            "type": "array"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "doctors",
+          "days"
+        ],
+        "title": "Week",
+        "type": "object"
+      },
+      "WeekDay": {
+        "properties": {
+          "appointments": {
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            },
+            "title": "Appointments",
+            "type": "array"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "doctors": {
+            "items": {
+              "$ref": "#/components/schemas/WeekDoctorDay"
+            },
+            "title": "Doctors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "day",
+          "appointments",
+          "doctors"
+        ],
+        "title": "WeekDay",
+        "type": "object"
+      },
+      "WeekDoctorDay": {
+        "properties": {
+          "doctor_id": {
+            "title": "Doctor Id",
+            "type": "integer"
+          },
+          "free": {
+            "title": "Free",
+            "type": "integer"
+          },
+          "off": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Off"
+          },
+          "sits": {
+            "title": "Sits",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "doctor_id",
+          "sits",
+          "off",
+          "free"
+        ],
+        "title": "WeekDoctorDay",
         "type": "object"
       }
     }
@@ -2507,6 +2747,110 @@
         "summary": "Book"
       }
     },
+    "/api/clinics/{clinic_id}/appointments/search": {
+      "get": {
+        "description": "By patient name or mobile number: upcoming first, then the most recent past.",
+        "operationId": "search_api_clinics__clinic_id__appointments_search_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Appointment"
+                  },
+                  "title": "Response Search Api Clinics  Clinic Id  Appointments Search Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search"
+      }
+    },
+    "/api/clinics/{clinic_id}/appointments/week": {
+      "get": {
+        "description": "Seven days from `start`: booked appointments and each doctor's day.",
+        "operationId": "week_api_clinics__clinic_id__appointments_week_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Week"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Week"
+      }
+    },
     "/api/clinics/{clinic_id}/appointments/{appointment_id}": {
       "put": {
         "operationId": "change_api_clinics__clinic_id__appointments__appointment_id__put",
@@ -2611,6 +2955,113 @@
           }
         },
         "summary": "Cancel"
+      }
+    },
+    "/api/clinics/{clinic_id}/appointments/{appointment_id}/restore": {
+      "post": {
+        "description": "Undo a cancellation, if the slot is still free.",
+        "operationId": "restore_api_clinics__clinic_id__appointments__appointment_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointment_id",
+            "required": true,
+            "schema": {
+              "title": "Appointment Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore"
+      }
+    },
+    "/api/clinics/{clinic_id}/appointments/{appointment_id}/visit": {
+      "post": {
+        "operationId": "visit_api_clinics__clinic_id__appointments__appointment_id__visit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointment_id",
+            "required": true,
+            "schema": {
+              "title": "Appointment Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Visit"
       }
     },
     "/api/clinics/{clinic_id}/calls": {

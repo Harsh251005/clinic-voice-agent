@@ -217,6 +217,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clinics/{clinic_id}/appointments/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search
+         * @description By patient name or mobile number: upcoming first, then the most recent past.
+         */
+        get: operations["search_api_clinics__clinic_id__appointments_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clinics/{clinic_id}/appointments/week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Week
+         * @description Seven days from `start`: booked appointments and each doctor's day.
+         */
+        get: operations["week_api_clinics__clinic_id__appointments_week_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/clinics/{clinic_id}/appointments/{appointment_id}": {
         parameters: {
             query?: never;
@@ -245,6 +285,43 @@ export interface paths {
         put?: never;
         /** Cancel */
         post: operations["cancel_api_clinics__clinic_id__appointments__appointment_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clinics/{clinic_id}/appointments/{appointment_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore
+         * @description Undo a cancellation, if the slot is still free.
+         */
+        post: operations["restore_api_clinics__clinic_id__appointments__appointment_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clinics/{clinic_id}/appointments/{appointment_id}/visit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Visit */
+        post: operations["visit_api_clinics__clinic_id__appointments__appointment_id__visit_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -622,6 +699,8 @@ export interface components {
              * @enum {string}
              */
             status: "booked" | "cancelled";
+            /** Visit */
+            visit?: ("arrived" | "done" | "no_show") | null;
         };
         /**
          * AppointmentIn
@@ -900,6 +979,8 @@ export interface components {
              * Format: date
              */
             day: string;
+            /** Doctors */
+            doctors: components["schemas"]["DoctorDay"][];
             /** Next 7 Days */
             next_7_days: number;
         };
@@ -929,6 +1010,26 @@ export interface components {
             /** Upcoming */
             upcoming: number;
         };
+        /**
+         * DoctorDay
+         * @description One diary column: what the doctor's day looks like.
+         */
+        DoctorDay: {
+            /** Active */
+            active: boolean;
+            /** Free */
+            free: string[];
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Off */
+            off: string | null;
+            /** Sittings */
+            sittings: components["schemas"]["Span"][];
+            /** Slot Minutes */
+            slot_minutes: number;
+        };
         /** DoctorPatch */
         DoctorPatch: {
             /** Active */
@@ -941,6 +1042,13 @@ export interface components {
             slot_minutes?: number | null;
             /** Specialty */
             specialty?: string | null;
+        };
+        /** DoctorRef */
+        DoctorRef: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
         };
         /** ErrorGroup */
         ErrorGroup: {
@@ -1103,6 +1211,19 @@ export interface components {
         SlugIn: {
             /** Slug */
             slug: string;
+        };
+        /** Span */
+        Span: {
+            /**
+             * End
+             * Format: time
+             */
+            end: string;
+            /**
+             * Start
+             * Format: time
+             */
+            start: string;
         };
         /**
          * SpokenLine
@@ -1287,6 +1408,46 @@ export interface components {
             errors: number;
             /** Name */
             name: string;
+        };
+        /** VisitIn */
+        VisitIn: {
+            /** Visit */
+            visit: ("arrived" | "done" | "no_show") | null;
+        };
+        /** Week */
+        Week: {
+            /** Days */
+            days: components["schemas"]["WeekDay"][];
+            /** Doctors */
+            doctors: components["schemas"]["DoctorRef"][];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
+        /** WeekDay */
+        WeekDay: {
+            /** Appointments */
+            appointments: components["schemas"]["Appointment"][];
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Doctors */
+            doctors: components["schemas"]["WeekDoctorDay"][];
+        };
+        /** WeekDoctorDay */
+        WeekDoctorDay: {
+            /** Doctor Id */
+            doctor_id: number;
+            /** Free */
+            free: number;
+            /** Off */
+            off: string | null;
+            /** Sits */
+            sits: boolean;
         };
     };
     responses: never;
@@ -1742,6 +1903,72 @@ export interface operations {
             };
         };
     };
+    search_api_clinics__clinic_id__appointments_search_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    week_api_clinics__clinic_id__appointments_week_get: {
+        parameters: {
+            query: {
+                start: string;
+            };
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Week"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     change_api_clinics__clinic_id__appointments__appointment_id__put: {
         parameters: {
             query?: never;
@@ -1789,6 +2016,74 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_api_clinics__clinic_id__appointments__appointment_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: number;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    visit_api_clinics__clinic_id__appointments__appointment_id__visit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: number;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisitIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

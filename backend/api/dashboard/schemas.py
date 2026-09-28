@@ -140,6 +140,9 @@ class MemberIn(BaseModel):
     email: str
 
 
+Visit = Literal["arrived", "done", "no_show"]
+
+
 class Appointment(BaseModel):
     id: int
     doctor_id: int
@@ -150,6 +153,7 @@ class Appointment(BaseModel):
     ends_at: datetime
     status: Literal["booked", "cancelled"]
     source: Literal["voice", "dashboard"]
+    visit: Visit | None = None  # what happened at the clinic, as staff marked it
     reason: str  # why the patient is coming; "" if not given
     # Why a booking can't go ahead as booked (leave, holiday, hours changed,
     # doctor inactive): staff should call the patient. None when it's fine.
@@ -180,12 +184,58 @@ class TimeOffAdded(TimeOff):
     clashes: list[Appointment]  # upcoming bookings on those days, to call about
 
 
+class Span(BaseModel):
+    start: time
+    end: time
+
+
+class DoctorDay(BaseModel):
+    """One diary column: what the doctor's day looks like."""
+    id: int
+    name: str
+    slot_minutes: int
+    active: bool
+    sittings: list[Span]  # working hours that weekday; empty = doesn't sit
+    off: str | None  # "On leave", "Clinic closed: Diwali"; None when in
+    free: list[time]  # bookable slots left (none before now, none when off)
+
+
 class Day(BaseModel):
     day: date
     appointments: list[Appointment]
+    # Active doctors, and inactive ones only when they have bookings that day.
+    doctors: list[DoctorDay]
     booked: int  # this day
     booked_on_calls: int  # this day, by the receptionist
     next_7_days: int  # booked, this day and the six after
+
+
+class WeekDoctorDay(BaseModel):
+    doctor_id: int
+    sits: bool  # has working hours that weekday
+    off: str | None
+    free: int  # bookable slots left
+
+
+class WeekDay(BaseModel):
+    day: date
+    appointments: list[Appointment]  # booked only
+    doctors: list[WeekDoctorDay]
+
+
+class DoctorRef(BaseModel):
+    id: int
+    name: str
+
+
+class Week(BaseModel):
+    start: date
+    doctors: list[DoctorRef]
+    days: list[WeekDay]  # seven, from start
+
+
+class VisitIn(BaseModel):
+    visit: Visit | None  # None clears the mark
 
 
 class Error(BaseModel):

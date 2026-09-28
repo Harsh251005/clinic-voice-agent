@@ -11,7 +11,7 @@ import unicodedata
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
 
-from sqlalchemy import case, delete, func, select
+from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -446,6 +446,8 @@ def move_appointment(
     doctor = _get(s, Doctor, doctor_id)
     if doctor.clinic_id != appt.clinic_id:
         raise NotFound(f"doctor {doctor_id} is not at clinic {appt.clinic_id}")
+    if (doctor.id, starts_at) != (appt.doctor_id, appt.starts_at):
+        appt.visit = None  # a mark belongs to the visit as it was booked
     appt.doctor_id = doctor.id
     appt.starts_at = starts_at
     appt.ends_at = starts_at + timedelta(minutes=doctor.slot_minutes)
@@ -495,8 +497,61 @@ def overlapping(
 def cancel_appointment(s: Session, appointment_id: int) -> Appointment:
     appt = _get(s, Appointment, appointment_id)
     appt.status = "cancelled"
+    appt.visit = None
     s.commit()
     return appt
+
+
+def restore_appointment(s: Session, appointment_id: int) -> Appointment:
+    """A cancelled booking back on, at the same doctor and time. Raises
+    SlotTaken if someone booked that slot since."""
+    appt = _get(s, Appointment, appointment_id)
+    appt.status = "booked"
+    try:
+        s.commit()
+    except IntegrityError as err:
+        s.rollback()
+        if _is_slot_clash(err):
+            raise SlotTaken(f"doctor {appt.doctor_id} is already booked at {appt.starts_at}") from None
+        raise
+    return appt
+
+
+def set_visit(s: Session, appointment_id: int, visit: str | None) -> Appointment:
+    """arrived | done | no_show, or None to clear it."""
+    appt = _get(s, Appointment, appointment_id)
+    appt.visit = visit
+    s.commit()
+    return appt
+
+
+SEARCH_LIMIT = 50
+
+
+def search_appointments(s: Session, clinic_id: int, text: str, today: date) -> list[Appointment]:
+    """Appointments (cancelled too) whose patient's name contains `text`, or
+    whose number contains its digits (3 or more). Upcoming first, soonest
+    first; then past ones, most recent first."""
+    text = text.strip()
+    digits = "".join(c for c in text if c.isdigit())
+    match = func.lower(Patient.name).contains(text.lower(), autoescape=True)
+    if len(digits) >= 3:
+        match = or_(match, Patient.phone.contains(digits, autoescape=True))
+    base = (
+        select(Appointment)
+        .join(Patient, Appointment.patient_id == Patient.id)
+        .where(Appointment.clinic_id == clinic_id, match)
+        .options(selectinload(Appointment.doctor), selectinload(Appointment.patient))
+    )
+    start = datetime.combine(today, time.min)
+    upcoming = list(s.scalars(
+        base.where(Appointment.starts_at >= start).order_by(Appointment.starts_at).limit(SEARCH_LIMIT)
+    ))
+    past = list(s.scalars(
+        base.where(Appointment.starts_at < start)
+        .order_by(Appointment.starts_at.desc()).limit(SEARCH_LIMIT - len(upcoming))
+    )) if len(upcoming) < SEARCH_LIMIT else []
+    return upcoming + past
 
 
 # ---------- helpers ----------

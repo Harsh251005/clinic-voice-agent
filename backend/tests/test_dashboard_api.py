@@ -204,6 +204,10 @@ PATIENT_DATA = [
     ("POST", "/appointments", {"doctor_id": "{khushboo}", "starts_at": "2026-12-08T10:00",
                                "patient_name": "X", "patient_phone": "9876543210"}),
     ("GET", "/doctors/{khushboo}/free?day=2026-12-07", None),
+    ("GET", "/appointments/week?start=2026-12-07", None),
+    ("GET", "/appointments/search?q=Harsh", None),
+    ("POST", "/appointments/{cure_appt}/visit", {"visit": None}),
+    ("POST", "/appointments/{cure_appt}/restore", None),
     ("GET", "/calls", None),
     ("GET", "/calls/today", None),
     ("GET", "/calls/{cure_call}", None),
@@ -251,6 +255,8 @@ ATTACKS = [
     ("PATCH", "/doctors/{demo_doctor}", {"fee": 1}),
     ("PUT", "/doctors/{demo_doctor}/hours", {"sittings": []}),
     ("POST", "/appointments/{demo_appt}/cancel", None),
+    ("POST", "/appointments/{demo_appt}/visit", {"visit": None}),
+    ("POST", "/appointments/{demo_appt}/restore", None),
     ("POST", "/time-off", {"date_from": "2026-12-01", "date_to": "2026-12-01", "doctor_id": "{demo_doctor}"}),
     ("POST", "/appointments", {"doctor_id": "{demo_doctor}", "starts_at": "2026-12-08T10:00",
                                "patient_name": "X", "patient_phone": "9876543210"}),
@@ -298,7 +304,7 @@ def _demo_untouched(world):
     assert doctor["fee"] == 500 and doctor["hours"]
     staff = client_as("doctor@demo.in")  # the admin can't read appointments
     appts = staff.get(f"/api/clinics/{world['demo']}/appointments", params={"day": "2026-12-07"}).json()
-    assert appts["appointments"][0]["status"] == "booked"
+    assert (appts["appointments"][0]["status"], appts["appointments"][0]["visit"]) == ("booked", None)
 
 
 # ---------- each screen's actions ----------
