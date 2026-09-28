@@ -52,6 +52,7 @@ src/components/admin/            the admin panel's shell (slate ink + amber, nev
 src/components/appointments/     the diary: day grid, phone list, week, search, the booking form,
                                  and one menu per booking (visit marks, edit, cancel with Undo)
 src/components/calls/            a call's transcript as a conversation
+src/components/problems/         problems on every page: banner, bell, "(!)" in the tab, desktop alerts
 src/components/today/            the Today page's panels
 src/components/ui/               shadcn/ui components (ours to edit)
 src/lib/api/                     typed API client, generated schema

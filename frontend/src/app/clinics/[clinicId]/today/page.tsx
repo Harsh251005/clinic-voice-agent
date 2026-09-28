@@ -16,7 +16,7 @@ import { Receptionist } from "@/components/today/receptionist";
 import { Summary } from "@/components/today/summary";
 import { useClinicNow } from "@/lib/clinic-now";
 import { longDay } from "@/lib/dates";
-import { useCallsToday, useClinic, useDay } from "@/lib/queries";
+import { useCallsToday, useClinic, useDay, useProblems } from "@/lib/queries";
 
 function greeting(time: string) {
   const hour = Number(time.slice(0, 2));
@@ -29,6 +29,9 @@ export default function TodayPage() {
   const now = useClinicNow(clinic.data?.timezone);
   const day = useDay(clinicId, now?.day ?? "", false);
   const calls = useCallsToday(clinicId);
+  const problems = useProblems(clinicId); // the shell's own query: no second request
+  const down = problems.data?.open.some((p) => p.kind === "worker_offline") ? "Offline. Patients can't reach it right now."
+    : problems.data?.open.some((p) => p.kind === "clinic_paused") ? "Paused by ClinicDesk support." : undefined;
   const [adding, setAdding] = useState(false);
 
   if (clinic.isError) {
@@ -86,7 +89,7 @@ export default function TodayPage() {
 
         <aside className="space-y-6">
           {day.data && <Attention clinicId={clinicId} appointments={appointments} calls={calls.data?.unhelped} />}
-          <Receptionist clinic={c} today={calls.data} />
+          <Receptionist clinic={c} today={calls.data} down={down} />
         </aside>
       </div>
     </div>

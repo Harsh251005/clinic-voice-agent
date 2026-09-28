@@ -43,7 +43,7 @@ uv run python -m clinic_agent.store.migrations  # schema up to date (after every
 uv run python main.py console    # talk over the local mic — spends no LiveKit minutes
 uv run python main.py console --text  # typed, LLM-only: no STT/TTS built or billed
 uv run python main.py console --clinic 2  # pick a clinic when there are several
-uv run python main.py dev        # join rooms it is dispatched to, reloads on save
+uv run python main.py dev        # join rooms it is dispatched to (LiveKit 1.8 dropped reload: restart after edits)
 uv run python main.py start      # production worker
 uv run python -m api             # call-link server: /call/<slug> page + join passes
 ```
@@ -119,6 +119,15 @@ The pipeline is split so each concern lives in exactly one module:
   `transcript_access`). Recording failures are logged, never break a call.
   Tools report changes through `ClinicLink.on_change` (booking functions
   return `booking.Changed`). `store/purge.py`: transcripts 30 d, traces 180 d.
+- `clinic_agent/incidents.py` — **problems, flagged**: which conditions and
+  events count (`KINDS`), `sync` (the API re-checks every 30 s: opens,
+  updates, closes) and `report` (events: counted, closed after a quiet
+  spell). Words live in `api/dashboard/problems.py`, in two voices: plain
+  for the clinic, technical for the admin. Alerts stay **in the website**
+  (Harsh, 2026-09-28): every page shows a banner, a bell and "(!)" in the
+  tab, so **any new failure mode gets an incident kind in the same change**,
+  never log-only. `heartbeat.py`: the worker checks in every 30 s from
+  LiveKit's `worker_registered` (not console); stale for 90 s = offline.
 - `clinic_agent/tools/call.py` — our own `end_call` (not LiveKit's
   `EndCallTool`, which could hang up in silence): the goodbye is an argument
   of the tool call, spoken with interruptions off, then the room is deleted.

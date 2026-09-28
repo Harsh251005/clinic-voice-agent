@@ -56,7 +56,7 @@ command.
 uv run python main.py console   # talk over your mic — no LiveKit minutes used
 uv run python main.py console --text   # type instead: LLM only, no STT/TTS cost
 uv run python main.py console --clinic 2   # which clinic, when there are several
-uv run python main.py dev       # join LiveKit rooms it is dispatched to, reloads on save
+uv run python main.py dev       # join LiveKit rooms it is dispatched to; restart it after a code change
 uv run python main.py start     # production worker
 ```
 
@@ -100,6 +100,15 @@ uv run python -m api     # serves /call/<link name> on API_HOST:API_PORT (defaul
    clinic.
 3. The browser joins with the pass, and LiveKit sends the receptionist in for
    that clinic. If it hasn't joined within 20 s, the page says so.
+
+**If the page gives up, it says why and tells us.** Microphone blocked, no
+microphone, couldn't connect, the receptionist didn't answer within 20 s,
+or the line dropped mid-call: the page shows the patient what to do and
+posts a fixed reason code to `POST /call/<link name>/report` (JSON only,
+rate-limited, nothing about the patient). The clinic and the admin panel
+see it as a problem (see *Problems*). A dropped line no longer says "Call
+ended. Thank you!". `GET /healthz/worker` says whether a receptionist is
+connected.
 
 Limits against a shared or leaked link: 5 calls per caller per 10 minutes and
 30 per clinic per hour (`api/app.py`, in memory). Behind a tunnel or proxy
@@ -166,6 +175,44 @@ every clinic?" and never shows patients:
   **delete** it: only once paused and with its exact name typed; removes
   everything of it. A SQLite database is copied first
   (`clinic.db.bak-…`); on Postgres that relies on your own backups.
+
+## Problems: every failure flagged, in the website
+
+Nothing is only in a log. `clinic_agent/incidents.py` decides what counts
+and `api/dashboard/problems.py` words it twice: plain words and what to do
+for the clinic, technical detail for the operator.
+
+| Problem | Opens when | Clinic sees | Closes when |
+|---|---|---|---|
+| Receptionist offline (urgent) | no worker has checked in for 90 s | yes | a worker checks in |
+| A vendor failing | 3+ errors from one vendor in 15 minutes | no | it drops below that |
+| Calls failing | 2+ failed or dropped patient calls in an hour | yes | an hour without |
+| Patients couldn't get through | the call page reports it (by reason) | yes | 2 hours without a report |
+| Server error | an unhandled API error (route and error type only) | no | 15 quiet minutes |
+| Callers can't book | no active doctor, or one without weekly hours | yes | it's fixed |
+| Clinic paused | paused in the admin panel | yes | turned back on |
+| Bookings need a call | upcoming bookings flagged (leave, holiday...) | yes | none left |
+| LiveKit minutes | 80% (urgent at 95%) of the free 1,000 this month | no | next month |
+| Expired transcripts not deleted | the purge fails | no | the next purge works |
+
+- **The worker checks in** every 30 s (`clinic_agent/heartbeat.py`), from
+  the moment LiveKit registers it (connected and ready for calls). Console
+  doesn't. The API re-checks every condition every 30 s.
+- **On every page** of both dashboards: a red banner for urgent problems
+  that can't be put away while they last; amber ones until *Seen*; a bell
+  with every open problem and the last week's fixed ones; "(!)" in the
+  browser tab and a red tab icon; and desktop alerts (*Alert me on this
+  computer* in the bell) for new problems. The admin Health page lists them
+  all, and the Clinics list puts a dot by each clinic with one. Today's
+  receptionist card says *Offline* rather than *Ready* when it is.
+- The clinic's "Seen" and the operator's are separate. A system-wide
+  problem (offline) can't be marked seen by a clinic.
+- Console calls (room `console`) are a developer's tests: they never count
+  as a clinic's failing calls or LiveKit minutes.
+- **The limit:** alerts reach you only while a dashboard is open in some
+  tab, and a server that is completely down can't show anything. Outside
+  alerting (Healthchecks.io or email) was considered and left out for now.
+- Resolved problems are deleted after 90 days.
 
 ## Dashboard (what staff can do)
 
@@ -330,6 +377,8 @@ api/                    call-link server: page + signed join pass (python -m api
     ├── dispatch.py     which clinic a call is for: the agent name + metadata format
     ├── call_limit.py   hard cap on call length: goodbye, then close the room
     ├── call_record.py  each call's trace (timings, tools, errors) + transcript
+    ├── incidents.py    problems: what counts, when one opens and closes
+    ├── heartbeat.py    the worker checking in while connected to LiveKit
     ├── booking.py      booking rules: find slots, validate, book — no LiveKit
     ├── tools/booking.py  slots, book, find/cancel/reschedule as LiveKit tools
     ├── tools/call.py     end_call — speaks the model's goodbye, then hangs up
@@ -345,7 +394,7 @@ api/                    call-link server: page + signed join pass (python -m api
         ├── migrations.py  schema upgrades (Alembic); `python -m` runs them
         ├── purge.py    deletes expired transcripts and old calls; `python -m` runs it
         ├── alembic/    revisions, one file per schema change
-        ├── models.py   clinics, FAQ, doctors, hours, time off, patients, appointments, calls
+        ├── models.py   clinics, FAQ, doctors, hours, time off, patients, appointments, calls, incidents
         └── repo.py     every query the agent and dashboard make
     scheduling.py       free-slot rules — pure functions, no DB, no LiveKit
 seeds/demo_clinic.py    fictional clinic for tests and a first run

@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
-import { useMe } from "@/lib/queries";
+import { useMe, useProblems, useSeenProblem } from "@/lib/queries";
+import { ProblemBanner, ProblemBell, useProblemAlerts } from "@/components/problems/problems";
 import { rememberClinic } from "@/lib/last-clinic";
 import { PRODUCT_NAME } from "@/lib/product";
 import { BrandMark } from "./brand";
@@ -37,6 +38,9 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
   useEffect(() => {
     if (allowed) rememberClinic(clinicId);
   }, [allowed, clinicId]);
+  const problems = useProblems(clinicId, !!allowed);
+  const seen = useSeenProblem(clinicId);
+  useProblemAlerts(problems.data?.open, me.data?.clinics.find((c) => c.id === clinicId)?.name ?? PRODUCT_NAME);
 
   if (me.isPending) return <FullPageLoading />;
   if (me.isError) return <LoadError onRetry={() => me.refetch()} />;
@@ -51,6 +55,11 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
   const staff = clinic?.staff ?? false;
   const pages = PAGES.filter((p) => staff || !p.staff);
   const blocked = !staff && PAGES.some((p) => p.segment === current && p.staff);
+
+  const bell = (
+    <ProblemBell open={problems.data?.open ?? []} recent={problems.data?.recent ?? []} onSeen={(id) => seen.mutate(id)}
+      className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+  );
 
   // Staff of one clinic just see its name; a switcher only when there's a choice.
   const clinicPicker = clinics.length > 1 ? (
@@ -78,7 +87,8 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
       <aside className="hidden flex-col gap-6 bg-sidebar p-4 text-sidebar-foreground md:sticky md:top-0 md:flex md:h-screen">
         <div className="flex items-center gap-2.5 px-2 pt-1">
           <BrandMark className="bg-sidebar-primary text-sidebar-primary-foreground" />
-          <span className="text-base font-semibold tracking-tight text-sidebar-accent-foreground">{PRODUCT_NAME}</span>
+          <span className="flex-1 text-base font-semibold tracking-tight text-sidebar-accent-foreground">{PRODUCT_NAME}</span>
+          {bell}
         </div>
 
         <div className="space-y-1.5 px-2">
@@ -135,6 +145,7 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
       <header className="sticky top-0 z-20 flex items-center gap-3 bg-sidebar px-4 py-3 text-sidebar-foreground md:hidden">
         <BrandMark className="size-7 bg-sidebar-primary text-sidebar-primary-foreground" />
         <div className="min-w-0 flex-1">{clinicPicker}</div>
+        {bell}
         {is_admin && (
           <Button variant="ghost" size="icon" asChild aria-label="Admin panel" title="Admin panel"
             className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
@@ -172,6 +183,7 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
             <FlaskConical className="size-4" aria-hidden /> Test mode: sign-in is off
           </p>
         )}
+        <ProblemBanner open={problems.data?.open ?? []} onSeen={(id) => seen.mutate(id)} seenPending={seen.isPending} />
         {blocked ? <StaffOnly clinicId={clinicId} /> : children}
       </main>
     </div>

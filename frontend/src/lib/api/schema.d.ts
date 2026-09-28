@@ -147,6 +147,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/problems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Problems */
+        get: operations["admin_problems_api_admin_problems_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/problems/{problem_id}/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Seen */
+        post: operations["admin_seen_api_admin_problems__problem_id__seen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/logout": {
         parameters: {
             query?: never;
@@ -519,6 +553,44 @@ export interface paths {
         post?: never;
         /** Remove Member */
         delete: operations["remove_member_api_clinics__clinic_id__members__member_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clinics/{clinic_id}/problems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Clinic Problems */
+        get: operations["clinic_problems_api_clinics__clinic_id__problems_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clinics/{clinic_id}/problems/{problem_id}/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clinic Seen
+         * @description Only the clinic's own problems: a system-wide one (receptionist
+         *     offline) stays up until it's fixed.
+         */
+        post: operations["clinic_seen_api_clinics__clinic_id__problems__problem_id__seen_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1192,6 +1264,51 @@ export interface components {
             /** Sittings */
             sittings: components["schemas"]["Sitting"][];
         };
+        /** Problem */
+        Problem: {
+            /** Action */
+            action: string;
+            /** Clinic Id */
+            clinic_id: number | null;
+            /** Clinic Name */
+            clinic_name: string | null;
+            /** Count */
+            count: number;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /**
+             * Last Seen
+             * Format: date-time
+             */
+            last_seen: string;
+            /** Link */
+            link: string | null;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** Seen */
+            seen: boolean;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "critical" | "warning" | "info";
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            /** Title */
+            title: string;
+        };
+        /** Problems */
+        Problems: {
+            /** Open */
+            open: components["schemas"]["Problem"][];
+            /** Recent */
+            recent: components["schemas"]["Problem"][];
+        };
         /** Sitting */
         Sitting: {
             /**
@@ -1700,6 +1817,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_problems_api_admin_problems_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problems"];
+                };
+            };
+        };
+    };
+    admin_seen_api_admin_problems__problem_id__seen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problem_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
                 };
             };
             /** @description Validation Error */
@@ -2532,6 +2700,69 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clinic_problems_api_clinics__clinic_id__problems_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problems"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clinic_seen_api_clinics__clinic_id__problems__problem_id__seen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                problem_id: number;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
                 };
             };
             /** @description Validation Error */

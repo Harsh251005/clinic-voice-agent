@@ -26,9 +26,11 @@ from clinic_agent.store.models import (
     ClinicMember,
     Doctor,
     DoctorHours,
+    Incident,
     Patient,
     TimeOff,
     TranscriptAccess,
+    WorkerHeartbeat,
 )
 
 
@@ -713,6 +715,109 @@ def call_counts(s: Session, since: datetime) -> dict[int, tuple[int, int, dateti
     for cid, at in last.items():
         out.setdefault(cid, (0, 0, at))
     return out
+
+
+# ---------- health ----------
+
+CONSOLE_ROOM = "console"  # LiveKit's local console: a developer's test, not a patient's call
+
+
+def beat(s: Session, worker: str, host: str, now: datetime) -> None:
+    """A worker checking in: connected to LiveKit, ready for calls."""
+    row = s.scalar(select(WorkerHeartbeat).where(WorkerHeartbeat.worker == worker))
+    if row is None:
+        s.add(WorkerHeartbeat(worker=worker, host=host[:200], started_at=now, last_seen=now))
+    else:
+        row.last_seen = now
+    try:
+        s.commit()
+    except IntegrityError:  # its first beat raced with itself (a retry): the row exists now
+        s.rollback()
+
+
+def last_beat(s: Session) -> datetime | None:
+    """When any worker last checked in (UTC), or None if none ever has."""
+    return s.scalar(select(func.max(WorkerHeartbeat.last_seen)))
+
+
+def prune_beats(s: Session, before: datetime) -> None:
+    """Forget workers gone since then (each restart is a new worker id)."""
+    s.execute(delete(WorkerHeartbeat).where(WorkerHeartbeat.last_seen < before))
+    s.commit()
+
+
+def incident_key(kind: str, clinic_id: int | None, subject: str) -> str:
+    return f"{kind}:{clinic_id or '-'}:{subject}"
+
+
+def hold_incident(
+    s: Session, *, kind: str, severity: str, now: datetime,
+    clinic_id: int | None = None, subject: str = "", detail: str = "", bump: bool = False,
+) -> Incident:
+    """Open the incident, or keep the open one current. `bump` counts a new
+    occurrence (an event); without it the call just says "still true" (a
+    condition re-checked). A higher severity escalates it; a lower one
+    applies too, since the condition is what it is now."""
+    key = incident_key(kind, clinic_id, subject)
+    for first_try in (True, False):
+        row = s.scalar(select(Incident).where(Incident.key == key, Incident.resolved_at.is_(None)))
+        if row is None:
+            row = Incident(key=key, kind=kind, subject=subject[:100], clinic_id=clinic_id, severity=severity,
+                           detail=detail[:300], opened_at=now, last_seen_at=now)
+            s.add(row)
+        else:
+            row.last_seen_at, row.severity, row.detail = now, severity, detail[:300]
+            if bump:
+                row.count += 1
+        try:
+            s.commit()
+            return row
+        except IntegrityError:
+            # Another process opened the same incident first: update theirs.
+            s.rollback()
+            if not first_try:
+                raise
+    raise AssertionError("unreachable")
+
+
+def open_incidents(s: Session) -> list[Incident]:
+    return list(s.scalars(select(Incident).where(Incident.resolved_at.is_(None))))
+
+
+def resolve_incident(s: Session, incident_id: int, now: datetime) -> None:
+    row = _get(s, Incident, incident_id)
+    if row.resolved_at is None:
+        row.resolved_at = now
+        s.commit()
+
+
+def list_incidents(s: Session, *, since: datetime, clinic_id: int | None = None, system: bool = True) -> list[Incident]:
+    """Open incidents, and those resolved since then, newest first.
+    `clinic_id` narrows to that clinic's (plus system-wide ones if `system`);
+    None returns every clinic's."""
+    q = select(Incident).where(or_(Incident.resolved_at.is_(None), Incident.resolved_at >= since))
+    if clinic_id is not None:
+        mine = Incident.clinic_id == clinic_id
+        q = q.where(or_(mine, Incident.clinic_id.is_(None)) if system else mine)
+    return list(s.scalars(q.order_by(Incident.opened_at.desc(), Incident.id.desc())))
+
+
+def mark_incident_seen(s: Session, incident_id: int, side: str, now: datetime) -> Incident:
+    row = _get(s, Incident, incident_id)
+    setattr(row, "seen_by_clinic_at" if side == "clinic" else "seen_by_admin_at", now)
+    s.commit()
+    return row
+
+
+def delete_old_incidents(s: Session, before: datetime) -> int:
+    n = s.execute(delete(Incident).where(Incident.resolved_at < before)).rowcount
+    s.commit()
+    return n
+
+
+def patient_calls_since(s: Session, since: datetime) -> list[Call]:
+    """Calls from patients (not the developer console) started since then."""
+    return list(s.scalars(select(Call).where(Call.started_at >= since, Call.room != CONSOLE_ROOM)))
 
 
 def _is_slot_clash(err: IntegrityError) -> bool:
