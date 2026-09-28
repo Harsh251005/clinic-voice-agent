@@ -1,0 +1,67 @@
+# The whole system on one machine:
+#
+#   docker compose up --build                 dashboard http://localhost:3000, demo clinic filled in
+#   docker compose --profile voice up --build  ...plus the voice agent (needs keys in backend/.env)
+#
+# LOCAL DEMO SETTINGS: sign-in is off, so anyone who can reach port 3000 is an
+# admin. Never expose this stack to a network as it is.
+name: clinicdesk
+
+x-backend: &backend
+  build: ./backend
+  env_file:
+    - path: compose.demo.env # safe placeholders, so the dashboard runs with no keys at all
+    - path: backend/.env # your real keys, when present, override them
+      required: false
+  environment: &backend-env
+    DATABASE_URL: postgresql+psycopg://clinic:clinic-demo@postgres:5432/clinic
+    API_HOST: 0.0.0.0 # inside a container; backend/.env's local value must not win
+    API_PORT: "8080"
+    DASHBOARD_LOGIN: "off"
+    PUBLIC_BASE_URL: http://localhost:8080
+    DASHBOARD_URL: http://localhost:3000
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: clinic
+      POSTGRES_PASSWORD: clinic-demo
+      POSTGRES_DB: clinic
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clinic"]
+      interval: 3s
+      retries: 20
+
+  # Schema up to date, then the fictional demo clinic and a lived-in day,
+  # only into an empty database. Runs once per `up`, then exits.
+  setup:
+    <<: *backend
+    command: ["sh", "-c", "python -m clinic_agent.store.migrations && python -m seeds.demo_clinic --if-empty && python -m seeds.demo_day"]
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  api:
+    <<: *backend
+    ports: ["8080:8080"] # patients' call pages, and the dashboard's API
+    depends_on:
+      setup: {condition: service_completed_successfully}
+
+  web:
+    build:
+      context: ./frontend
+      args: {API_ORIGIN: http://api:8080}
+    ports: ["3000:3000"]
+    depends_on: [api]
+
+  # The voice agent: needs LIVEKIT_* and the selected vendors' keys in backend/.env.
+  worker:
+    <<: *backend
+    profiles: [voice]
+    command: ["python", "main.py", "start"]
+    depends_on:
+      setup: {condition: service_completed_successfully}
+
+volumes:
+  pgdata:
