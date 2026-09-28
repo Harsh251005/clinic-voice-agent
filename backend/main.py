@@ -19,7 +19,6 @@ import sys
 
 from livekit.agents import JobContext, WorkerOptions, cli
 
-from clinic_agent import errors
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.call_limit import end_after
 from clinic_agent.call_record import CallRecorder, stack_of
@@ -63,7 +62,6 @@ def _take_clinic_flag(argv: list[str]) -> int | None:
 
 async def entrypoint(ctx: JobContext) -> None:
     cfg = load_settings()
-    errors.start(cfg, "worker")  # per process: dev/start run each job in a child
 
     try:
         clinic_id = clinic_id_from(ctx.job.metadata, fallback=LOCAL_CLINIC)
