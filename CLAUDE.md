@@ -140,6 +140,9 @@ The pipeline is split so each concern lives in exactly one module:
   `repo.SlotTaken`, never SQLAlchemy errors. **Only `store/` imports
   SQLAlchemy.** Double booking is prevented by a partial unique index, not by
   code; only that index's violation may become `SlotTaken` (`_is_slot_clash`).
+  So visit marks (arrived/done/no-show) are their own column
+  `appointments.visit`, **never a status**: any status but `booked` frees
+  the slot.
   Patients are unique on (clinic, phone, name): families share phones, and a
   new name must never rename an existing patient. **Schema changes = an
   Alembic revision** (`store/alembic/versions/`, `uv run alembic revision

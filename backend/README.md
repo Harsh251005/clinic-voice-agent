@@ -182,9 +182,28 @@ instructions in its README); every action below is an `/api` endpoint here.
   and the receptionist's setup checklist (address and phone, doctors, their
   hours, common questions, a test call) with *Try a call* and *Copy link*.
   All times are shown as 12-hour clock times.
-- **Appointments**, one day at a time, grouped by doctor, each tagged
-  *By receptionist* or *By staff*, with the reason for the visit.
-  Counters for the day, bookings from calls, and the next seven days.
+- **Appointments** is the diary. **Day**: a column per doctor, time running
+  down; working hours white, the rest shaded, leave and holidays labelled
+  with the reason, a red line at the clinic's current time. **Free slots are
+  drawn and clickable**: the booking form opens with that doctor and time
+  filled in. Each booking is a block (a phone icon: booked by the
+  receptionist; a warning icon: call the patient; a key under the grid
+  explains them); clicking it opens its menu: call the patient, mark the
+  visit, edit, cancel. On a phone the day is one doctor at a time, as a list with
+  the free times as tap targets. **Week** (Mon–Sun): per doctor per day who
+  is booked, how many slots are free, or why the doctor isn't in; any day
+  opens as its diary page. **Find a patient** by part of the name or 3+
+  digits of the number, upcoming first, then past ones, cancelled included
+  (`/appointments/search`, 50 at most). Counters for the day (with how many
+  arrived, done, no-show), bookings from calls, and the next seven days.
+  View, day and search are in the URL.
+- **Visit marks: Arrived, Done, No-show**, from a booking's menu, on its day
+  or later (not ahead of time); tapping the mark again clears it. They are
+  `appointments.visit`, **not a status**: the double-booking index and every
+  slot query look at `status = 'booked'`, so a patient in the waiting room
+  still holds their slot. Cancelling or moving a booking clears its mark.
+  The receptionist doesn't list a visit already marked and refuses to cancel
+  or move it on a call ("the front desk can help").
 - **Calls** (`api/dashboard/calls.py`, members only): every call newest
   first, in plain words ("Booked Riya Sharma with Dr. Asha Mehta · Sun, 27
   Sept, 10:00 am", "The caller asked a question", "The call was cut off").
@@ -194,9 +213,12 @@ instructions in its README); every action below is an `/api` endpoint here.
   days; the call's line stays. Each time ClinicDesk support opened the
   transcript is listed with the reason given.
 - **Staff have the final say.** *New appointment* books a walk-in or a
-  booking taken on the clinic's own phone; *Edit* on any row changes the
+  booking taken on the clinic's own phone; *Edit* on any booking changes the
   doctor, day, time, patient's name and number, or the reason; *Cancel*
-  asks first and frees the slot. The form offers the doctor's free times as
+  frees the slot at once and offers **Undo** for 8 seconds instead of
+  asking first. Undo (`/restore`) puts the booking back at the same doctor
+  and time, unless someone (a caller, say) booked that time meanwhile: then
+  it says so and the booking stays cancelled. The form offers the doctor's free times as
   quick picks **and accepts any time typed in** — outside hours, on leave,
   off the slot grid — because a clinic squeezes people in. The only thing
   refused is overlapping another booking of the same doctor, and the
@@ -229,8 +251,10 @@ instructions in its README); every action below is an `/api` endpoint here.
   tell the patients first.
 - **Bookings that can no longer go ahead are flagged.** Existing bookings
   stay booked when staff add leave or a holiday, change a doctor's hours or
-  deactivate them. The Appointments page marks each one *Call the patient:*
-  with the reason, and adding leave lists the clashing bookings at once.
+  deactivate them. The diary marks each one with a warning icon (its menu
+  says *Call the patient:* with the reason), Today lists them under Needs
+  attention, and
+  adding leave lists the clashing bookings at once.
   The agent sees the same flag when a caller looks their bookings up, and
   offers to move or cancel.
 - **Sign-in is with Google.** Admins (`ADMIN_EMAILS`) see every clinic's
@@ -451,7 +475,9 @@ write the same tables through `store/repo.py`.
 
 - **Double booking is impossible at the database level** — a partial unique
   index on (doctor, start time) for booked appointments. A second booking
-  raises `repo.SlotTaken`; a cancelled slot can be rebooked.
+  raises `repo.SlotTaken`; a cancelled slot can be rebooked. That is why
+  visit marks live in their own column: a status other than `booked` would
+  free the slot.
 - **Split shifts** are several `doctor_hours` rows for one weekday (e.g.
   10–1 and 5–8). **Time off** with no doctor is a whole-clinic holiday.
 - **Each clinic has a link name** (`slug`, e.g. `sharma-skin-clinic`), made

@@ -43,11 +43,14 @@ src/app/                         routes
   page.tsx                       "/": sign in, or go to a clinic
   clinics/[clinicId]/layout.tsx  the signed-in frame (AppShell)
   clinics/[clinicId]/today        home: the day at a glance
-  clinics/[clinicId]/appointments, setup
+  clinics/[clinicId]/appointments the diary: day grid (list on phones), week, find a patient
+  clinics/[clinicId]/setup
   new-clinic/                    admins only
   admin/                         the operator's admin panel (admins only): health, calls, errors, clinics
 src/components/app/              app pieces: shell, gates (sign-in, no access), brand
 src/components/admin/            the admin panel's shell (slate ink + amber, never teal) and shared bits
+src/components/appointments/     the diary: day grid, phone list, week, search, the booking form,
+                                 and one menu per booking (visit marks, edit, cancel with Undo)
 src/components/calls/            a call's transcript as a conversation
 src/components/today/            the Today page's panels
 src/components/ui/               shadcn/ui components (ours to edit)
@@ -56,6 +59,8 @@ src/lib/queries.ts               data hooks (TanStack Query)
 src/lib/admin.ts                 admin panel hooks and the words for outcomes, end reasons, timings
 src/lib/dates.ts                 clinic-local dates; 12-hour times for everything staff read
 src/lib/clinic-day.ts            open now?, who's in today, setup checklist
+src/lib/clinic-now.ts            the clinic's ticking clock; useWide() picks the phone or desk layout
+src/lib/visit.ts                 visit marks (Arrived, Done, No-show): word, icon, colour
 src/lib/product.ts               the product name
 ```
 

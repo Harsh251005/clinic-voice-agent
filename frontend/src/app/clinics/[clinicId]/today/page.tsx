@@ -1,7 +1,7 @@
 "use client";
 // Today: the front desk's home. Who is in, who is next, what needs a call,
 // and what the clinic still has to set up for its receptionist.
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AlertCircle, CalendarPlus } from "lucide-react";
@@ -14,25 +14,13 @@ import { DoctorDay } from "@/components/today/doctor-day";
 import { OpenBadge } from "@/components/today/open-badge";
 import { Receptionist } from "@/components/today/receptionist";
 import { Summary } from "@/components/today/summary";
-import { longDay, nowIn } from "@/lib/dates";
+import { useClinicNow } from "@/lib/clinic-now";
+import { longDay } from "@/lib/dates";
 import { useCallsToday, useClinic, useDay } from "@/lib/queries";
 
 function greeting(time: string) {
   const hour = Number(time.slice(0, 2));
   return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-}
-
-/** The clinic's clock, ticking once a minute so "next" and "open" stay true. */
-function useClinicNow(timezone: string | undefined) {
-  const [now, setNow] = useState(() => (timezone ? nowIn(timezone) : null));
-  useEffect(() => {
-    if (!timezone) return;
-    const tick = () => setNow(nowIn(timezone));
-    tick();
-    const id = setInterval(tick, 60_000);
-    return () => clearInterval(id);
-  }, [timezone]);
-  return now;
 }
 
 export default function TodayPage() {
