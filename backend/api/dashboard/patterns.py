@@ -15,9 +15,3 @@ PRESETS: dict[str, list[tuple[int, time, time]]] = {
     "Mon–Sat, 5–8 pm": [(d, *EVENING) for d in MON_TO_SAT],
     "Mon–Fri, 9 am–5 pm": [(d, time(9, 0), time(17, 0)) for d in range(5)],
 }
-DEFAULT = "Mon–Sat, 10 am–1 pm and 5–8 pm"
-NONE = "No hours yet"
-
-
-def same_as(doctor) -> list[tuple[int, time, time]]:
-    return [(h.weekday, h.start, h.end) for h in doctor.hours]

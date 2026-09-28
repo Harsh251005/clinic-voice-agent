@@ -51,6 +51,15 @@ class _Checked:
     caller_turns: int  # caller messages heard when it was checked
 
 
+@dataclass(frozen=True)
+class _Pending:
+    """A cancel or move read back to the caller, waiting for their yes."""
+
+    action: str  # "cancel" | "move"
+    key: tuple  # what exactly: the same call again means "they said yes"
+    caller_turns: int  # caller messages heard when it was read back
+
+
 def _caller_turns(ctx: RunContext | None) -> int | None:
     """How many times the caller has spoken this call. None without a
     session: tests that call a tool directly have no caller."""
@@ -63,6 +72,7 @@ def booking_tools(link: ClinicLink) -> list:
     said: set[str] = set()  # replies whose "one moment" was already spoken
     checked: list[_Checked] = []  # the one booking awaiting the caller's yes (a call's tools are its own)
     missed: list[int] = [0]  # lookups this call that matched nobody
+    pending: list[_Pending] = []  # the one cancel or move awaiting the caller's yes
 
     async def run(ctx: RunContext | None, fn: Callable, *args):
         def work():
@@ -78,6 +88,26 @@ def booking_tools(link: ClinicLink) -> list:
         if isinstance(result, booking.Changed) and link.on_change:
             link.on_change(result.appointment_id, result.action)
         return str(result)
+
+    async def confirmed(ctx: RunContext | None, action: str, key: tuple, check: Callable, act: Callable, args: tuple,
+                        ask: str, read_back: Callable[[str], str]) -> str:
+        """Confirm by repeating, enforced in code (as book_appointment is):
+        the first call only checks and returns the read-back; the same call
+        again acts, and only if the caller has spoken since. The model's own
+        word that the caller agreed is never enough."""
+        turns = _caller_turns(ctx)
+        p = pending[0] if pending else None
+        if p and (p.action, p.key) == (action, key):
+            if turns is not None and turns <= p.caller_turns:
+                raise ToolError(
+                    f"Not done: the caller hasn't answered yet. Read back what the first call "
+                    f"returned, ask {ask}, and wait for a yes."
+                )
+            pending.clear()
+            return await run(ctx, act, *args)
+        details = await run(ctx, check, *args)
+        pending[:] = [_Pending(action, key, turns or 0)]
+        return read_back(details)
 
     @function_tool
     async def find_available_slots(
@@ -197,26 +227,26 @@ def booking_tools(link: ClinicLink) -> list:
             raise
 
     @function_tool
-    async def cancel_appointment(
-        ctx: RunContext, appointment_id: int, patient_phone: str, patient_name: str, caller_confirmed: bool
-    ) -> str:
-        """Cancel one of the caller's appointments. Call only after reading it back.
+    async def cancel_appointment(ctx: RunContext, appointment_id: int, patient_phone: str, patient_name: str) -> str:
+        """Cancel one of the caller's appointments, in two calls.
+
+        The first call cancels nothing: it checks and returns what to read
+        back. Read it back and ask if they want it cancelled. Only after they
+        say yes, call again with the same appointment to cancel it.
 
         Args:
             appointment_id: The appointment number from find_my_appointments.
             patient_phone: The mobile number it was booked with.
             patient_name: The patient's name, in Roman letters, as for find_my_appointments.
-            caller_confirmed: True only if you read back the doctor, day and time
-                and the caller clearly said yes, cancel it.
         """
-        if not caller_confirmed:
-            raise ToolError(
-                "Not cancelled. Read the doctor, day and time back to the caller and "
-                "cancel only after they say yes."
-            )
-        return await run(
-            ctx, booking.cancel_booking, appointment_id, patient_phone, patient_name,
-            clinic_now(link.timezone),
+        args = (appointment_id, patient_phone, patient_name, clinic_now(link.timezone))
+        return await confirmed(
+            ctx, "cancel", (appointment_id,), booking.check_cancel, booking.cancel_booking, args,
+            ask="if they want it cancelled",
+            read_back=lambda d: (
+                f"Not cancelled yet. Read this back to the caller in one sentence and ask if they want it "
+                f"cancelled: {d}. If they say yes, call cancel_appointment again with the same appointment."
+            ),
         )
 
     @function_tool
@@ -227,10 +257,14 @@ def booking_tools(link: ClinicLink) -> list:
         patient_name: str,
         date: str,
         time: str,
-        caller_confirmed: bool,
         doctor_name: str = "",
     ) -> str:
-        """Move one of the caller's appointments to a new free time. Call only after reading it back.
+        """Move one of the caller's appointments to a new free time, in two calls.
+
+        The first call moves nothing: it checks the new time and returns the
+        old and new details to read back. Read them back and ask if that's
+        right. Only after they say yes, call again with the same details to
+        move it.
 
         Args:
             appointment_id: The appointment number from find_my_appointments.
@@ -238,19 +272,18 @@ def booking_tools(link: ClinicLink) -> list:
             patient_name: The patient's name, in Roman letters, as for find_my_appointments.
             date: The new day as YYYY-MM-DD.
             time: The new start time as HH:MM (24-hour), one of the free times found.
-            caller_confirmed: True only if you read back the old and new day and
-                time and the caller clearly said yes.
             doctor_name: Only if the caller wants a different doctor; empty keeps the same one.
         """
-        if not caller_confirmed:
-            raise ToolError(
-                "Not moved. Read the old and the new day and time back to the caller and "
-                "move it only after they say yes."
-            )
-        return await run(
-            ctx, booking.reschedule_booking, appointment_id, patient_phone, patient_name,
-            _date(date), _time(time),
-            clinic_now(link.timezone), doctor_name or None,
+        day, start = _date(date), _time(time)
+        args = (appointment_id, patient_phone, patient_name, day, start, clinic_now(link.timezone), doctor_name or None)
+        key = (appointment_id, day, start, doctor_name.strip().lower())
+        return await confirmed(
+            ctx, "move", key, booking.check_reschedule, booking.reschedule_booking, args,
+            ask="if the new time is right",
+            read_back=lambda d: (
+                f"Not moved yet. Read this back to the caller in one sentence and ask if it's right: move {d}. "
+                f"If they say yes, call reschedule_appointment again with the same details."
+            ),
         )
 
     return [

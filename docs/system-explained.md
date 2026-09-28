@@ -1,8 +1,9 @@
 # The clinic voice agent, explained simply
 
 A plain-language tour of the whole system: what is built, why, and how.
-Written 2026-09-25 against commit `1df353d`, checked against the code, with the
-offline suite at 312 passing. If the code and this file disagree, the code wins.
+Written 2026-09-25 against commit `1df353d`; sections 6, 7, 10 and 13 updated
+2026-09-28 (diary, problems, confirm-by-repeating), with the offline suite at
+411 passing. If the code and this file disagree, the code wins.
 `CLAUDE.md` and `backend/README.md` are the maintained sources of truth.
 
 ---
@@ -187,8 +188,8 @@ The brain can't touch the database itself. It can only press these buttons
 | `check_booking(doctor, date, time, name, phone, reason)` | **Books nothing.** Checks that the time is still free and returns the details to read back |
 | `book_appointment()` | **Takes no inputs.** Books exactly what was last checked |
 | `find_my_appointments(phone, name)` | Lists that patient's upcoming bookings |
-| `cancel_appointment(...)` | Cancels one booking |
-| `reschedule_appointment(...)` | Moves one booking to a new free time |
+| `cancel_appointment(...)` | First call: checks and returns the read-back. Same call again, after the caller's yes: cancels |
+| `reschedule_appointment(...)` | The same, for moving a booking to a new free time |
 | `end_call(goodbye)` | Says the goodbye, then hangs up |
 
 **How a button works inside**, like a toy with a battery box: the **rules** live
@@ -214,6 +215,8 @@ enforced in code, not left to the instructions.**
 | Problem seen | Safety net in code |
 |---|---|
 | The robot booked **before reading the details back** (gpt-6-luna did this in 3 of 4 runs) | **Check, then book.** `book_appointment` takes no inputs and only books what `check_booking` returned, and only once the caller has **spoken again since the check**. The code counts the caller's turns. |
+| The same risk when cancelling or moving | **Confirm by repeating.** The first `cancel_appointment` / `reschedule_appointment` call changes nothing and returns the read-back; the same call again acts, and only once the caller has spoken since. |
+| A patient already at the clinic calls to cancel | A visit marked Arrived, Done or No-show isn't listed to callers and can't be changed on a call |
 | A stranger tries name after name on someone else's number | `find_my_appointments` needs **number and name together**, and allows **3 misses per call**, then stops |
 | The robot hinted at other people's bookings | Wrong id, wrong number and wrong name all return **the same message**, so a guess reveals nothing. The visit reason (health information) is **never read out**. |
 | Families share one phone | A patient is identified by **(clinic, phone, name)**, and a new name never renames an existing patient |
@@ -299,11 +302,26 @@ phone line, not by rebuilding it.
 **The screens** (Next.js, `frontend/`) are only screens. All logic lives in the
 Python backend.
 
-- **Today**: each doctor's day, a receptionist status, and **"Needs
-  attention"**: bookings that can't go ahead as booked, because of leave, a
-  holiday or changed hours, so someone should call the patient.
-- **Appointments**: the diary for any day. Book, edit or cancel, with
-  quick-pick free times.
+- **Today**: each doctor's day, a receptionist status (it says *Offline*
+  when it is), today's calls, and **"Needs attention"**: bookings that can't
+  go ahead as booked, because of leave, a holiday or changed hours, and
+  callers who may not have been helped.
+- **Appointments**: a real diary. A column per doctor with time running
+  down; click a free slot to book it; click a booking to mark the visit
+  (Arrived, Done, No-show), edit it or cancel it, with **Undo** instead of
+  "are you sure?". A week view, and a search by name or number. On a phone,
+  one doctor at a time.
+- **Calls**: every call to the clinic and what was said (the conversation
+  only; the tools and vendor errors are the operator's).
+- **Problems, on every page**: a red banner when something is badly wrong
+  (the receptionist offline), amber ones for the rest (patients who couldn't
+  get through, callers who can't book because a doctor has no hours), a bell
+  with the list, and "(!)" in the browser tab. See the backend README's
+  *Problems*.
+- **Admin panel** (`/admin`, the operator only): health across clinics,
+  every call's trace with timings, vendor errors, the clinics themselves. It
+  never shows patients; a transcript opens only with a written reason, and
+  the clinic sees that it was opened.
 - **Setup**: clinic details, doctors, hours (with preset patterns, so you don't
   type every day), time off, FAQ, team and the call link.
 - The UI is branded **ClinicDesk**, English only, and works on phones with
@@ -383,18 +401,17 @@ The goal behind all of these: keep the cost of changing something low.
 
 ---
 
-## 13. What's NOT built (as of 2026-09-25)
+## 13. What's NOT built (as of 2026-09-28)
 
 | Missing | What it means |
 |---|---|
 | **Phone numbers (telephony)** | Browser link only. No real number yet, so no caller ID. |
 | **Caller ID** | So identity is "tell me your number and name", which anyone who knows both could use |
-| **Cancel/reschedule are still gated by the model** | They still rely on the brain setting `caller_confirmed=true`. Booking was fixed to be enforced in code; cancel and reschedule weren't yet. |
 | **Deployment** (Docker, CI, a server) | Runs on a laptop today |
-| **Call records and transcripts** | Nothing is stored about a call except the bookings. 30-day transcripts are planned (Stage 4). |
-| **Backup vendor if one goes down** (no FallbackAdapter) | If Sarvam is down, calls fail. No "worker is down" alert either. |
-| **Error tracking** | No Sentry-style alerts |
-| **DPDP** (India's data protection law) | No retention policy, backups or privacy notice yet |
+| **Backup vendor if one goes down** (no FallbackAdapter) | If Sarvam is down mid-call, the call fails. It is flagged on both dashboards, but nothing takes over. (Planned.) |
+| **Alerts outside the website** | Problems show only while a dashboard is open; a server that is completely down can't show anything |
+| **DPDP** (India's data protection law) | Transcripts are deleted after 30 days and no audio is kept, but there are no scheduled backups, privacy notice or patient data export yet |
+| **A richer patient page** | Patients get a plain call page; a clinic page with Call and Book buttons and a share kit (QR poster, WhatsApp) is planned |
 | **The full Sarvam stack has never done a complete booking call with tools** | The production stack is the least tested one |
 | **Messages, callbacks, transfer to a human, SMS/WhatsApp confirmations, payments, reminders** | None built, which is why the robot is forbidden to promise them |
 | **Roles inside a clinic** (owner vs front desk) | Not decided yet. Every team member can do everything for that clinic. |

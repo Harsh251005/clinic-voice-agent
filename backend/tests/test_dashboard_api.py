@@ -356,7 +356,7 @@ def test_bad_hours_are_explained_and_add_nobody(world):
     base = f"/api/clinics/{world['cure']}"
     overlap = [{"weekday": 1, "start": "10:00", "end": "13:00"}, {"weekday": 1, "start": "12:00", "end": "15:00"}]
     r = c.post(f"{base}/doctors", json={"name": "Dr. Overlap", "fee": 0, "slot_minutes": 15, "hours": overlap})
-    assert r.status_code == 422 and "sittings on Tuesday overlap" in r.json()["detail"]
+    assert r.status_code == 422 and "Sessions on Tuesday overlap" in r.json()["detail"]
     assert [d["name"] for d in c.get(base).json()["doctors"]] == ["Dr. Khushboo"]
 
 
@@ -464,7 +464,7 @@ def test_staff_cant_double_book_a_doctor(world):
     c = client_as("reception@cure.in")
     base = f"/api/clinics/{world['cure']}"
     r = c.post(f"{base}/appointments", json=_booking(world, starts_at="2026-12-07T10:10"))  # Harsh 10:00-10:15
-    assert r.status_code == 422 and "already has Harsh from 10:00 to 10:15" in r.json()["detail"]
+    assert r.status_code == 422 and "already has Harsh from 10 am to 10:15 am" in r.json()["detail"]
     bad = c.post(f"{base}/appointments", json=_booking(world, patient_phone="12345"))
     assert bad.status_code == 422 and "10-digit" in bad.json()["detail"]
 

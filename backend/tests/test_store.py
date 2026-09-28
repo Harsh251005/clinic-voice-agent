@@ -229,7 +229,7 @@ def test_removing_a_member_revokes_access(db):
 def test_overlapping_sittings_on_a_day_are_refused(db):
     s, clinic_id = db
     doctor = repo.get_clinic(s, clinic_id).doctors[0]
-    with pytest.raises(ValueError, match="sittings on Tuesday overlap"):
+    with pytest.raises(ValueError, match="Sessions on Tuesday overlap: one starts at 12 pm, before the other ends at 1 pm"):
         repo.set_doctor_hours(s, doctor.id, [(1, time(10), time(13)), (1, time(12), time(15))])
     # back to back is fine, and the same times on different days are too
     repo.set_doctor_hours(s, doctor.id, [(1, time(10), time(13)), (1, time(13), time(15)), (2, time(12), time(15))])

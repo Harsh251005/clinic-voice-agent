@@ -1,13 +1,15 @@
 # Clinic Voice Agent — backend
 
-Stage 1: you speak, it answers. LiveKit Agents handles audio and turn-taking.
-Default testing stack: Sarvam for speech-to-text, OpenAI for the reasoning,
-ElevenLabs for the voice. Sarvam can do all three — switch in `.env`.
+A Hindi/Hinglish voice receptionist for Indian clinics. A caller talks to it
+from a browser link (no phone numbers yet); it answers from the clinic's own
+data, books, moves and cancels appointments, and hangs up when the caller is
+done. Clinic staff run their day in the dashboard (Next.js, `../frontend/`,
+over the API here); the operator watches every clinic from its admin panel.
 
-Stage 2: the agent answers from each clinic's own data, books appointments
-and hangs up when the caller is done; clinic staff set everything up and see
-bookings in the dashboard (Next.js, `../frontend/`, over the API here). No
-telephony yet: patients call from a browser link.
+LiveKit Agents handles the audio and turn-taking. Speech-to-text, the
+language model and the voice are each a vendor you pick in `.env`: Sarvam
+for all three in production, and ElevenLabs STT + OpenAI + ElevenLabs TTS
+for testing, to save Sarvam credits.
 
 ## Setup
 
@@ -448,8 +450,13 @@ write the same tables through `store/repo.py`.
 - **Cancelling and moving** (three more tools): `find_my_appointments` needs
   the mobile number **and the patient's name**, and lists only that patient's
   upcoming bookings (family members sharing the number stay hidden), without
-  the visit reason. `cancel_appointment` and `reschedule_appointment` need
-  both too, and act only with `caller_confirmed` after a read-back. Names are
+  the visit reason, and leaves out a visit already marked at the clinic.
+  `cancel_appointment` and `reschedule_appointment` need both too, and
+  **confirm by repeating, enforced in code**: the first call changes
+  nothing and returns the read-back; the same call again acts, and only if
+  the caller has spoken since (a change of time or doctor is a new
+  read-back). The model's own word that the caller agreed is never enough,
+  as with booking. Names are
   compared on the first name, spelling-tolerant ("Meena"/"Mina", "Ravi
   ji"/"Ravi Kumar"); tools take them in Roman letters, as booking stores them. A move is one database
   update: the appointment keeps its number, and the double-booking index

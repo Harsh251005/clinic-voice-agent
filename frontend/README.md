@@ -75,3 +75,9 @@ src/lib/product.ts               the product name
 - Next.js 16 differs from older versions (async `params`, `proxy` instead
   of `middleware`). Read `node_modules/next/dist/docs/` before changing
   framework-level code (see `AGENTS.md`).
+- **Held back on purpose** (checked 2026-09-28; retry when the tools catch
+  up): **ESLint 10** crashes inside the React plugin that
+  `eslint-config-next` bundles; **TypeScript 7** breaks ESLint and
+  `openapi-typescript` (`npm run api:types`). TypeScript 6 works, and the
+  `overrides` entry in `package.json` states it for `openapi-typescript`,
+  which still declares TypeScript 5 but generates identical types.

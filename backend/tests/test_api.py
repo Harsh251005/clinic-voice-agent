@@ -3,6 +3,7 @@
 import base64
 import json
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 from livekit import api as lk
@@ -119,7 +120,7 @@ def test_a_tampered_pass_is_rejected(client):
     claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
     claims["roomConfig"]["agents"][0]["metadata"] = '{"clinic_id": 2}'
     forged = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
-    with pytest.raises(Exception):
+    with pytest.raises(jwt.InvalidSignatureError):  # the signature, not some other failure
         _claims(f"{head}.{forged}.{sig}")
 
 

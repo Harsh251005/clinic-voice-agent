@@ -85,7 +85,7 @@ test("a double booking is refused with a reason", async ({ page }) => {
   await page.getByLabel("Mobile number").fill("9819033333");
   await page.getByLabel("Time", { exact: true }).fill("11:05");
   await page.getByRole("button", { name: "Book appointment" }).click();
-  await expect(page.getByText(/already has .* from 11:05 to 11:20/)).toBeVisible();
+  await expect(page.getByText(/already has .* from 11:05 am to 11:20 am/)).toBeVisible();
 });
 
 test("a new doctor starts with the common week", async ({ page }) => {

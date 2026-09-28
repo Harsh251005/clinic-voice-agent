@@ -16,7 +16,7 @@ function covers(t: Schemas["TimeOff"], day: string) {
   return t.date_from <= day && day <= t.date_to;
 }
 
-export function clinicHoliday(clinic: Clinic, day: string): Schemas["TimeOff"] | undefined {
+function clinicHoliday(clinic: Clinic, day: string): Schemas["TimeOff"] | undefined {
   return clinic.time_off.find((t) => t.doctor_id === null && covers(t, day));
 }
 
