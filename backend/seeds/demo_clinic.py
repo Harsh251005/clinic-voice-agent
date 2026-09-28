@@ -1,6 +1,7 @@
 """A fictional clinic for tests and a first run. Real clinics use the dashboard.
 
-    uv run python -m seeds.demo_clinic     # seed the DATABASE_URL database
+    uv run python -m seeds.demo_clinic             # seed the DATABASE_URL database
+    uv run python -m seeds.demo_clinic --if-empty  # the same, and a no-op once any clinic exists
 """
 
 from __future__ import annotations
@@ -42,6 +43,8 @@ def seed_demo(s: Session) -> int:
 
 
 if __name__ == "__main__":
+    import sys
+
     from clinic_agent.config import load_settings
     from clinic_agent.store import migrations
     from clinic_agent.store.db import make_engine, session_factory
@@ -51,5 +54,7 @@ if __name__ == "__main__":
     migrations.upgrade(engine)
     with session_factory(engine)() as s:
         if repo.list_clinics(s):
+            if "--if-empty" in sys.argv:  # docker compose runs this on every start
+                raise SystemExit(0)
             raise SystemExit("database already has a clinic; not seeding")
         print(f"seeded demo clinic id={seed_demo(s)} into {cfg.database_url}")

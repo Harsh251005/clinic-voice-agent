@@ -21,7 +21,7 @@ cancel/reschedule tools with code-enforced confirmation, end-call tool,
 `console --text`, one worker for all clinics (dispatch), browser call links
 (`api/`), Google sign-in, the **Next.js dashboard** (`frontend/`: Today,
 diary, calls, settings), call records and transcripts, the admin panel, and
-problems flagged on every page. Not yet: Docker/CI, telephony (identity is
+problems flagged on every page. Not yet: a server deployment, telephony (identity is
 by spoken mobile number until caller ID exists), vendor fallback, the
 patient front door. Plans: `~/.claude/plans/` (current:
 `portfolio-ready.md`, then `stage-4-pb-fallback-and-alerts.md`). The
@@ -47,7 +47,12 @@ uv run python main.py console --clinic 2  # pick a clinic when there are several
 uv run python main.py dev        # join rooms it is dispatched to (LiveKit 1.8 dropped reload: restart after edits)
 uv run python main.py start      # production worker
 uv run python -m api             # call-link server: /call/<slug> page + join passes
+docker compose up --build        # (repo root) Postgres + API + dashboard + demo data; --profile voice adds the worker
 ```
+
+CI (`.github/workflows/ci.yml`) runs the offline suite on SQLite and
+Postgres, the dashboard's typecheck/lint/build and the Playwright suite on
+every push. Keep it green; it calls no vendor.
 
 Prefer `console` for testing. `dev`/`start` need the three `LIVEKIT_*` values
 and spend from LiveKit Cloud's free tier (1,000 agent-session minutes/month).

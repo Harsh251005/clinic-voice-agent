@@ -81,6 +81,28 @@ Use plain `console` when you need to hear the voice.
 `LIVEKIT_*` values in `.env` and spend from the free tier's 1,000 agent-session
 minutes per month. `console` spends none of them.
 
+## Docker
+
+`docker compose up --build` (repo root) runs Postgres, the API on :8080
+and the dashboard on :3000. A one-shot `setup` container brings the schema
+up to date and, into an empty database only, seeds the fictional demo
+clinic (`seeds.demo_clinic --if-empty`) and a lived-in day
+(`seeds.demo_day`: today's bookings, visit marks, leave, a holiday, two
+calls with transcripts, all relative to now). `--profile voice` adds the
+agent worker, which needs `LIVEKIT_*` and the vendor keys in
+`backend/.env`. That file overrides the placeholders in `compose.demo.env`,
+which exist only so the dashboard starts with no keys at all.
+
+- One image (`backend/Dockerfile`, uv + Python 3.13, non-root) runs as
+  the API, the worker or the migrations, by command. The dashboard image
+  (`frontend/Dockerfile`) serves Next's standalone build, with `/api`
+  forwarded to `http://api:8080`, fixed at build time.
+- **Sign-in is off in this stack** (`DASHBOARD_LOGIN=off`): it's for
+  running on your own machine. A server deployment also needs Google
+  sign-in, HTTPS (Caddy) and real secrets: that's the deploy slice, not
+  this file.
+- `.dockerignore` keeps `.env`, `data/` and the tests out of the image.
+
 ## Call links (browser calls)
 
 Until there are phone numbers, patients reach the receptionist through a link
