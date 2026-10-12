@@ -10,7 +10,7 @@ import { CallResult } from "@/components/admin/bits";
 import { Transcript } from "@/components/calls/transcript";
 import { duration, when } from "@/lib/admin";
 import type { Schemas } from "@/lib/api/client";
-import { changeText, visitTime, whatHappened } from "@/lib/calls";
+import { changeText, languageName, visitTime, whatHappened } from "@/lib/calls";
 import { PRODUCT_NAME } from "@/lib/product";
 import { useClinicCall } from "@/lib/queries";
 
@@ -43,9 +43,17 @@ function Body({ clinicId, call }: { clinicId: number; call: Schemas["ClinicCallD
       </div>
 
       <section className="grid gap-4 rounded-xl border bg-card p-5 sm:grid-cols-[10rem_1fr]">
-        <div>
-          <p className="text-xs text-muted-foreground">Length</p>
-          <p className="font-medium tabular-nums">{duration(call.duration_s)}</p>
+        <div className="flex gap-8 sm:block sm:space-y-4">
+          <div>
+            <p className="text-xs text-muted-foreground">Length</p>
+            <p className="font-medium tabular-nums">{duration(call.duration_s)}</p>
+          </div>
+          {languageName(call.language) && (
+            <div>
+              <p className="text-xs text-muted-foreground">Language</p>
+              <p className="font-medium">{languageName(call.language)}</p>
+            </div>
+          )}
         </div>
         <div>
           <p className="text-xs text-muted-foreground">What happened</p>

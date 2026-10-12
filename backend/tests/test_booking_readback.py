@@ -31,7 +31,7 @@ def link(tmp_path):
     sessions = session_factory(engine)
     with sessions() as s:
         clinic_id = seed_demo(s)
-    return ClinicLink(clinic_id, "Asia/Kolkata", sessions)
+    return ClinicLink(clinic_id, "Asia/Kolkata", sessions, "hi")
 
 
 async def _silent():

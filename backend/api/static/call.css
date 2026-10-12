@@ -26,6 +26,19 @@ h1 { margin: 6px 0 4px; font-size: 24px; line-height: 1.25; font-weight: 650; }
 .address { margin: 0; color: var(--muted); font-size: 14px; }
 .address:empty { display: none; }
 
+.langs { display: flex; gap: 8px; margin: 28px 0 0; padding: 0; border: 0; min-width: 0; }
+.langs legend { width: 100%; margin-bottom: 8px; padding: 0; color: var(--muted); font-size: 13px; }
+.lang { flex: 1; position: relative; }
+.lang input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.lang span {
+  display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px;
+  font-weight: 600; transition: background .15s, border-color .15s, color .15s;
+}
+.lang input:checked + span { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
+.lang input:focus-visible + span { outline: 3px solid var(--brand-soft); outline-offset: 2px; }
+.lang input:disabled { cursor: default; }
+.lang input:disabled:not(:checked) + span { opacity: .5; }
+
 .dial { position: relative; width: 112px; height: 112px; margin: 32px auto 20px; }
 .ring { position: absolute; inset: 0; border-radius: 50%; background: var(--brand-soft); transform: scale(1); transition: transform .12s ease-out; }
 .call {
@@ -56,5 +69,5 @@ body.error .status { color: var(--danger); }
 .fallback:hover { text-decoration: underline; }
 
 @media (prefers-reduced-motion: reduce) {
-  .ring, .call { transition: none; animation: none !important; }
+  .ring, .call, .lang span { transition: none; animation: none !important; }
 }

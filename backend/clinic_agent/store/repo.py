@@ -580,10 +580,10 @@ def _patient(s: Session, clinic_id: int, name: str, phone: str) -> Patient:
 
 # ---------- calls ----------
 
-def start_call(s: Session, clinic_id: int, room: str, stack: str, started_at: datetime) -> Call:
+def start_call(s: Session, clinic_id: int, room: str, stack: str, language: str, started_at: datetime) -> Call:
     """Open a call's record as it starts, so a call the worker never
     finishes still leaves a trace."""
-    call = Call(clinic_id=clinic_id, room=room, stack=stack, started_at=started_at)
+    call = Call(clinic_id=clinic_id, room=room, stack=stack, language=language, started_at=started_at)
     s.add(call)
     s.commit()
     return call
@@ -723,13 +723,14 @@ def call_counts(s: Session, since: datetime) -> dict[int, tuple[int, int, dateti
 CONSOLE_ROOM = "console"  # LiveKit's local console: a developer's test, not a patient's call
 
 
-def beat(s: Session, worker: str, host: str, now: datetime) -> None:
-    """A worker checking in: connected to LiveKit, ready for calls."""
+def beat(s: Session, worker: str, host: str, languages: Iterable[str], now: datetime) -> None:
+    """A worker checking in: connected to LiveKit, ready for calls on these language lines."""
+    langs = ",".join(sorted(languages))
     row = s.scalar(select(WorkerHeartbeat).where(WorkerHeartbeat.worker == worker))
     if row is None:
-        s.add(WorkerHeartbeat(worker=worker, host=host[:200], started_at=now, last_seen=now))
+        s.add(WorkerHeartbeat(worker=worker, host=host[:200], languages=langs, started_at=now, last_seen=now))
     else:
-        row.last_seen = now
+        row.last_seen, row.languages = now, langs
     try:
         s.commit()
     except IntegrityError:  # its first beat raced with itself (a retry): the row exists now
@@ -739,6 +740,16 @@ def beat(s: Session, worker: str, host: str, now: datetime) -> None:
 def last_beat(s: Session) -> datetime | None:
     """When any worker last checked in (UTC), or None if none ever has."""
     return s.scalar(select(func.max(WorkerHeartbeat.last_seen)))
+
+
+def live_languages(s: Session, since: datetime) -> set[str] | None:
+    """The language lines some worker that checked in since then can answer.
+    None when no worker has: nobody knows, so callers aren't told a language
+    is off (the receptionist-offline problem covers that)."""
+    rows = s.scalars(select(WorkerHeartbeat.languages).where(WorkerHeartbeat.last_seen >= since)).all()
+    if not rows:
+        return None
+    return {lang for row in rows for lang in row.split(",") if lang}
 
 
 def prune_beats(s: Session, before: datetime) -> None:

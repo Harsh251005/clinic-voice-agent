@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/app/page-header";
 import { CallResult, Empty } from "@/components/admin/bits";
 import { duration, when } from "@/lib/admin";
-import { changeText, visitTime, whatHappened } from "@/lib/calls";
+import { changeText, languageName, visitTime, whatHappened } from "@/lib/calls";
 import { useClinicCalls } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -59,7 +59,10 @@ function CallRows({ clinicId, beforeId, first, onMore }: {
           <li key={c.id}>
             <Link href={`/clinics/${clinicId}/calls/${c.id}`}
               className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-5 py-3 text-sm hover:bg-muted/60 md:grid-cols-[9rem_9rem_1fr_5rem_1.25rem]">
-              <span className="font-medium tabular-nums md:font-normal">{when(c.started_at)}</span>
+              <span className="font-medium tabular-nums md:font-normal">
+                {when(c.started_at)}
+                {languageName(c.language) && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{languageName(c.language)}</span>}
+              </span>
               <span className="justify-self-end md:justify-self-start"><CallResult call={c} /></span>
               <span className="col-span-2 text-muted-foreground md:col-span-1 md:text-foreground">
                 {c.changes.length ? c.changes.map((ch) => (

@@ -321,6 +321,15 @@
             "title": "Id",
             "type": "integer"
           },
+          "language": {
+            "enum": [
+              "en",
+              "hi",
+              ""
+            ],
+            "title": "Language",
+            "type": "string"
+          },
           "outcome": {
             "title": "Outcome",
             "type": "string"
@@ -361,6 +370,7 @@
           "status",
           "end_reason",
           "outcome",
+          "language",
           "stack",
           "turn_count",
           "error_count",
@@ -424,6 +434,15 @@
             "title": "Id",
             "type": "integer"
           },
+          "language": {
+            "enum": [
+              "en",
+              "hi",
+              ""
+            ],
+            "title": "Language",
+            "type": "string"
+          },
           "outcome": {
             "title": "Outcome",
             "type": "string"
@@ -468,6 +487,7 @@
           "status",
           "end_reason",
           "outcome",
+          "language",
           "stack",
           "turn_count",
           "error_count",
@@ -618,6 +638,15 @@
             "title": "Id",
             "type": "integer"
           },
+          "language": {
+            "enum": [
+              "en",
+              "hi",
+              ""
+            ],
+            "title": "Language",
+            "type": "string"
+          },
           "outcome": {
             "title": "Outcome",
             "type": "string"
@@ -643,6 +672,7 @@
           "duration_s",
           "status",
           "outcome",
+          "language",
           "changes"
         ],
         "title": "ClinicCall",
@@ -740,6 +770,15 @@
             "title": "Id",
             "type": "integer"
           },
+          "language": {
+            "enum": [
+              "en",
+              "hi",
+              ""
+            ],
+            "title": "Language",
+            "type": "string"
+          },
           "outcome": {
             "title": "Outcome",
             "type": "string"
@@ -776,6 +815,7 @@
           "duration_s",
           "status",
           "outcome",
+          "language",
           "changes",
           "transcript_kept",
           "conversation",

@@ -101,7 +101,7 @@ def _calls(s: Session, clinic_id: int, doctor: str) -> None:
         ], []),
     ]:
         started = utc - ago
-        c = repo.start_call(s, clinic_id, "call-demo", stack, started)
+        c = repo.start_call(s, clinic_id, "call-demo", stack, "hi", started)
         repo.finish_call(
             s, c.id, ended_at=started + timedelta(seconds=items[-1]["t_ms"] // 1000 + 3), end_reason="agent_ended",
             outcome=outcome, turn_count=sum(i["role"] == "caller" for i in items), error_count=0,

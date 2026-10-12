@@ -20,7 +20,8 @@ def _sarvam(cfg: Settings) -> tts.TTS:
     voice = sarvam.TTS(
         model=cfg.sarvam_tts_model or "bulbul:v3",
         speaker=cfg.sarvam_tts_speaker or "suhani",
-        target_language_code=cfg.sarvam_tts_language or "en-IN",
+        # Sarvam speaks the Hindi line, whose replies are Devanagari.
+        target_language_code=cfg.sarvam_tts_language or "hi-IN",
         speech_sample_rate=cfg.sarvam_tts_sample_rate or 24000,
         output_audio_codec=cfg.sarvam_tts_codec or "linear16",
         # Sarvam re-cuts any text longer than this, wherever the count lands,
@@ -40,10 +41,10 @@ def _elevenlabs(cfg: Settings) -> tts.TTS:
     # live dialogue; LiveKit streams it over the text-to-dialogue websocket.
     # Fallback if the plan rejects it: ELEVENLABS_TTS_MODEL=eleven_multilingual_v2
     # (most natural of the v2 models) or eleven_flash_v2_5 (fastest).
-    # How real it sounds depends as much on ELEVENLABS_TTS_VOICE - pick a Hindi voice
-    # ID from the Voice Library - and on the prompt writing Hindi in
-    # Devanagari. pcm_24000 is raw PCM, for the same reason as Sarvam's
-    # linear16. Language auto-detects, since callers mix Hindi and English.
+    # ElevenLabs speaks the English line only. How real it sounds depends as
+    # much on ELEVENLABS_TTS_VOICE: an English voice ID from the Voice
+    # Library (a woman's: the prompt says so). pcm_24000 is raw PCM, for the
+    # same reason as Sarvam's linear16.
     options = {"language": cfg.elevenlabs_tts_language} if cfg.elevenlabs_tts_language else {}
     return elevenlabs.TTS(
         model=cfg.elevenlabs_tts_model or "eleven_v3_conversational",
@@ -54,19 +55,17 @@ def _elevenlabs(cfg: Settings) -> tts.TTS:
     )
 
 
-# Allowed vendors are Sarvam (production) and ElevenLabs. Don't add others.
+# Allowed vendors are Sarvam (the Hindi line) and ElevenLabs (the English line). Don't add others.
 BUILDERS: dict[str, Callable[[Settings], tts.TTS]] = {
     "sarvam": _sarvam,
     "elevenlabs": _elevenlabs,
 }
 
 
-def build_tts(cfg: Settings) -> tts.TTS:
+def build_tts(cfg: Settings, vendor: str) -> tts.TTS:
+    """`vendor`'s TTS, as a call's language line names it (clinic_agent/lines.py)."""
     try:
-        builder = BUILDERS[cfg.tts_provider]
+        builder = BUILDERS[vendor]
     except KeyError:
-        raise ValueError(
-            f"unknown TTS provider {cfg.tts_provider!r}; "
-            f"available: {sorted(BUILDERS)}"
-        ) from None
+        raise ValueError(f"unknown TTS vendor {vendor!r}; available: {sorted(BUILDERS)}") from None
     return builder(cfg)

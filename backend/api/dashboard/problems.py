@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Request
 from api.dashboard import convert, schemas
 from api.dashboard.access import Viewer, admin, open_clinic, staff_errors
 from clinic_agent import incidents
+from clinic_agent.lines import LINES, NAMES
 from clinic_agent.store import repo
 from clinic_agent.store.models import utc_now
 
@@ -42,6 +43,10 @@ def clinic_words(inc: repo.Incident, clinic_id: int) -> tuple[str, str, str | No
         case "worker_offline":
             return ("Your receptionist is offline. Patients calling now can't reach it.",
                     "ClinicDesk support sees this too. Until it's back, patients can still ring the clinic's own phone.", None)
+        case "language_off":
+            name = NAMES.get(inc.subject, inc.subject)
+            return (f"Patients can't call your receptionist in {name} right now.",
+                    "ClinicDesk support sees this too. Until it's back, the call page offers only the other language.", None)
         case "calls_failing":
             return ("Several calls to your receptionist failed in the last hour.",
                     "Open Calls to see who called, and ring them back.", f"{base}/calls")
@@ -73,6 +78,12 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
             since = "never checked in" if inc.detail == "never" else f"last checked in {inc.detail}"
             return (f"Receptionist offline: no worker connected to LiveKit ({since}).",
                     "Start or restart the worker: uv run python main.py start", None)
+        case "language_off":
+            line = LINES.get(inc.subject)
+            name = NAMES.get(inc.subject, inc.subject)
+            vendors = " + ".join(dict.fromkeys((line.stt, line.llm, line.tts))) if line else "its vendors"
+            return (f"The {name} line is off: the worker started without a key for {vendors}. Callers aren't offered {name}.",
+                    "Set the missing API key in backend/.env and restart the worker; its log names the key.", None)
         case "vendor_errors":
             return (f"{inc.subject} is failing: {inc.detail}.",
                     "Check the vendor's status page and the API key.", "/admin/errors")

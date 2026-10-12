@@ -19,18 +19,22 @@ uv sync
 cp .env.example .env
 ```
 
-Fill in the keys for the providers selected in `.env` — only those are
-checked. Two vendors are allowed per part, and nothing else:
+**Two language lines.** The caller picks English or Hindi before the call
+(the call page's switch) and keeps it to the end: changing mid-call would
+change the voice. Each language is its own pipeline, set in
+`clinic_agent/lines.py`, never in `.env`:
 
-| Part | Sarvam (production, the default) | Alternative |
-|---|---|---|
-| STT | `sarvam` | `elevenlabs` |
-| LLM | `sarvam` | `openai` |
-| TTS | `sarvam` | `elevenlabs` |
+| Line | STT | LLM | TTS |
+|---|---|---|---|
+| English | ElevenLabs | OpenAI | ElevenLabs |
+| Hindi | Sarvam | Sarvam | Sarvam |
 
-A blank `*_PROVIDER` means Sarvam. The `.env.example` stack is the current
-testing one (ElevenLabs STT + OpenAI + ElevenLabs TTS), chosen to save Sarvam
-credits. Switching any part is one line in `.env`.
+Fill in the keys for both. **A line whose key is missing is off, not
+fatal:** the worker prints a warning and answers the other line, its
+check-in tells the call page to offer only that language, and both
+dashboards show "Hindi (or English) line is off". With neither line's keys
+it refuses to start. The old `STT_PROVIDER` / `LLM_PROVIDER` /
+`TTS_PROVIDER` lines are refused at startup (remove them).
 
 | Provider | Key | Cost |
 |---|---|---|
@@ -125,8 +129,13 @@ uv run python -m api     # serves /call/<link name> on API_HOST:API_PORT (defaul
    publish only a microphone, allows 2 participants (caller + receptionist),
    and dispatches `clinic-receptionist` with `{"clinic_id": N, "language":
    "hi"}`. The request must name the language (`{"language": "en"}` or
-   `"hi"`); anything else gets a 400, never a default. The page sends `hi`
-   until it offers the English | हिन्दी choice. The signature is made with
+   `"hi"`); anything else gets a 400, never a default, and a language no
+   live worker can answer gets a 503. The page shows an English | हिन्दी
+   switch above the call button (only the languages the worker's check-in
+   lists; both if no worker has checked in), starting on the caller's last
+   choice on that device, else Hindi, and locked during a call. The page's
+   CSS and script URLs carry a content hash, so a returning patient never
+   gets a cached old copy after an update. The signature is made with
    `LIVEKIT_API_SECRET`, so a caller can't change the clinic or language.
 3. The browser joins with the pass, and LiveKit sends the receptionist in for
    that clinic. If it hasn't joined within 20 s, the page says so.
@@ -377,10 +386,12 @@ uv run pytest -m live    # real OpenAI + ElevenLabs calls — spends credits, ne
 TEST_POSTGRES_URL=postgresql+psycopg://clinic:clinic-dev@127.0.0.1:5433/clinic_test uv run pytest
 ```
 
-Live tests always use the testing stack (ElevenLabs STT + OpenAI + ElevenLabs
-TTS, each with its default model and voice), whatever `.env` selects. Only the
-two keys come from `.env`. Nothing tests the Sarvam path automatically; check
-it by hand before a production release.
+Live tests use only the English line's vendors (ElevenLabs STT + OpenAI +
+ElevenLabs TTS, each with its default model and voice), so they never spend
+Sarvam credits. The conversation evals grade the Hindi rules on OpenAI (they
+check rules and tools, not Sarvam's model). Only the two keys come from
+`.env`. Nothing tests the Hindi line (Sarvam) automatically; check it by hand
+before a production release.
 
 Offline tests prove the wiring, not the conversation. Live tests are evals:
 an LLM judge (`gpt-4.1`; the agent's own mini model failed correct replies)
@@ -629,27 +640,16 @@ Two steps. Nothing else in the codebase changes.
    BUILDERS = {"sarvam": _sarvam, "elevenlabs": _elevenlabs}
    ```
 
-2. Point `.env` at it:
+2. Name it in a language line in `clinic_agent/lines.py`.
 
-   ```env
-   TTS_PROVIDER=elevenlabs
-   ```
-
-An unknown name fails at startup and lists what is registered. Registered:
+An unknown name fails and lists what is registered. Registered:
 STT `sarvam`, `elevenlabs`; LLM `sarvam`, `openai`; TTS `sarvam`, `elevenlabs`.
 That list is deliberate: no other vendors (a test enforces it).
 
 Each builder owns its defaults and asks for its own key with
-`require_key(...)`, so an unused vendor needs nothing set. Every vendor has
+`require_key(...)`; a missing key switches its line off. Every vendor has
 its own model and voice settings (`SARVAM_TTS_SPEAKER`, `ELEVENLABS_TTS_VOICE`,
-…), so both sets live in `.env` at once and switching the whole stack is only
-the three `*_PROVIDER` lines:
-
-| Stack | `STT_PROVIDER` | `LLM_PROVIDER` | `TTS_PROVIDER` |
-|---|---|---|---|
-| Production | `sarvam` | `sarvam` | `sarvam` |
-| Testing | `elevenlabs` | `openai` | `elevenlabs` |
-
+…), and both lines run at once, each reading its own vendors' settings.
 A vendor setting left blank gets that vendor's default. The old shared names
 (`STT_MODEL`, `TTS_SPEAKER`, …) are refused at startup with their new names,
 rather than silently ignored.
@@ -661,13 +661,13 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | Setting | Default | Why you would change it |
 |---|---|---|
 | `SARVAM_STT_MODEL` / `ELEVENLABS_STT_MODEL` | vendor's | Sarvam: `saaras:v3` (`saaras:v4` is not available on our plan). ElevenLabs: `scribe_v2` (batch: LiveKit cuts each utterance with the VAD and sends it; about 1 s from end of speech to text). `scribe_v2_medical` works the same way; `scribe_v2_realtime` streams over a websocket but waits for ElevenLabs' own silence commit (about 3 s). |
-| `SARVAM_STT_LANGUAGE` / `ELEVENLABS_STT_LANGUAGE` | vendor's | Sarvam: `unknown` auto-detects per utterance. ElevenLabs: always `hi` when blank or `unknown`. Its auto-detect locks onto the wrong language during the greeting's silence (Cyrillic, Chinese) and then commits empty transcripts, so the agent never hears the caller. Pinned `hi` still transcribes English as English and Hinglish as Hinglish. |
+| `SARVAM_STT_LANGUAGE` | `unknown` | The Hindi line: `unknown` auto-detects per utterance, so the English words callers mix in come through as said. ElevenLabs (the English line) is always pinned to English: its auto-detect locks onto the wrong language during the greeting's silence (Cyrillic, Chinese) and then commits empty transcripts, so the agent never hears the caller. `ELEVENLABS_STT_LANGUAGE` is refused at startup. |
 | `SARVAM_STT_MODE` | `transcribe` | `transcribe` returns Hindi in Devanagari, which matches the prompt's rule that Hindi replies are written in Devanagari — the script the voice engine pronounces correctly. |
 | `SARVAM_LLM_MODEL` / `OPENAI_LLM_MODEL` | vendor's | OpenAI: `gpt-6-luna`, a reasoning model: the builder sets `reasoning_effort="none"` for every gpt-5-or-later and `o*` model, which OpenAI requires for tools on Chat Completions and which keeps replies fast. Non-reasoning models (`gpt-4.1-mini`) work too. Sarvam: `sarvam-105b-conversations` (fall back to `sarvam-105b`). |
 | `SARVAM_TTS_MODEL` / `ELEVENLABS_TTS_MODEL` | vendor's | ElevenLabs: `eleven_v3_conversational`, the most expressive; use `eleven_multilingual_v2` if your plan rejects it, or `eleven_flash_v2_5` for the lowest latency. Sarvam: `bulbul:v3`. |
-| `SARVAM_TTS_SPEAKER` / `ELEVENLABS_TTS_VOICE` | vendor's | ElevenLabs: a voice ID. The plugin default is not a Hindi voice — pick one in ElevenLabs → Voices → Voice Library (language Hindi, accent Indian), add it to My Voices, copy its ID. Sarvam: any `bulbul:v3` voice, default `suhani`; v2 names such as `anushka` are rejected. |
+| `SARVAM_TTS_SPEAKER` / `ELEVENLABS_TTS_VOICE` | vendor's | ElevenLabs (English line): a voice ID — pick a woman's English voice in ElevenLabs → Voices → Voice Library, add it to My Voices, copy its ID. Sarvam (Hindi line): any `bulbul:v3` voice, default `suhani`; v2 names such as `anushka` are rejected. |
 | `SARVAM_TTS_CODEC` / `ELEVENLABS_TTS_CODEC` | vendor's | Raw PCM for both (`pcm_24000` / `linear16`) — compressed formats cost a decode per chunk. |
-| `SARVAM_TTS_LANGUAGE` / `ELEVENLABS_TTS_LANGUAGE` | vendor's | ElevenLabs auto-detects, which suits mixed Hindi/English; Sarvam defaults to `en-IN`. |
+| `SARVAM_TTS_LANGUAGE` / `ELEVENLABS_TTS_LANGUAGE` | vendor's | Sarvam defaults to `hi-IN` (the Hindi line's replies are Devanagari). ElevenLabs auto-detects; pin `en` if it ever drifts. |
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
 | `PUBLIC_BASE_URL` | `http://localhost:8080` | Where the call-link server is reachable; the dashboard builds each clinic's link from it. Your tunnel's https address for a demo from outside. |
 | `MAX_CALL_MINUTES` | `10` | Longest a call may last before a goodbye and hang-up. Guards against forgotten or abused calls spending minutes. |
@@ -717,7 +717,12 @@ on our side.
   agent resumes (a "false interruption"). So a broken STT looks like "it
   doesn't stop".
 - Sarvam credits are consumption-based and shared across STT, LLM and TTS.
-  The testing stack spends none of them.
+  Only Hindi calls spend them; English calls and the tests spend none.
+- **ElevenLabs' free quota runs out silently.** When the 10,000 monthly
+  credits are gone, its websocket returns no audio and no error, so an
+  English call goes quiet and the admin panel shows `APIError` for
+  ElevenLabs. Check the quota first (a short HTTP text-to-speech request
+  answers `quota_exceeded`).
 - **ElevenLabs `scribe_v2_realtime` ends a turn after 1.5 s of silence**
   (its server-side default), so it is slower than the batch `scribe_v2`
   default. It must run with `server_vad` (commit on silence): in its default

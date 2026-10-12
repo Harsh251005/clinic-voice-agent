@@ -23,7 +23,7 @@ def _sessions():
 def _call(clinic_id, *, ago=timedelta(hours=1), outcome="booked", finished=True, events=(), items=None):
     started = utc_now() - ago
     with _sessions()() as s:
-        call = repo.start_call(s, clinic_id, "room", "sarvam/saaras:v3 · openai/gpt-6-luna · sarvam/bulbul:v3", started)
+        call = repo.start_call(s, clinic_id, "room", "sarvam/saaras:v3 · openai/gpt-6-luna · sarvam/bulbul:v3", "hi", started)
         if finished:
             repo.finish_call(
                 s, call.id, ended_at=started + timedelta(seconds=95), end_reason="agent_ended", outcome=outcome,

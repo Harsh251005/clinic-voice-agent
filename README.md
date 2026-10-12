@@ -5,7 +5,8 @@
 ![LiveKit Agents](https://img.shields.io/badge/LiveKit-Agents%201.8-1F2937)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-000000)
 
-Patients call and talk to it in **Hindi, English or Hinglish**. It answers
+Patients pick **Hindi or English** and talk to it; Hindi callers can mix in
+English the way people do. It answers
 from the clinic's own data (doctors, hours, fees, holidays), **books,
 moves and cancels appointments**, and hangs up politely. Clinic staff run
 their day in a dashboard. The operator watches every clinic from an admin
@@ -46,7 +47,7 @@ flowchart LR
 
     subgraph worker["Voice agent worker (Python)"]
         direction LR
-        vad["Silero VAD<br/>turn-taking"] --> stt["STT<br/>Sarvam · ElevenLabs"] --> llm["LLM<br/>Sarvam · OpenAI"] --> tts["TTS<br/>Sarvam · ElevenLabs"]
+        vad["Silero VAD<br/>turn-taking"] --> stt["STT<br/>Hindi: Sarvam · English: ElevenLabs"] --> llm["LLM<br/>Hindi: Sarvam · English: OpenAI"] --> tts["TTS<br/>Hindi: Sarvam · English: ElevenLabs"]
         llm <--> tools["Booking tools<br/>rules in plain Python"]
     end
 
@@ -59,7 +60,9 @@ flowchart LR
 
 - **The call path:** the browser gets a short-lived, signed pass for a
   fresh room bound to one clinic and one language. LiveKit dispatches the
-  worker with both. Each turn goes VAD → STT → LLM (with tools) → TTS.
+  worker with both. Each language is its own pipeline (Hindi: Sarvam for all
+  three; English: ElevenLabs + OpenAI), kept for the whole call so the voice
+  never changes. Each turn goes VAD → STT → LLM (with tools) → TTS.
 - **The rules live in plain Python** (`booking.py`), not in the prompt.
   They are tested without any voice or model.
 - **The database guarantees what code can't:** one booking per doctor per

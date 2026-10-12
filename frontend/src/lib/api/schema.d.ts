@@ -836,6 +836,11 @@ export interface components {
             error_count: number;
             /** Id */
             id: number;
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "en" | "hi" | "";
             /** Outcome */
             outcome: string;
             /** Stack */
@@ -875,6 +880,11 @@ export interface components {
             events: components["schemas"]["TraceEvent"][];
             /** Id */
             id: number;
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "en" | "hi" | "";
             /** Outcome */
             outcome: string;
             /** Stack */
@@ -948,6 +958,11 @@ export interface components {
             duration_s: number | null;
             /** Id */
             id: number;
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "en" | "hi" | "";
             /** Outcome */
             outcome: string;
             /**
@@ -991,6 +1006,11 @@ export interface components {
             duration_s: number | null;
             /** Id */
             id: number;
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "en" | "hi" | "";
             /** Outcome */
             outcome: string;
             /**

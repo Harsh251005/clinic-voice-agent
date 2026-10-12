@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/app/page-header";
 import { CallResult, Empty } from "@/components/admin/bits";
 import { duration, OUTCOMES, useAdminClinics, useCalls, vendorsOf, when, type CallFilters } from "@/lib/admin";
+import { languageName } from "@/lib/calls";
 
 const PAGE = 50; // the API's page size
 
@@ -98,7 +99,9 @@ function CallRows({ filters, beforeId, first, onMore }: {
               className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-5 py-3 text-sm hover:bg-muted/60 md:grid-cols-[9rem_1fr_9rem_5rem_4rem_5.5rem_1.25rem]">
               <span className="tabular-nums md:order-none">{when(c.started_at)}</span>
               <span className="order-3 col-span-2 truncate text-muted-foreground md:order-none md:col-span-1 md:text-foreground">
-                {c.clinic_name} <span className="ml-1 text-xs text-muted-foreground">{vendorsOf(c.stack)}</span>
+                {c.clinic_name} <span className="ml-1 text-xs text-muted-foreground">
+                  {[languageName(c.language), vendorsOf(c.stack)].filter(Boolean).join(" · ")}
+                </span>
               </span>
               <span className="order-2 justify-self-end md:order-none md:justify-self-start"><CallResult call={c} /></span>
               <span className="order-4 text-muted-foreground tabular-nums md:order-none md:text-foreground">{duration(c.duration_s)}</span>

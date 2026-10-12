@@ -5,13 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Call $name</title>
-<link rel="stylesheet" href="/static/call.css">
+<link rel="stylesheet" href="$call_css">
 </head>
 <body>
 <main class="card" data-slug="$slug">
   <p class="eyebrow">Receptionist</p>
   <h1>$name</h1>
   <p class="address">$address</p>
+
+  <fieldset class="langs">
+    <legend>Language of the call <span lang="hi">· कॉल की भाषा</span></legend>
+    $languages
+  </fieldset>
 
   <div class="dial">
     <span class="ring" aria-hidden="true"></span>
@@ -27,14 +32,15 @@
   <p class="note">
     You'll speak with the clinic's automated assistant. It can answer questions
     and book, change or cancel appointments. Your conversation is saved as text
-    for the clinic's records for 30 days. No audio is recorded.
-    <span lang="hi">आप हिंदी या अंग्रेज़ी में बात कर सकते हैं।</span>
+    for the clinic's records for 30 days. No audio is recorded. The whole call
+    stays in the language you choose.
+    <span lang="hi">पूरी कॉल उसी भाषा में होगी जो आप चुनेंगे।</span>
   </p>
   $phone
 </main>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"
         integrity="sha384-MveBYLjjZe2VXnKzvBbPfyh5MEbiqNDeta9nzIGbtqnXmC+CwX/mLE5+M9PDIcPy"
         crossorigin="anonymous"></script>
-<script src="/static/call.js"></script>
+<script src="$call_js"></script>
 </body>
 </html>

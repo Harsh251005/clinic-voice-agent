@@ -16,11 +16,12 @@ from itertools import count
 from livekit.agents import AgentSession, RunContext
 from livekit.agents.voice.events import SpeechCreatedEvent
 
-DEVANAGARI = re.compile(r"[ऀ-ॿ]")
+from clinic_agent.dispatch import Language
 
-FILLERS = {
-    True: ["एक सेकंड जी, मैं चेक करके बताती हूँ।", "ठीक है, एक पल, मैं देख लेती हूँ।", "जी, बस एक सेकंड।"],
-    False: ["One moment, let me check.", "Sure, just a second.", "Let me look that up for you."],
+# In the call's language: each line's voice speaks only its own.
+FILLERS: dict[Language, list[str]] = {
+    "hi": ["एक सेकंड जी, मैं चेक करके बताती हूँ।", "ठीक है, एक पल, मैं देख लेती हूँ।", "जी, बस एक सेकंड।"],
+    "en": ["One moment, let me check.", "Sure, just a second.", "Let me look that up for you."],
 }
 _turn = count()
 
@@ -36,14 +37,6 @@ FOLLOW_THROUGH = (
     "waiting in silence. Call the right tool now. Say nothing before it."
 )
 _nudged: set[str] = set()  # speech ids of forced follow-ups: never nudged again, no extra filler
-
-
-def caller_speaks_hindi(session) -> bool:
-    """Whether the caller's last words were Hindi (Devanagari, as the STT writes it)."""
-    for item in reversed(session.history.items):
-        if item.type == "message" and item.role == "user" and (text := item.text_content):
-            return bool(DEVANAGARI.search(text))
-    return True  # Hindi/Hinglish is the default at these clinics
 
 
 def spoke_before_tool(ctx: RunContext) -> bool:
@@ -63,7 +56,7 @@ def spoke_before_tool(ctx: RunContext) -> bool:
     )
 
 
-async def filler_unless_spoken(ctx: RunContext | None, said: set[str]) -> None:
+async def filler_unless_spoken(ctx: RunContext | None, said: set[str], language: Language) -> None:
     """Say one short "let me check" line if the model didn't say anything
     before calling the tool. `said` holds speech ids already covered, so
     several tools called in one reply say it once. No-op without a session
@@ -74,7 +67,7 @@ async def filler_unless_spoken(ctx: RunContext | None, said: set[str]) -> None:
     if spoke_before_tool(ctx) or ctx.speech_handle.id in said or ctx.speech_handle.id in _nudged:
         return
     said.add(ctx.speech_handle.id)
-    options = FILLERS[caller_speaks_hindi(ctx.session)]
+    options = FILLERS[language]
     # Not added to the chat: the model's next reply shouldn't treat it as a turn.
     ctx.session.say(options[next(_turn) % len(options)], add_to_chat_ctx=False)
 

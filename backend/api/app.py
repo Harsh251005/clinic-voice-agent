@@ -4,6 +4,7 @@ health check. One process, one origin for the dashboard's cookie."""
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import html
 import logging
 import secrets
@@ -22,7 +23,8 @@ from api.limits import RateLimiter
 from api.passes import call_pass
 from clinic_agent import incidents
 from clinic_agent.config import ConfigError, Settings, load_settings, require_key
-from clinic_agent.dispatch import BadDispatch, language_of
+from clinic_agent.dispatch import LANGUAGES, BadDispatch, Language, language_of
+from clinic_agent.lines import NAMES
 from clinic_agent.store import repo
 from clinic_agent.store.db import Sessions, sessions_for
 from clinic_agent.store.models import utc_now
@@ -31,9 +33,29 @@ from clinic_agent.store.purge import purge
 logger = logging.getLogger("clinic-agent.api")
 
 HERE = Path(__file__).parent
-PAGE = Template((HERE / "templates" / "call.html").read_text())
-NOT_FOUND = Template((HERE / "templates" / "not_found.html").read_text())
-PAUSED = Template((HERE / "templates" / "paused.html").read_text())
+
+
+def _asset(name: str) -> str:
+    """/static/<name>?v=<content hash>: a changed file gets a new URL, so a
+    returning patient's browser never pairs a new page with an old cached
+    script or stylesheet (seen 2026-10-12: the new language switch rendered
+    with last week's CSS)."""
+    digest = hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12]
+    return f"/static/{name}?v={digest}"
+
+
+def _page(name: str) -> Template:
+    """A template with its asset URLs filled in once, at startup."""
+    text = (HERE / "templates" / name).read_text()
+    return Template(Template(text).safe_substitute(call_css=_asset("call.css"), call_js=_asset("call.js")))
+
+
+PAGE = _page("call.html")
+NOT_FOUND = _page("not_found.html")
+PAUSED = _page("paused.html")
+
+# Each language as its own speakers write it, on the call page's switch.
+LANGUAGE_LABELS: dict[Language, str] = {"en": "English", "hi": "हिन्दी"}
 
 # A patient rarely needs more than a couple of tries; a clinic rarely gets
 # more than this many browser calls an hour at pilot scale. Tune with real use.
@@ -116,6 +138,14 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
         response.headers["Permissions-Policy"] = "microphone=(self), camera=()"
         return response
 
+    def offered() -> list[Language]:
+        """The languages callers may choose: the lines a live worker says it
+        can answer. With no live worker nobody knows, so both are offered
+        (the call then fails as offline, which is flagged on its own)."""
+        with sessions() as s:
+            live = repo.live_languages(s, utc_now() - incidents.HEARTBEAT_STALE)
+        return [lang for lang in LANGUAGES if not live or lang in live]
+
     def clinic_for(slug: str):
         if not repo.SLUG.fullmatch(slug):
             raise repo.NotFound(slug)
@@ -145,6 +175,7 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
             return HTMLResponse(PAUSED.substitute(name=e(clinic.name), phone=_call_the_clinic(clinic)), status_code=503)
         return PAGE.substitute(
             name=e(clinic.name), address=e(clinic.address), slug=e(clinic.slug), phone=_call_the_clinic(clinic),
+            languages=_language_choices(offered()),
         )
 
     @app.post("/call/{slug}/pass")
@@ -161,6 +192,12 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
             # Never default: each language is its own pipeline, and a caller
             # put through in the wrong one can't follow the call.
             return JSONResponse({"error": "Choose English or Hindi for the call."}, status_code=400)
+        if chosen not in offered():
+            # The page offered it before the line went off (an old tab).
+            return JSONResponse(
+                {"error": f"Calls in {NAMES[chosen]} aren't available right now. Please choose another language."},
+                status_code=503,
+            )
         ip = _client_ip(request, cfg.client_ip_header)
         if not per_ip.allow(ip) or not per_clinic.allow(clinic.slug):
             logger.warning("rate limited a call to %s from %s", clinic.slug, ip)
@@ -196,6 +233,16 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
         return None
 
     return app
+
+
+def _language_choices(languages: list[Language]) -> str:
+    """The call page's switch: one radio per language a caller may choose.
+    The page script picks the caller's last choice, else Hindi."""
+    return "\n    ".join(
+        f'<label class="lang"><input type="radio" name="language" value="{lang}">'
+        f'<span lang="{lang}">{LANGUAGE_LABELS[lang]}</span></label>'
+        for lang in languages
+    )
 
 
 def _call_the_clinic(clinic) -> str:

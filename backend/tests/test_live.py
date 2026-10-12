@@ -1,8 +1,11 @@
 """Real provider calls. Run deliberately: `uv run pytest -m live`.
 
-Always the testing stack - ElevenLabs STT + OpenAI LLM + ElevenLabs TTS, with
-each builder's default model and voice - whatever `.env` selects, so tests
-never spend Sarvam credits. Only the two keys come from `.env`.
+Only the English line's vendors - ElevenLabs STT + OpenAI LLM + ElevenLabs
+TTS, with each builder's default model and voice - so tests never spend
+Sarvam credits, and the Hindi line (Sarvam) has no live tests. The
+conversation evals below grade the Hindi rules (most callers' line) on
+OpenAI: they check the rules and tools are followed, not Sarvam's model.
+Only the two keys come from `.env`.
 
 Behaviour is graded by an LLM judge (gpt-4.1: the agent's own mini model
 failed correct replies and contradicted itself), so these are
@@ -20,6 +23,7 @@ from livekit.agents.utils import http_context
 
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.config import VENDOR_SETTINGS, load_settings
+from clinic_agent.lines import LINES
 from clinic_agent.prompts import build_instructions
 from clinic_agent.store import repo
 from clinic_agent.tools.booking import ClinicLink, booking_tools
@@ -29,22 +33,20 @@ from clinic_agent.providers import build_llm, build_stt, build_tts
 pytestmark = pytest.mark.live
 NOW = datetime(2026, 9, 21, 15, 30)
 
-TEST_STACK = {"STT_PROVIDER": "elevenlabs", "LLM_PROVIDER": "openai", "TTS_PROVIDER": "elevenlabs"}
+ENGLISH = LINES["en"]
 JUDGE_MODEL = "gpt-4.1"
 
 
 @pytest.fixture(autouse=True)
-def testing_stack(monkeypatch):
-    # load_dotenv never overrides a variable that is already set.
-    for name, value in TEST_STACK.items():
-        monkeypatch.setenv(name, value)
+def builder_defaults(monkeypatch):
     # Builder defaults, not whatever model or voice .env is trying out.
+    # (load_dotenv never overrides a variable that is already set.)
     for name in VENDOR_SETTINGS:
         monkeypatch.setenv(name, "")
 
 
 def _judge():
-    return build_llm(dataclasses.replace(load_settings(), openai_llm_model=JUDGE_MODEL))
+    return build_llm(dataclasses.replace(load_settings(), openai_llm_model=JUDGE_MODEL), ENGLISH.llm)
 
 
 @pytest.fixture
@@ -52,13 +54,13 @@ def agent(db):
     s, clinic_id = db
     # Real tool schemas; the booking evals below swap in mocks for execution,
     # so the LLM's decisions are graded without a real clock or database.
-    tools = [*booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions=None)), end_call_tool()]
-    return ClinicAgent(build_instructions(repo.get_clinic(s, clinic_id), [], NOW), tools)
+    tools = [*booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions=None, language="hi")), end_call_tool("hi")]
+    return ClinicAgent(build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi"), tools)
 
 
 @pytest.fixture
 async def session(agent):
-    llm = build_llm(load_settings())
+    llm = build_llm(load_settings(), ENGLISH.llm)
     async with http_context.open(), AgentSession(llm=llm) as s:
         s.judge = _judge()
         await s.start(agent)
@@ -66,7 +68,7 @@ async def session(agent):
 
 
 async def test_speaks_first(agent):
-    llm = build_llm(load_settings())
+    llm = build_llm(load_settings(), ENGLISH.llm)
     async with http_context.open(), AgentSession(llm=llm) as s:
         result = await s.start(agent, capture_run=True)
         await (
@@ -145,27 +147,21 @@ async def test_replies_in_callers_language(session):
     )
 
 
-@pytest.mark.parametrize(
-    "line",
-    [
-        "Namaste, aapka appointment kal subah gyarah baje hai.",
-        "नमस्ते, आपका अपॉइंटमेंट कल सुबह ग्यारह बजे है।",
-    ],
-)
-async def test_speech_round_trip(line):
-    """What TTS says, STT must understand: proves both halves of the audio path.
+async def test_speech_round_trip():
+    """What the English line's TTS says, its STT must understand: proves both
+    halves of the audio path. (The Hindi line is Sarvam: never in live tests.)
 
     Streams the audio as a call does: through the VAD adapter for a batch
     model, straight into the stream for a streaming one.
     """
     cfg = load_settings()
     async with http_context.open():
-        tts, stt = build_tts(cfg), build_stt(cfg)
-        frames = [a.frame async for a in tts.synthesize(line)]
+        tts, stt = build_tts(cfg, ENGLISH.tts), build_stt(cfg, ENGLISH.stt)
+        frames = [a.frame async for a in tts.synthesize("Hello, your appointment is tomorrow at eleven in the morning.")]
         heard = await _transcribe(stt, frames)
         await tts.aclose()
         await stt.aclose()
-    assert "11" in heard or "ग्यारह" in heard or "gyarah" in heard.lower(), heard
+    assert "11" in heard or "eleven" in heard.lower(), heard
 
 
 async def _transcribe(stt_, frames) -> str:

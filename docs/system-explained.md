@@ -79,16 +79,19 @@ The robot is three separate machines joined in a line:
 Ravi's voice → 👂 EARS (STT) → text → 🧠 BRAIN (LLM) → text → 👄 MOUTH (TTS) → voice → Ravi
 ```
 
-| Part | Job | Production vendor | Testing vendor |
+| Part | Job | Hindi line | English line |
 |---|---|---|---|
 | 👂 **STT** (speech to text) | Turns voice into written words | Sarvam `saaras:v3` | ElevenLabs `scribe_v2` |
 | 🧠 **LLM** (the language model) | Decides what to say and what to do | Sarvam `sarvam-105b-conversations` | OpenAI `gpt-6-luna` |
 | 👄 **TTS** (text to speech) | Turns written words into a voice | Sarvam `bulbul:v3`, voice "suhani" | ElevenLabs `eleven_v3_conversational` |
 
-**Why two vendor sets?** Sarvam is built for Indian languages, so it's the real
-product. But Sarvam costs money per use, so day-to-day testing uses ElevenLabs
-and OpenAI. You switch between them by changing **three lines** in `.env`
-(`STT_PROVIDER`, `LLM_PROVIDER`, `TTS_PROVIDER`). No code changes.
+**Why two vendor sets?** Each is a language line. The caller picks English or
+Hindi on the call page before calling, and the whole call stays in that
+language (switching mid-call would change the voice). **English** calls use
+ElevenLabs ears and voice with OpenAI's brain; **Hindi** calls use Sarvam for
+all three, since it's built for Indian languages. If one line's key is
+missing, that language is switched off: the other still takes calls, and
+both dashboards say so.
 
 **The rule:** only Sarvam, ElevenLabs and OpenAI are allowed, and a test fails
 if anyone adds another vendor.
@@ -412,7 +415,7 @@ The goal behind all of these: keep the cost of changing something low.
 | **Alerts outside the website** | Problems show only while a dashboard is open; a server that is completely down can't show anything |
 | **DPDP** (India's data protection law) | Transcripts are deleted after 30 days and no audio is kept, but there are no scheduled backups, privacy notice or patient data export yet |
 | **A richer patient page** | Patients get a plain call page; a clinic page with Call and Book buttons and a share kit (QR poster, WhatsApp) is planned |
-| **The full Sarvam stack has never done a complete booking call with tools** | The production stack is the least tested one |
+| **The Hindi line (Sarvam) has never done a complete booking call with tools** | Most callers' line is the least tested one |
 | **Messages, callbacks, transfer to a human, SMS/WhatsApp confirmations, payments, reminders** | None built, which is why the robot is forbidden to promise them |
 | **Roles inside a clinic** (owner vs front desk) | Not decided yet. Every team member can do everything for that clinic. |
 | **Rate limits are in memory** | Fine for one server; several servers would need a shared store |

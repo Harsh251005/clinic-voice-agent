@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CallResult } from "@/components/admin/bits";
 import { offset, Transcript } from "@/components/calls/transcript";
 import { adminKeys, duration, END_REASONS, ms, STAGES, useCallTrace, when } from "@/lib/admin";
+import { languageName } from "@/lib/calls";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +54,7 @@ function Body({ t }: { t: Schemas["CallTrace"] }) {
           <Fact label="Length">{duration(t.duration_s)}</Fact>
           <Fact label="How it ended">{t.status === "dropped" ? "Never finished: the worker stopped mid-call" : END_REASONS[t.end_reason] ?? (t.end_reason || "Still going")}</Fact>
           <Fact label="Caller spoke">{t.turn_count} times</Fact>
+          {languageName(t.language) && <Fact label="Language">{languageName(t.language)}</Fact>}
           <div className="col-span-2 sm:col-span-4">
             <dt className="text-xs text-muted-foreground">Vendors</dt>
             <dd className="font-mono text-[13px]">

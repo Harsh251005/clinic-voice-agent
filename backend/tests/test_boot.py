@@ -27,8 +27,7 @@ def seeded_db(tmp_path) -> str:
 def run_main(tmp_path, *args, **overrides):
     # load_dotenv searches upward from config.py's own folder, so the code is
     # copied out of the repo; otherwise the developer's real .env is found.
-    env = {k: v for k, v in os.environ.items() if not k.endswith(("_PROVIDER", "DATABASE_URL"))}
-    env.pop("SARVAM_API_KEY", None)
+    env = {k: v for k, v in os.environ.items() if not k.endswith(("_PROVIDER", "DATABASE_URL", "_API_KEY"))}
     env.update(overrides)
     shutil.copy(BACKEND / "main.py", tmp_path)
     shutil.copytree(BACKEND / "clinic_agent", tmp_path / "clinic_agent")
@@ -38,21 +37,25 @@ def run_main(tmp_path, *args, **overrides):
     )
 
 
-def test_missing_key_exits_with_one_line(tmp_path):
+def test_no_line_with_its_keys_exits_with_one_line(tmp_path):
     r = run_main(tmp_path)
     assert r.returncode == 1
-    assert r.stderr.strip() == (
-        "configuration error: SARVAM_API_KEY is not set. "
-        "Copy .env.example to .env and fill it in."
-    )
+    err = r.stderr.strip()
+    assert err.startswith("configuration error: no language line can take calls: English: ")
+    assert "OPENAI_API_KEY is not set" in err and "Hindi: SARVAM_API_KEY is not set" in err
 
 
-def test_unknown_provider_exits_with_one_line(tmp_path):
-    r = run_main(tmp_path, SARVAM_API_KEY="x", TTS_PROVIDER="eleven")
+def test_one_line_without_keys_is_off_and_the_worker_still_starts(tmp_path):
+    # Harsh (2026-10-12): better a conversation in one language than no calls at all.
+    r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
+    assert r.returncode == 0, r.stderr
+    assert "warning: the English line is off, calls in English won't be offered: OPENAI_API_KEY is not set" in r.stderr
+
+
+def test_a_retired_vendor_switch_exits_with_one_line(tmp_path):
+    r = run_main(tmp_path, SARVAM_API_KEY="x", TTS_PROVIDER="elevenlabs")
     assert r.returncode == 1
-    assert r.stderr.strip() == (
-        "configuration error: unknown TTS provider 'eleven'; available: ['elevenlabs', 'sarvam']"
-    )
+    assert r.stderr.strip().startswith("configuration error: remove from .env: TTS_PROVIDER (the call's language")
 
 
 def test_unmigrated_database_exits_with_one_line(tmp_path):
@@ -112,7 +115,8 @@ def test_clinic_flag_is_console_only(tmp_path):
 
 @pytest.mark.parametrize("flag", [["--language", "en"], ["--language=hi"]])
 def test_console_language_flag_takes_en_or_hi(tmp_path, flag):
-    r = run_main(tmp_path, "console", *flag, "--help", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, "console", *flag, "--help", SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x",
+                 ELEVENLABS_API_KEY="el-x", DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 0, r.stderr
 
 
@@ -136,21 +140,19 @@ def test_valid_config_reaches_the_cli(tmp_path):
 
 
 def test_text_mode_needs_no_speech_keys(tmp_path):
-    # LLM key only: no Sarvam key for STT, no ElevenLabs key for TTS.
+    # The English line's LLM key only: no ElevenLabs key for its STT or TTS.
     r = run_main(
-        tmp_path, "console", "--text", "--help",
-        LLM_PROVIDER="openai", OPENAI_API_KEY="sk-x", TTS_PROVIDER="elevenlabs",
-        DATABASE_URL=seeded_db(tmp_path),
+        tmp_path, "console", "--text", "--language", "en", "--help",
+        OPENAI_API_KEY="sk-x", DATABASE_URL=seeded_db(tmp_path),
     )
     assert r.returncode == 0, r.stderr
     assert "text mode" in r.stdout
 
 
-def test_voice_console_still_needs_speech_keys(tmp_path):
+def test_voice_console_in_a_line_that_is_off_exits_with_one_line(tmp_path):
     r = run_main(
-        tmp_path, "console", "--help",
-        LLM_PROVIDER="openai", OPENAI_API_KEY="sk-x", TTS_PROVIDER="elevenlabs",
-        DATABASE_URL=seeded_db(tmp_path),
+        tmp_path, "console", "--language", "en", "--help",
+        OPENAI_API_KEY="sk-x", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path),
     )
     assert r.returncode == 1
-    assert "SARVAM_API_KEY is not set" in r.stderr
+    assert r.stderr.strip().startswith("configuration error: the English line is off: ELEVENLABS_API_KEY is not set")

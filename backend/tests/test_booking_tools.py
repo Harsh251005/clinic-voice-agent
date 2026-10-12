@@ -24,7 +24,7 @@ def tools(tmp_path):
     sessions = session_factory(engine)
     with sessions() as s:
         clinic_id = seed_demo(s)
-    find, check, book, *_ = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions))
+    find, check, book, *_ = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions, "hi"))
 
     async def check_then_book(**details):
         await check(None, **details)
@@ -61,7 +61,7 @@ async def test_check_reads_back_the_details_and_books_nothing(tmp_path):
     sessions = session_factory(engine)
     with sessions() as s:
         clinic_id = seed_demo(s)
-    _, check, book, *_ = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions))
+    _, check, book, *_ = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions, "hi"))
     day = next_working_day()
     with pytest.raises(ToolError, match="Nothing to book. Call check_booking first"):
         await book(None)
@@ -135,5 +135,5 @@ async def test_lookups_stop_after_three_misses(tools):
 
 
 def _manage(sessions, clinic_id):
-    _, _, _, mine, cancel, move = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions))
+    _, _, _, mine, cancel, move = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions, "hi"))
     return mine, cancel, move

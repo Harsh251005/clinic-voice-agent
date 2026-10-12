@@ -1,6 +1,8 @@
-// The call page: ask our server for a join pass, join the LiveKit room, send
-// the microphone and play the receptionist. The pass already tells LiveKit
-// which clinic's receptionist to send in; this page never decides that.
+// The call page: the caller picks English or Hindi, we ask our server for a
+// join pass in that language, join the LiveKit room, send the microphone and
+// play the receptionist. The pass already tells LiveKit which clinic's
+// receptionist to send in; this page never decides that. The language stays
+// the same for the whole call: each one is its own voice.
 (() => {
   "use strict";
   const LK = window.LivekitClient;
@@ -9,6 +11,8 @@
   const statusEl = document.getElementById("status");
   const timerEl = document.getElementById("timer");
   const ring = document.querySelector(".ring");
+  const choices = [...document.querySelectorAll('input[name="language"]')];
+  const SAVED = "clinicdesk.call.language";
 
   const NO_ANSWER_MS = 20000; // the receptionist normally joins within a few seconds
   // How a call can end on purpose: we hung up, or the receptionist closed the room.
@@ -29,10 +33,26 @@
     }).catch(() => {});
   }
 
+  // The caller's last choice on this device, else Hindi, else whatever is offered.
+  function pickStartingLanguage() {
+    let saved = null;
+    try { saved = localStorage.getItem(SAVED); } catch { /* private mode: no memory */ }
+    const pick = choices.find((c) => c.value === saved) || choices.find((c) => c.value === "hi") || choices[0];
+    if (pick) pick.checked = true;
+  }
+
+  function chosenLanguage() {
+    const c = choices.find((x) => x.checked);
+    return c ? c.value : null;
+  }
+
   function show(state, text) {
     document.body.className = state;
     statusEl.textContent = text;
     button.disabled = state === "connecting";
+    // Changing language mid-call would change the voice: locked until it ends.
+    const inCall = state === "connecting" || state === "live" || state === "waiting";
+    choices.forEach((c) => { c.disabled = inCall; });
     button.setAttribute("aria-label", state === "live" || state === "waiting" ? "End the call" : "Start the call");
   }
 
@@ -61,6 +81,9 @@
   }
 
   async function start() {
+    const language = chosenLanguage();
+    if (!language) return show("error", "Choose English or Hindi first.");
+    try { localStorage.setItem(SAVED, language); } catch { /* private mode */ }
     ending = false;
     show("connecting", "Connecting…");
     let pass;
@@ -68,8 +91,7 @@
       const res = await fetch(`/call/${encodeURIComponent(slug)}/pass`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Hindi until this page offers the English | हिन्दी choice.
-        body: JSON.stringify({ language: "hi" }),
+        body: JSON.stringify({ language }),
       });
       pass = await res.json();
       // Too many calls (429) and a paused clinic (503) are limits working, not faults.
@@ -140,5 +162,6 @@
     else if (state !== "connecting") start();
   });
 
+  pickStartingLanguage();
   if (!LK) show("error", "This page could not load. Refresh and try again.");
 })();

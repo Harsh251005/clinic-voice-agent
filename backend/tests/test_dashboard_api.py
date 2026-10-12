@@ -69,7 +69,7 @@ def world_calls(world):
     from clinic_agent.store.db import sessions_for
     with sessions_for(load_settings().database_url)() as s:
         for name in ("demo", "cure"):
-            call = repo.start_call(s, world[name], "room", "stack", datetime(2026, 12, 7, 9, 0))
+            call = repo.start_call(s, world[name], "room", "stack", "hi", datetime(2026, 12, 7, 9, 0))
             repo.finish_call(s, call.id, ended_at=datetime(2026, 12, 7, 9, 2), end_reason="agent_ended",
                              outcome="booked", turn_count=1, error_count=0,
                              appointments=[{"id": world[f"{name}_appt"], "action": "booked"}], events=[],

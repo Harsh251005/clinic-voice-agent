@@ -30,7 +30,7 @@ def link(tmp_path):
     sessions = session_factory(engine)
     with sessions() as s:
         clinic_id = seed_demo(s)
-    return ClinicLink(clinic_id, "Asia/Kolkata", sessions)
+    return ClinicLink(clinic_id, "Asia/Kolkata", sessions, "hi")
 
 
 async def _silent():
@@ -40,7 +40,7 @@ async def _silent():
 async def record_call(link, replies, turns, recorder=None):
     """Play the caller's turns with a recorder attached, then finish the
     record the way the job's shutdown does. Returns the recorder."""
-    record = recorder or CallRecorder(link.sessions, link.clinic_id, "room-1", "text · fake/model")
+    record = recorder or CallRecorder(link.sessions, link.clinic_id, "room-1", "text · fake/model", "hi")
     await record.start()
     agent = ClinicAgent("test", booking_tools(replace(link, on_change=record.on_change)))
     agent.on_enter = _silent
@@ -81,6 +81,7 @@ async def test_a_booking_call_is_recorded_with_its_outcome_and_appointment(link)
     assert call.turn_count == 2 and call.error_count == 0
     assert call.ended_at is not None and call.end_reason
     assert call.stack == "text · fake/model" and call.room == "room-1"
+    assert call.language == "hi"  # the line the caller chose
 
     tools = [(e.name, e.ok) for e in events if e.kind == "tool"]
     assert tools == [("check_booking", True), ("book_appointment", True)]
@@ -119,13 +120,13 @@ async def test_a_refused_tool_is_traced_as_failed_and_changes_nothing(link):
     ([], "agent_ended", 2, "info_only"),
 ])
 def test_outcome_comes_from_what_changed(link, changes, end_reason, turns, expected):
-    record = CallRecorder(link.sessions, link.clinic_id, "r", "s")
+    record = CallRecorder(link.sessions, link.clinic_id, "r", "s", "hi")
     record.changes, record.end_reason, record.turns = changes, end_reason, turns
     assert record.outcome() == expected
 
 
 async def test_a_time_limit_is_the_end_reason(link):
-    record = CallRecorder(link.sessions, link.clinic_id, "r", "s")
+    record = CallRecorder(link.sessions, link.clinic_id, "r", "s", "hi")
     record.mark("time_limit")
     await record_call(link, [Reply("नमस्ते")], ["हेलो"], recorder=record)
     call, _, _ = _saved(link, record.call_id)
@@ -140,7 +141,7 @@ class BrokenSessions:
 
 
 async def test_a_database_failure_leaves_the_call_working(link):
-    record = CallRecorder(BrokenSessions(), link.clinic_id, "r", "s")
+    record = CallRecorder(BrokenSessions(), link.clinic_id, "r", "s", "hi")
     await record_call(link, *BOOKING_CALL, recorder=record)
     assert record.call_id is None
     # the booking itself (its own database) still went through
@@ -170,7 +171,7 @@ async def test_finish_writes_once(link):
 # ---------- purge ----------
 
 def _call_at(s, clinic_id, started_at, purge_after):
-    call = repo.start_call(s, clinic_id, "r", "s", started_at)
+    call = repo.start_call(s, clinic_id, "r", "s", "hi", started_at)
     repo.finish_call(
         s, call.id, ended_at=started_at, end_reason="caller_left", outcome="info_only",
         turn_count=1, error_count=0, appointments=[],

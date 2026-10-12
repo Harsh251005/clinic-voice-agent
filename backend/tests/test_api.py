@@ -2,6 +2,7 @@
 
 import base64
 import json
+import re
 
 import jwt
 import pytest
@@ -11,6 +12,7 @@ from livekit import api as lk
 from api.limits import RateLimiter
 from clinic_agent.config import ConfigError, load_settings
 from clinic_agent.dispatch import AGENT_NAME, CallFor, call_from
+from clinic_agent.store import repo
 
 KEY, SECRET = "APItestkey", "s" * 40
 HINDI = {"language": "hi"}
@@ -55,6 +57,46 @@ def test_call_page_shows_the_clinic(client):
     assert "Demo Family Clinic" in r.text and "Borivali East" in r.text
     assert 'href="tel:02212345678"' in r.text
     assert 'data-slug="demo-family-clinic"' in r.text
+
+
+def _beat(languages):
+    from clinic_agent.store.db import sessions_for
+    from clinic_agent.store.models import utc_now
+
+    with sessions_for(load_settings().database_url)() as s:
+        repo.beat(s, "AW_1", "host", languages, utc_now())
+
+
+def _offered(page: str) -> list[str]:
+    return re.findall(r'name="language" value="(\w+)"', page)
+
+
+def test_call_page_offers_both_languages_when_no_worker_has_said(client):
+    # Nobody knows which lines are up: offer both (the call then fails as offline, flagged on its own).
+    assert _offered(client.get("/call/demo-family-clinic").text) == ["en", "hi"]
+
+
+def test_call_page_offers_only_the_lines_the_worker_can_answer(client):
+    _beat(["en"])  # started without a Sarvam key
+    page = client.get("/call/demo-family-clinic").text
+    assert _offered(page) == ["en"]
+    r = client.post("/call/demo-family-clinic/pass", json=HINDI)  # an old tab
+    assert r.status_code == 503
+    assert r.json() == {"error": "Calls in Hindi aren't available right now. Please choose another language."}
+    assert client.post("/call/demo-family-clinic/pass", json={"language": "en"}).status_code == 200
+
+
+def test_page_assets_are_fingerprinted_so_an_update_is_never_served_stale(client):
+    # A browser that cached last version's call.css or call.js must not use it with this page.
+    import hashlib
+    from pathlib import Path
+
+    page = client.get("/call/demo-family-clinic").text
+    static = Path(__file__).resolve().parents[1] / "api" / "static"
+    for name in ("call.css", "call.js"):
+        url = f"/static/{name}?v={hashlib.sha256((static / name).read_bytes()).hexdigest()[:12]}"
+        assert url in page
+        assert client.get(url).status_code == 200
 
 
 def test_clinic_details_are_escaped(client):

@@ -199,6 +199,8 @@ class Call(Base):
     # booked | moved | cancelled | info_only | no_action | failed
     outcome: Mapped[str] = mapped_column(String(20), default="")
     stack: Mapped[str] = mapped_column(String(300), default="")  # provider/model for STT, LLM, TTS: which took each turn
+    # The line the caller chose: "en" | "hi". "" for calls from before there were two.
+    language: Mapped[str] = mapped_column(String(2), default="", server_default="")
     turn_count: Mapped[int] = mapped_column(default=0)  # times the caller spoke
     error_count: Mapped[int] = mapped_column(default=0)  # vendor (STT/LLM/TTS) errors
     # What the call changed: [{"id": 12, "action": "booked"}, ...]
@@ -261,6 +263,8 @@ class WorkerHeartbeat(Base):
     host: Mapped[str] = mapped_column(String(200), default="")
     started_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
     last_seen: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
+    # The language lines it can answer, e.g. "en,hi" (a line without its keys is left out).
+    languages: Mapped[str] = mapped_column(String(20), default="", server_default="")
 
 
 class Incident(Base):
