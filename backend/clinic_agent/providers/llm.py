@@ -41,19 +41,17 @@ def _reasons(model: str) -> bool:
     return bool(re.match(r"(gpt-([5-9]|\d{2,})|o\d)", model))
 
 
-# Allowed vendors are Sarvam (production) and OpenAI. Don't add others.
+# Allowed vendors are Sarvam (the Hindi line) and OpenAI (the English line). Don't add others.
 BUILDERS: dict[str, Callable[[Settings], llm.LLM]] = {
     "sarvam": _sarvam,
     "openai": _openai,
 }
 
 
-def build_llm(cfg: Settings) -> llm.LLM:
+def build_llm(cfg: Settings, vendor: str) -> llm.LLM:
+    """`vendor`'s LLM, as a call's language line names it (clinic_agent/lines.py)."""
     try:
-        builder = BUILDERS[cfg.llm_provider]
+        builder = BUILDERS[vendor]
     except KeyError:
-        raise ValueError(
-            f"unknown LLM provider {cfg.llm_provider!r}; "
-            f"available: {sorted(BUILDERS)}"
-        ) from None
+        raise ValueError(f"unknown LLM vendor {vendor!r}; available: {sorted(BUILDERS)}") from None
     return builder(cfg)

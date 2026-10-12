@@ -17,18 +17,18 @@ import logging
 from livekit.agents import RunContext, function_tool, get_job_context
 from livekit.agents.llm import ToolFlag
 
-from clinic_agent.tools.speech import caller_speaks_hindi
+from clinic_agent.dispatch import Language
 
 logger = logging.getLogger("clinic-agent")
 
 # Only if the model sent an empty goodbye: never hang up without one.
-FALLBACK_GOODBYE = {
-    True: "कॉल करने के लिए धन्यवाद जी। आपका दिन शुभ हो, नमस्ते!",
-    False: "Thank you for calling. Have a good day, goodbye!",
+FALLBACK_GOODBYE: dict[Language, str] = {
+    "hi": "कॉल करने के लिए धन्यवाद जी। आपका दिन शुभ हो, नमस्ते!",
+    "en": "Thank you for calling. Have a good day, goodbye!",
 }
 
 
-def end_call_tool():
+def end_call_tool(language: Language):
     @function_tool(flags=ToolFlag.IGNORE_ON_ENTER)
     async def end_call(ctx: RunContext, goodbye: str) -> None:
         """Say goodbye and hang up. Use when the caller is done: they say bye, "bas itna hi",
@@ -45,7 +45,7 @@ def end_call_tool():
         """
         ctx.disallow_interruptions()
         await ctx.wait_for_playout()  # anything the model said despite the rule above
-        text = goodbye.strip() or FALLBACK_GOODBYE[caller_speaks_hindi(ctx.session)]
+        text = goodbye.strip() or FALLBACK_GOODBYE[language]
         await ctx.session.say(text, allow_interruptions=False).wait_for_playout()
         logger.info("end_call: goodbye played, hanging up")
         hang_up(ctx.session)

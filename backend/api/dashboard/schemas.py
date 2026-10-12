@@ -259,6 +259,7 @@ class CallSummary(BaseModel):
     status: Literal["live", "ended", "dropped"]
     end_reason: str
     outcome: str
+    language: Literal["en", "hi", ""]  # the line the caller chose; "" before there were two
     stack: str
     turn_count: int
     error_count: int
@@ -319,6 +320,7 @@ class ClinicCall(BaseModel):
     duration_s: int | None
     status: Literal["live", "ended", "dropped"]
     outcome: str
+    language: Literal["en", "hi", ""]  # the language the caller chose; "" before there was a choice
     changes: list[ClinicCallChange]
 
 

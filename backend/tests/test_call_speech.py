@@ -3,6 +3,7 @@ scripted LLM: "one moment" while a lookup runs (unless the model already
 said something), and a spoken goodbye before every hang-up."""
 
 import asyncio
+import dataclasses
 
 import pytest
 from livekit.agents import AgentSession
@@ -28,13 +29,13 @@ def link(tmp_path):
     sessions = session_factory(engine)
     with sessions() as s:
         clinic_id = seed_demo(s)
-    return ClinicLink(clinic_id, "Asia/Kolkata", sessions)
+    return ClinicLink(clinic_id, "Asia/Kolkata", sessions, "hi")
 
 
 async def call(link, replies, user_input, greet=False):
     """Run one caller turn. Returns (what say() spoke, whether the session closed)."""
     fake = FakeLLM(replies)
-    agent = ClinicAgent("test", [*booking_tools(link), end_call_tool()])
+    agent = ClinicAgent("test", [*booking_tools(link), end_call_tool(link.language)])
     agent.on_enter = _silent  # no greeting: the first scripted reply answers the caller
     spoken, closed = [], []
     async with AgentSession(llm=fake) as session:
@@ -64,18 +65,26 @@ async def _silent():
 
 # ---------- "one moment" during a lookup ----------
 
-async def test_silent_model_gets_a_filler_in_the_callers_language(link):
+async def test_silent_model_gets_a_filler_in_the_calls_language(link):
     spoken, fake, _ = await call(link, [Reply(calls=[FIND]), Reply("दस बजे खाली है।")], "कल आशा जी का टाइम?")
     (text, kwargs), = spoken
-    assert text in FILLERS[True] and kwargs == {"add_to_chat_ctx": False}
+    assert text in FILLERS["hi"] and kwargs == {"add_to_chat_ctx": False}
     # the tool still ran and its result reached the model
     assert "free start times" in fake.requests[-1].items[-1].output
 
 
-async def test_english_caller_gets_an_english_filler(link):
-    spoken, _, _ = await call(link, [Reply(calls=[FIND]), Reply("Ten is free.")], "Any time with Dr Asha tomorrow?")
+async def test_an_english_call_gets_an_english_filler(link):
+    english = dataclasses.replace(link, language="en")
+    spoken, _, _ = await call(english, [Reply(calls=[FIND]), Reply("Ten is free.")], "Any time with Dr Asha tomorrow?")
     (text, _), = spoken
-    assert text in FILLERS[False]
+    assert text in FILLERS["en"]
+
+
+async def test_a_hindi_call_keeps_its_hindi_filler_when_the_caller_speaks_english(link):
+    # Each line's voice speaks only its own language: the call's, not the caller's last words.
+    spoken, _, _ = await call(link, [Reply(calls=[FIND]), Reply("दस बजे खाली है।")], "Any time with Dr Asha tomorrow?")
+    (text, _), = spoken
+    assert text in FILLERS["hi"]
 
 
 async def test_no_filler_when_the_model_already_said_it(link):
@@ -127,7 +136,8 @@ async def test_end_call_speaks_the_goodbye_then_hangs_up(link):
     assert len(fake.requests) == 1  # no second model round after the tool
 
 
-async def test_an_empty_goodbye_still_says_goodbye(link):
-    spoken, _, closed = await call(link, [Reply(calls=[("end_call", {"goodbye": "  "})])], "bye")
-    assert spoken == [(FALLBACK_GOODBYE[False], {"allow_interruptions": False})]
+@pytest.mark.parametrize("language", ["en", "hi"])
+async def test_an_empty_goodbye_still_says_goodbye_in_the_calls_language(link, language):
+    spoken, _, closed = await call(dataclasses.replace(link, language=language), [Reply(calls=[("end_call", {"goodbye": "  "})])], "bye")
+    assert spoken == [(FALLBACK_GOODBYE[language], {"allow_interruptions": False})]
     assert closed

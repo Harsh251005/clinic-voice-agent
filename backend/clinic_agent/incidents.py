@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 
 from clinic_agent import booking
 from clinic_agent.context import clinic_now
+from clinic_agent.lines import LINES
 from clinic_agent.store import repo
 from clinic_agent.store.db import Session
 
@@ -36,6 +37,7 @@ class Kind:
 
 KINDS = {
     "worker_offline": Kind("critical", clinic_sees=True),
+    "language_off": Kind("warning", clinic_sees=True),
     "vendor_errors": Kind("warning", clinic_sees=False),
     "calls_failing": Kind("warning", clinic_sees=True),
     "patients_cant_connect": Kind("warning", clinic_sees=True, quiet_minutes=120),
@@ -123,7 +125,9 @@ def findings(s: Session, now: datetime, *, max_call_minutes: int) -> list[Findin
 def _receptionist(s: Session, now: datetime) -> list[Finding]:
     last = repo.last_beat(s)
     if last is not None and now - last <= HEARTBEAT_STALE:
-        return []
+        # Up, but a line whose keys are missing isn't offered to callers.
+        live = repo.live_languages(s, now - HEARTBEAT_STALE) or set()
+        return [Finding("language_off", subject=lang) for lang in LINES if lang not in live]
     return [Finding("worker_offline", detail=f"{last:%Y-%m-%dT%H:%M:%SZ}" if last else "never")]
 
 

@@ -127,3 +127,23 @@ def test_the_worker_registers_under_the_name_call_passes_dispatch(monkeypatch):
     server = main.make_server()
     assert server._agent_name == AGENT_NAME
     assert server._agent_name_source == "env"  # not "code": LiveKit's deprecated path
+
+
+async def test_entrypoint_refuses_a_call_on_a_line_that_is_off(env, tmp_path):
+    # Its key is missing (only a Sarvam key is set): the call page no longer
+    # offers English, so only a page opened earlier can get here.
+    import main
+    from clinic_agent.store import migrations
+    from clinic_agent.store.db import make_engine, session_factory
+    from seeds.demo_clinic import seed_demo
+
+    url = f"sqlite:///{tmp_path}/calls.db"
+    engine = make_engine(url)
+    migrations.upgrade(engine)
+    with session_factory(engine)() as s:
+        clinic_id = seed_demo(s)
+    env.setenv("DATABASE_URL", url)
+
+    ctx = _Ctx(metadata_for(clinic_id, "en"))
+    await main.entrypoint(ctx)
+    assert ctx.shutdown_reason == "line off: en"

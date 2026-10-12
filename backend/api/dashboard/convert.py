@@ -70,7 +70,7 @@ def call_summary(call, clinic_name: str, events, dropped_before: datetime) -> sc
         id=call.id, clinic_id=call.clinic_id, clinic_name=clinic_name, started_at=utc(call.started_at),
         duration_s=round((call.ended_at - call.started_at).total_seconds()) if call.ended_at else None,
         status=call_status(call, dropped_before), end_reason=call.end_reason, outcome=call.outcome,
-        stack=call.stack, turn_count=call.turn_count, error_count=call.error_count,
+        language=call.language, stack=call.stack, turn_count=call.turn_count, error_count=call.error_count,
         tool_failures=sum(1 for e in events if e.kind == "tool" and not e.ok),
         appointments=[schemas.CallChange(**c) for c in call.appointments],
     )

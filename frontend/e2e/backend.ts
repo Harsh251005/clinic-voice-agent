@@ -5,7 +5,7 @@ import path from "node:path";
 
 const BACKEND = path.resolve(__dirname, "../../backend");
 
-/** A worker checking in, as clinic_agent/heartbeat.py does; `ageSeconds`
+/** A worker checking in (both language lines up), as clinic_agent/heartbeat.py does; `ageSeconds`
  *  back-dates it (an old beat = a worker that stopped). */
 export function heartbeat(ageSeconds = 0) {
   execFileSync("uv", ["run", "python", "-c", [
@@ -14,6 +14,6 @@ export function heartbeat(ageSeconds = 0) {
     "from clinic_agent.store.db import sessions_for",
     "from clinic_agent.store.models import utc_now",
     "with sessions_for('sqlite:///data/e2e.db')() as s:",
-    `    repo.beat(s, 'AW_e2e', 'e2e', utc_now() - timedelta(seconds=${Number(ageSeconds)}))`,
+    `    repo.beat(s, 'AW_e2e', 'e2e', ['en', 'hi'], utc_now() - timedelta(seconds=${Number(ageSeconds)}))`,
   ].join("\n")], { cwd: BACKEND, stdio: "pipe" });
 }

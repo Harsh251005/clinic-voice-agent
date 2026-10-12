@@ -19,6 +19,7 @@ from livekit.agents import RunContext, ToolError, function_tool
 
 from clinic_agent import booking
 from clinic_agent.context import clinic_now
+from clinic_agent.dispatch import Language
 from clinic_agent.store.db import Sessions
 from clinic_agent.tools.speech import filler_unless_spoken
 
@@ -30,6 +31,7 @@ class ClinicLink:
     clinic_id: int
     timezone: str
     sessions: Sessions
+    language: Language  # the call's line: what the "one moment" filler is said in
     # Told of every appointment a tool changes: (appointment id, action).
     # The call's record uses it (clinic_agent/call_record.py).
     on_change: Callable[[int, str], None] | None = None
@@ -80,7 +82,7 @@ def booking_tools(link: ClinicLink) -> list:
                 return fn(s, link.clinic_id, *args)
 
         task = asyncio.ensure_future(asyncio.to_thread(work))  # start before the filler wait
-        await filler_unless_spoken(ctx, said)
+        await filler_unless_spoken(ctx, said, link.language)
         try:
             result = await task
         except booking.BookingError as err:

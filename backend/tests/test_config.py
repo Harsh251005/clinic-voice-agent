@@ -7,7 +7,6 @@ from clinic_agent.config import ConfigError, load_settings
 
 def test_defaults(env):
     cfg = load_settings()
-    assert (cfg.stt_provider, cfg.llm_provider, cfg.tts_provider) == ("sarvam",) * 3
     assert cfg.min_endpointing_delay == 0.2
     # Model and voice defaults belong to each provider's builder.
     assert (cfg.sarvam_stt_model, cfg.elevenlabs_stt_model) == (None, None)
@@ -16,8 +15,8 @@ def test_defaults(env):
 
 
 def test_keys_are_not_checked_by_config(env):
-    # Which key is required depends on the selected providers, so loading
-    # never fails for a missing key; the builder that needs it does.
+    # A missing key turns off its language line (lines.py), so loading never
+    # fails for one; the builder that needs it does.
     env.delenv("SARVAM_API_KEY")
     assert load_settings().sarvam_api_key == ""
 
@@ -51,8 +50,8 @@ def test_settings_are_immutable(env):
 
 
 def test_each_vendor_keeps_its_own_settings(env):
-    # Switching the stack is only the *_PROVIDER lines: both vendors'
-    # values sit in .env at once and neither overwrites the other.
+    # Both lines' vendors run at once, each with its own values in .env;
+    # neither overwrites the other.
     env.setenv("SARVAM_TTS_SPEAKER", "suhani")
     env.setenv("ELEVENLABS_TTS_VOICE", "voice-123")
     cfg = load_settings()
@@ -66,6 +65,26 @@ def test_old_shared_setting_is_refused_with_its_new_names(env):
         load_settings()
     env.setenv("TTS_SPEAKER", "")
     load_settings()  # blank is harmless
+
+
+@pytest.mark.parametrize("name", ["STT_PROVIDER", "LLM_PROVIDER", "TTS_PROVIDER", "ELEVENLABS_STT_LANGUAGE"])
+def test_a_setting_the_language_lines_replaced_is_refused(env, name):
+    # The caller's language picks the vendors now: a leftover would look
+    # like it chose them while doing nothing.
+    env.setenv(name, "elevenlabs")
+    with pytest.raises(ConfigError, match=f"remove from .env: {name}"):
+        load_settings()
+    env.setenv(name, "")
+    load_settings()  # blank is harmless
+
+
+def test_retired_settings_are_named_once_per_reason(env):
+    for name in ("STT_PROVIDER", "LLM_PROVIDER", "TTS_PROVIDER"):
+        env.setenv(name, "x")
+    with pytest.raises(ConfigError) as err:
+        load_settings()
+    assert str(err.value).count("the call's language picks the vendors") == 1
+    assert "STT_PROVIDER, LLM_PROVIDER, TTS_PROVIDER" in str(err.value)
 
 
 def test_dashboard_login_defaults_to_google_and_rejects_typos(env):

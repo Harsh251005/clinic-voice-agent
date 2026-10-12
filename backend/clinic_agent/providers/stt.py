@@ -19,7 +19,9 @@ def _sarvam(cfg: Settings) -> stt.STT:
     # websocket the plugin owns, so no separate VAD is wired in.
     return sarvam.STT(
         model=cfg.sarvam_stt_model or "saaras:v3",
-        # "unknown" auto-detects per utterance: callers mix Hindi and English.
+        # Sarvam answers the Hindi line. "unknown" auto-detects per utterance,
+        # so the Hinglish callers mix in (English words, whole English
+        # sentences) comes through as said; the replies stay Hindi.
         language=cfg.sarvam_stt_language or "unknown",
         mode=cfg.sarvam_stt_mode,
         sample_rate=cfg.stt_sample_rate,
@@ -38,16 +40,11 @@ def _elevenlabs(cfg: Settings) -> stt.STT:
     # the others get 1008 there, which is why tests must go through the
     # adapter the way a call does.
     #
-    # Language is pinned to Hindi. Auto-detect breaks on a live call: the
-    # stream starts with the greeting's silence, detection settles on the
-    # wrong language (Cyrillic, Chinese) and the commit comes back empty, so
-    # the agent never hears the caller. Pinned "hi" still transcribes English
-    # as English and Hinglish as Hinglish (checked with all three). Adding
-    # secondary_languages=["en"] made commits empty again, so it's left off.
-    # Blank or "unknown" therefore mean "hi" here.
-    language = cfg.elevenlabs_stt_language
-    if language in (None, "unknown"):
-        language = "hi"
+    # ElevenLabs answers the English line only, so the language is pinned to
+    # English. Never auto-detect: on a live call the stream starts with the
+    # greeting's silence, detection settled on the wrong language (Cyrillic,
+    # Chinese) and the commit came back empty, so the agent never heard the
+    # caller (seen 2026-09-25 with "unknown").
     model = cfg.elevenlabs_stt_model or "scribe_v2"
     # Realtime only: server_vad switches ElevenLabs from manual commits to
     # committing on silence. Without it, a transcript is only finalised when
@@ -58,25 +55,23 @@ def _elevenlabs(cfg: Settings) -> stt.STT:
     return elevenlabs.STT(
         model=model,
         **options,
-        language_code=language,
+        language_code="en",
         sample_rate=cfg.stt_sample_rate,
         api_key=require_key(cfg.elevenlabs_api_key, "ELEVENLABS_API_KEY"),
     )
 
 
-# Allowed vendors are Sarvam (production) and ElevenLabs. Don't add others.
+# Allowed vendors are Sarvam (the Hindi line) and ElevenLabs (the English line). Don't add others.
 BUILDERS: dict[str, Callable[[Settings], stt.STT]] = {
     "sarvam": _sarvam,
     "elevenlabs": _elevenlabs,
 }
 
 
-def build_stt(cfg: Settings) -> stt.STT:
+def build_stt(cfg: Settings, vendor: str) -> stt.STT:
+    """`vendor`'s STT, as a call's language line names it (clinic_agent/lines.py)."""
     try:
-        builder = BUILDERS[cfg.stt_provider]
+        builder = BUILDERS[vendor]
     except KeyError:
-        raise ValueError(
-            f"unknown STT provider {cfg.stt_provider!r}; "
-            f"available: {sorted(BUILDERS)}"
-        ) from None
+        raise ValueError(f"unknown STT vendor {vendor!r}; available: {sorted(BUILDERS)}") from None
     return builder(cfg)

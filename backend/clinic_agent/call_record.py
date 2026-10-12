@@ -29,6 +29,7 @@ from livekit.agents.voice.events import (
     FunctionToolsExecutedEvent,
 )
 
+from clinic_agent.lines import Line
 from clinic_agent.store import repo
 from clinic_agent.store.db import Sessions
 from clinic_agent.store.models import utc_now
@@ -55,8 +56,9 @@ TOOL_TEXT_MAX = 2000  # a tool result in the transcript; slot lists can run long
 
 
 class CallRecorder:
-    def __init__(self, sessions: Sessions, clinic_id: int, room: str, stack: str) -> None:
+    def __init__(self, sessions: Sessions, clinic_id: int, room: str, stack: str, language: str) -> None:
         self.sessions, self.clinic_id, self.room, self.stack = sessions, clinic_id, room, stack
+        self.language = language
         self.call_id: int | None = None
         self.t0 = time.time()
         self.started_at = utc_now()
@@ -73,7 +75,7 @@ class CallRecorder:
     async def start(self) -> None:
         def work() -> int:
             with self.sessions() as s:
-                return repo.start_call(s, self.clinic_id, self.room, self.stack, self.started_at).id
+                return repo.start_call(s, self.clinic_id, self.room, self.stack, self.language, self.started_at).id
 
         try:
             self.call_id = await asyncio.to_thread(work)
@@ -206,10 +208,10 @@ def _safe(handler):
     return run
 
 
-def stack_of(session: AgentSession, stt: str, llm: str, tts: str, text_only: bool) -> str:
+def stack_of(session: AgentSession, line: Line, text_only: bool) -> str:
     """Which vendors and models took the call, e.g.
     "elevenlabs/scribe_v2 · openai/gpt-6-luna · elevenlabs/eleven_v3_conversational"."""
     if text_only:
-        return f"text · {llm}/{session.llm.model}"
-    return f"{stt}/{session.stt.model} · {llm}/{session.llm.model} · {tts}/{session.tts.model}"
+        return f"text · {line.llm}/{session.llm.model}"
+    return f"{line.stt}/{session.stt.model} · {line.llm}/{session.llm.model} · {line.tts}/{session.tts.model}"
 

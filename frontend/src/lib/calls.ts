@@ -20,6 +20,13 @@ export function changeText(c: Change): string {
   return `${VERBS[c.action]} ${c.patient_name} with ${c.doctor_name}`;
 }
 
+const LANGUAGES: Record<string, string> = { en: "English", hi: "Hindi" };
+
+/** The language the caller chose ("en" → "English"); null for calls from before there was a choice. */
+export function languageName(code: string): string | null {
+  return LANGUAGES[code] ?? null;
+}
+
 /** One line for a call with no appointment change. */
 export function whatHappened(call: ClinicCall): string {
   if (call.status === "live") return "On the line now";

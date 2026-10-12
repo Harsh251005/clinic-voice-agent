@@ -18,25 +18,20 @@ class ConfigError(RuntimeError):
 
 @dataclass(frozen=True)
 class Settings:
-    # --- credentials: each is required only if a selected provider uses it ---
+    # --- credentials: a missing one leaves its language line unavailable
+    # (clinic_agent/lines.py) rather than stopping the worker ---
     sarvam_api_key: str
     openai_api_key: str
     elevenlabs_api_key: str
 
-    # --- which implementation to build (keys into the provider registries) ---
-    stt_provider: str
-    llm_provider: str
-    tts_provider: str
-
-    # --- per-vendor settings. Each vendor keeps its own, so switching the
-    # stack is only the three *_PROVIDER lines. None = the builder's default ---
+    # --- per-vendor settings. Which vendors a call uses is its language line
+    # (clinic_agent/lines.py), never a setting. None = the builder's default ---
     stt_sample_rate: int  # the audio fed to whichever STT runs
 
     sarvam_stt_model: str | None
     sarvam_stt_language: str | None
     sarvam_stt_mode: str
     elevenlabs_stt_model: str | None
-    elevenlabs_stt_language: str | None
 
     sarvam_llm_model: str | None
     openai_llm_model: str | None
@@ -86,8 +81,8 @@ class Settings:
 
 
 def require_key(value: str, name: str) -> str:
-    """Called by a provider builder for the key it needs, so an unused
-    vendor's key never has to be set."""
+    """Called by a provider builder for the key it needs. Missing, it makes
+    that builder's language line unavailable (lines.why_unavailable)."""
     if not value:
         raise ConfigError(
             f"{name} is not set. Copy .env.example to .env and fill it in."
@@ -120,7 +115,7 @@ def _choice(name: str, allowed: tuple[str, ...]) -> str:
 # Each vendor's own model and voice settings, read in load_settings().
 VENDOR_SETTINGS = (
     "SARVAM_STT_MODEL", "SARVAM_STT_LANGUAGE", "SARVAM_STT_MODE",
-    "ELEVENLABS_STT_MODEL", "ELEVENLABS_STT_LANGUAGE",
+    "ELEVENLABS_STT_MODEL",
     "SARVAM_LLM_MODEL", "OPENAI_LLM_MODEL",
     "SARVAM_TTS_MODEL", "SARVAM_TTS_SPEAKER", "SARVAM_TTS_LANGUAGE",
     "SARVAM_TTS_SAMPLE_RATE", "SARVAM_TTS_CODEC",
@@ -143,42 +138,55 @@ _SPLIT_PER_VENDOR = {
 }
 
 
-def _refuse_shared_vendor_settings() -> None:
+# Settings that chose the vendors. The caller's language does that now
+# (clinic_agent/lines.py), so a value left in .env would be silently ignored.
+_LINE_PICKS = "the call's language picks the vendors (English: ElevenLabs + OpenAI; Hindi: Sarvam)"
+RETIRED = {
+    "STT_PROVIDER": _LINE_PICKS,
+    "LLM_PROVIDER": _LINE_PICKS,
+    "TTS_PROVIDER": _LINE_PICKS,
+    "ELEVENLABS_STT_LANGUAGE": "ElevenLabs answers the English line, so it always listens for English",
+}
+
+
+def _refuse_old_settings() -> None:
     old = [name for name in _SPLIT_PER_VENDOR if _text(name)]
     if old:
         raise ConfigError(
             "settings are now per vendor; rename in .env: "
             + ", ".join(f"{name} -> {_SPLIT_PER_VENDOR[name]}" for name in old)
         )
+    retired = [name for name in RETIRED if _text(name)]
+    if retired:
+        why = {RETIRED[name]: [n for n in retired if RETIRED[n] == RETIRED[name]] for name in retired}
+        raise ConfigError(
+            "remove from .env: " + "; ".join(f"{', '.join(names)} ({reason})" for reason, names in why.items())
+        )
 
 
 def load_settings() -> Settings:
     """Read .env and the environment into a Settings object.
 
-    Each vendor has its own model and voice settings, so switching the stack
-    is only the *_PROVIDER lines. Left blank they stay None, and that
-    vendor's builder fills in its own default. API keys are checked by the
-    builder that needs them; main.py builds every provider at startup, so a
-    missing key is still a startup error rather than a caller hearing silence.
+    Each vendor has its own model and voice settings. Left blank they stay
+    None, and that vendor's builder fills in its own default. API keys are
+    checked by the builder that needs them; main.py tries every language line
+    at startup, so a missing key makes its line unavailable (flagged on the
+    dashboards, not offered on the call page) instead of a caller hearing
+    silence.
     """
     load_dotenv()
-    _refuse_shared_vendor_settings()
+    _refuse_old_settings()
 
     tts_rate = _number("SARVAM_TTS_SAMPLE_RATE")
     return Settings(
         sarvam_api_key=_text("SARVAM_API_KEY", ""),
         openai_api_key=_text("OPENAI_API_KEY", ""),
         elevenlabs_api_key=_text("ELEVENLABS_API_KEY", ""),
-        # Sarvam is the production stack, so it is the default for all three.
-        stt_provider=_text("STT_PROVIDER", "sarvam"),
-        llm_provider=_text("LLM_PROVIDER", "sarvam"),
-        tts_provider=_text("TTS_PROVIDER", "sarvam"),
         stt_sample_rate=int(_number("STT_SAMPLE_RATE", 16000)),
         sarvam_stt_model=_text("SARVAM_STT_MODEL"),
         sarvam_stt_language=_text("SARVAM_STT_LANGUAGE"),
         sarvam_stt_mode=_text("SARVAM_STT_MODE", "transcribe"),
         elevenlabs_stt_model=_text("ELEVENLABS_STT_MODEL"),
-        elevenlabs_stt_language=_text("ELEVENLABS_STT_LANGUAGE"),
         sarvam_llm_model=_text("SARVAM_LLM_MODEL"),
         openai_llm_model=_text("OPENAI_LLM_MODEL"),
         sarvam_tts_model=_text("SARVAM_TTS_MODEL"),

@@ -35,7 +35,7 @@ with sessions_for(load_settings().database_url)() as s:
         return {"t_ms": t, "kind": kind, "name": name, "duration_ms": ms, "ok": ok, "detail": detail}
     def call(ago, outcome, events, items, changes=(), finished=True):
         started = now - ago
-        c = repo.start_call(s, clinic_id, "e2e", stack, started)
+        c = repo.start_call(s, clinic_id, "e2e", stack, "hi", started)
         if finished:
             repo.finish_call(s, c.id, ended_at=started + timedelta(seconds=84), end_reason="agent_ended", outcome=outcome,
                              turn_count=sum(i["role"] == "caller" for i in items), error_count=sum(e["kind"] == "error" for e in events),

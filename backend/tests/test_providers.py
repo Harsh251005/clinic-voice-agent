@@ -8,23 +8,24 @@ from clinic_agent.providers import build_llm, build_stt, build_tts
 
 def test_sarvam_builders_return_livekit_base_classes(env):
     cfg = load_settings()
-    assert isinstance(build_stt(cfg), stt.STT)
-    assert isinstance(build_llm(cfg), llm.LLM)
-    assert isinstance(build_tts(cfg), tts.TTS)
+    assert isinstance(build_stt(cfg, "sarvam"), stt.STT)
+    assert isinstance(build_llm(cfg, "sarvam"), llm.LLM)
+    assert isinstance(build_tts(cfg, "sarvam"), tts.TTS)
 
 
 def test_stt_is_streaming(env):
     # Streaming is why Sarvam can do its own end-of-turn detection.
-    assert build_stt(load_settings()).capabilities.streaming
+    assert build_stt(load_settings(), "sarvam").capabilities.streaming
 
 
 def test_sarvam_defaults(env):
     cfg = load_settings()
-    s = build_stt(cfg)
+    s = build_stt(cfg, "sarvam")
     assert (s.model, s._opts.language) == ("saaras:v3", "unknown")
-    assert build_llm(cfg).model == "sarvam-105b-conversations"
-    t = build_tts(cfg)
+    assert build_llm(cfg, "sarvam").model == "sarvam-105b-conversations"
+    t = build_tts(cfg, "sarvam")
     assert (t.model, t._opts.speaker, t._opts.output_audio_codec) == ("bulbul:v3", "suhani", "linear16")
+    assert t._opts.target_language_code == "hi-IN"  # the Hindi line: Devanagari replies
     assert t.sample_rate == 24000
 
 
@@ -38,7 +39,7 @@ def test_sarvam_voice_gets_whole_sentences(env):
 
     from clinic_agent.providers.sentences import MAX_PIECE, SentenceTokenizer
 
-    t = build_tts(load_settings())
+    t = build_tts(load_settings(), "sarvam")
     assert isinstance(t._opts.word_tokenizer, SentenceTokenizer)
     assert t._opts.max_chunk_length >= MAX_PIECE
     # The plugin has no argument for its splitter; this fails if an upgrade
@@ -47,19 +48,17 @@ def test_sarvam_voice_gets_whole_sentences(env):
 
 
 def test_openai_llm(env):
-    env.setenv("LLM_PROVIDER", "openai")
     env.setenv("OPENAI_API_KEY", "sk-test")
-    m = build_llm(load_settings())
+    m = build_llm(load_settings(), "openai")
     assert isinstance(m, llm.LLM)
     assert m.model == "gpt-6-luna"
     assert m._opts.reasoning_effort == "none"  # a reasoning model: tools need it off
 
 
 def test_openai_model_override(env):
-    env.setenv("LLM_PROVIDER", "openai")
     env.setenv("OPENAI_API_KEY", "sk-test")
     env.setenv("OPENAI_LLM_MODEL", "gpt-4o-mini")
-    assert build_llm(load_settings()).model == "gpt-4o-mini"
+    assert build_llm(load_settings(), "openai").model == "gpt-4o-mini"
 
 
 @pytest.mark.parametrize(
@@ -68,18 +67,16 @@ def test_openai_model_override(env):
      ("o4-mini", "none"), ("gpt-4.1-mini", None), ("gpt-4o-mini", None)],
 )
 def test_openai_reasoning_is_off_so_tools_work(env, model, effort):
-    env.setenv("LLM_PROVIDER", "openai")
     env.setenv("OPENAI_API_KEY", "sk-test")
     env.setenv("OPENAI_LLM_MODEL", model)
-    opts = build_llm(load_settings())._opts
+    opts = build_llm(load_settings(), "openai")._opts
     got = opts.reasoning_effort if isinstance(opts.reasoning_effort, str) else None
     assert got == effort
 
 
 def test_elevenlabs_tts(env):
-    env.setenv("TTS_PROVIDER", "elevenlabs")
     env.setenv("ELEVENLABS_API_KEY", "el-test")
-    t = build_tts(load_settings())
+    t = build_tts(load_settings(), "elevenlabs")
     assert isinstance(t, tts.TTS)
     assert t.model == "eleven_v3_conversational"
     assert t._opts.voice_id == elevenlabs.DEFAULT_VOICE_ID
@@ -88,43 +85,31 @@ def test_elevenlabs_tts(env):
 
 
 def test_elevenlabs_stt(env):
-    env.setenv("STT_PROVIDER", "elevenlabs")
     env.setenv("ELEVENLABS_API_KEY", "el-test")
-    s = build_stt(load_settings())
+    s = build_stt(load_settings(), "elevenlabs")
     assert isinstance(s, stt.STT)
     # Batch: LiveKit cuts utterances with the session's VAD and sends each one.
     assert s.model == "scribe_v2"
     assert not s.capabilities.streaming
-    assert s._opts.language_code == "hi"  # auto-detect breaks on live calls
+    assert s._opts.language_code == "en"  # the English line; auto-detect breaks on live calls
 
 
 def test_elevenlabs_realtime_stt_commits_on_silence(env):
-    env.setenv("STT_PROVIDER", "elevenlabs")
     env.setenv("ELEVENLABS_API_KEY", "el-test")
     env.setenv("ELEVENLABS_STT_MODEL", "scribe_v2_realtime")
-    s = build_stt(load_settings())
+    s = build_stt(load_settings(), "elevenlabs")
     assert s.capabilities.streaming
     # Manual commits would wait for a flush a live call never sends.
     assert s._opts.server_vad == {}  # given, so commit_strategy=vad
 
 
-@pytest.mark.parametrize(("value", "expected"), [("unknown", "hi"), ("", "hi"), ("en", "en")])
-def test_elevenlabs_stt_language(env, value, expected):
-    # "unknown" (Sarvam's word for auto-detect) becomes Hindi here, so
-    # ElevenLabs never turns auto-detect on.
-    env.setenv("STT_PROVIDER", "elevenlabs")
-    env.setenv("ELEVENLABS_API_KEY", "el-test")
-    env.setenv("ELEVENLABS_STT_LANGUAGE", value)
-    assert build_stt(load_settings())._opts.language_code == expected
-
-
-def test_switching_provider_picks_up_that_vendors_own_settings(env):
+def test_each_vendor_reads_its_own_voice_setting(env):
     env.setenv("ELEVENLABS_API_KEY", "el-test")
     env.setenv("SARVAM_TTS_SPEAKER", "shubh")
     env.setenv("ELEVENLABS_TTS_VOICE", "voice-123")
-    assert build_tts(load_settings())._opts.speaker == "shubh"
-    env.setenv("TTS_PROVIDER", "elevenlabs")
-    assert build_tts(load_settings())._opts.voice_id == "voice-123"
+    cfg = load_settings()
+    assert build_tts(cfg, "sarvam")._opts.speaker == "shubh"
+    assert build_tts(cfg, "elevenlabs")._opts.voice_id == "voice-123"
 
 
 def test_only_the_allowed_vendors_are_registered():
@@ -137,46 +122,26 @@ def test_only_the_allowed_vendors_are_registered():
 
 
 @pytest.mark.parametrize(
-    ("provider_var", "provider", "key", "build"),
+    ("vendor", "key", "build"),
     [
-        ("LLM_PROVIDER", "sarvam", "SARVAM_API_KEY", build_llm),
-        ("STT_PROVIDER", "sarvam", "SARVAM_API_KEY", build_stt),
-        ("TTS_PROVIDER", "sarvam", "SARVAM_API_KEY", build_tts),
-        ("LLM_PROVIDER", "openai", "OPENAI_API_KEY", build_llm),
-        ("TTS_PROVIDER", "elevenlabs", "ELEVENLABS_API_KEY", build_tts),
-        ("STT_PROVIDER", "elevenlabs", "ELEVENLABS_API_KEY", build_stt),
+        ("sarvam", "SARVAM_API_KEY", build_llm),
+        ("sarvam", "SARVAM_API_KEY", build_stt),
+        ("sarvam", "SARVAM_API_KEY", build_tts),
+        ("openai", "OPENAI_API_KEY", build_llm),
+        ("elevenlabs", "ELEVENLABS_API_KEY", build_tts),
+        ("elevenlabs", "ELEVENLABS_API_KEY", build_stt),
     ],
 )
-def test_selected_provider_requires_its_key(env, provider_var, provider, key, build):
+def test_each_vendor_requires_its_own_key(env, vendor, key, build):
     env.delenv("SARVAM_API_KEY")
-    env.setenv(provider_var, provider)
     with pytest.raises(ConfigError, match=f"{key} is not set"):
-        build(load_settings())
-
-
-def test_unselected_vendor_needs_no_key(env):
-    # The OpenAI + ElevenLabs testing stack runs with no Sarvam key at all.
-    env.delenv("SARVAM_API_KEY")
-    env.setenv("STT_PROVIDER", "elevenlabs")
-    env.setenv("LLM_PROVIDER", "openai")
-    env.setenv("OPENAI_API_KEY", "sk-test")
-    env.setenv("TTS_PROVIDER", "elevenlabs")
-    env.setenv("ELEVENLABS_API_KEY", "el-test")
-    cfg = load_settings()
-    build_stt(cfg)
-    build_llm(cfg)
-    build_tts(cfg)
+        build(load_settings(), vendor)
 
 
 @pytest.mark.parametrize(
-    ("var", "build", "available"),
-    [
-        ("STT_PROVIDER", build_stt, "['elevenlabs', 'sarvam']"),
-        ("LLM_PROVIDER", build_llm, "['openai', 'sarvam']"),
-        ("TTS_PROVIDER", build_tts, "['elevenlabs', 'sarvam']"),
-    ],
+    ("build", "available"),
+    [(build_stt, "['elevenlabs', 'sarvam']"), (build_llm, "['openai', 'sarvam']"), (build_tts, "['elevenlabs', 'sarvam']")],
 )
-def test_unknown_provider_lists_available(env, var, build, available):
-    env.setenv(var, "nope")
-    with pytest.raises(ValueError, match=rf"unknown .* provider 'nope'; available: {__import__('re').escape(available)}"):
-        build(load_settings())
+def test_unknown_vendor_lists_available(env, build, available):
+    with pytest.raises(ValueError, match=rf"unknown .* vendor 'nope'; available: {__import__('re').escape(available)}"):
+        build(load_settings(), "nope")

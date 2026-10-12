@@ -35,6 +35,7 @@ def _call(s, call, request: Request) -> schemas.ClinicCall:
     return schemas.ClinicCall(
         id=call.id, started_at=convert.utc(call.started_at), duration_s=duration,
         status=convert.call_status(call, dropped_before(request, utc_now())), outcome=call.outcome,
+        language=call.language,
         changes=[_change(s, call.clinic_id, c) for c in call.appointments],
     )
 

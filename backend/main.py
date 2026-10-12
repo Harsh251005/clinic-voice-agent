@@ -30,8 +30,8 @@ from clinic_agent.call_record import CallRecorder, stack_of
 from clinic_agent.config import ConfigError, load_settings
 from clinic_agent.context import clinic_now, load_clinic, local_clinic
 from clinic_agent.dispatch import AGENT_NAME, BadDispatch, CallFor, Language, call_from, language_of
+from clinic_agent.lines import LINES, NAMES, available
 from clinic_agent.prompts import build_instructions
-from clinic_agent.providers import build_llm, build_stt, build_tts
 from clinic_agent.session import build_session
 from clinic_agent.store.db import sessions_for
 from clinic_agent.store.migrations import SchemaOutdated
@@ -110,28 +110,27 @@ async def entrypoint(ctx: JobContext) -> None:
         logger.warning("refusing call in room %s: clinic %s is paused", ctx.room.name, clinic.id)
         ctx.shutdown(reason="clinic paused")
         return
-    logger.info("clinic %s: %s, language %s", clinic.id, clinic.name, call.language)
-    instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone))
+    line = LINES[call.language]
+    try:
+        session = build_session(cfg, line, text_only=TEXT_ONLY)
+    except ConfigError as err:
+        # Its key is missing: the call page no longer offers this line, so
+        # only a page opened before the worker started can get here.
+        logger.error("refusing call in room %s: the %s line is off: %s", ctx.room.name, NAMES[call.language], err)
+        ctx.shutdown(reason=f"line off: {call.language}")
+        return
+    logger.info("clinic %s: %s, %s line", clinic.id, clinic.name, NAMES[call.language])
+    instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone), call.language)
     sessions = sessions_for(cfg.database_url)
-    session = build_session(cfg, text_only=TEXT_ONLY)
-    stack = stack_of(session, cfg.stt_provider, cfg.llm_provider, cfg.tts_provider, TEXT_ONLY)
-    record = CallRecorder(sessions, clinic.id, ctx.room.name, stack)
+    stack = stack_of(session, line, TEXT_ONLY)
+    record = CallRecorder(sessions, clinic.id, ctx.room.name, stack, call.language)
     await record.start()
     record.attach(session)
     ctx.add_shutdown_callback(record.finish)
 
-    link = ClinicLink(clinic.id, clinic.timezone, sessions, on_change=record.on_change)
-    tools = [*booking_tools(link), end_call_tool()]
-
-    if TEXT_ONLY:
-        logger.info("starting text-only session: llm=%s/%s", cfg.llm_provider, session.llm.model)
-    else:
-        logger.info(
-            "starting session: stt=%s/%s llm=%s/%s tts=%s/%s",
-            cfg.stt_provider, session.stt.model,
-            cfg.llm_provider, session.llm.model,
-            cfg.tts_provider, session.tts.model,
-        )
+    link = ClinicLink(clinic.id, clinic.timezone, sessions, call.language, on_change=record.on_change)
+    tools = [*booking_tools(link), end_call_tool(call.language)]
+    logger.info("starting session: %s", stack)
     keep_promises(session, [t.info.name for t in tools if t.info.name != "end_call"])
     # record=False: no audio, transcript or trace goes to LiveKit Cloud, whatever
     # the project's setting says. Our own record (above) keeps the transcript
@@ -150,8 +149,10 @@ async def entrypoint(ctx: JobContext) -> None:
 
 if __name__ == "__main__":
     # Fail before the worker starts rather than on the first call, and report
-    # it as a one-line setup error instead of a traceback. Building the
-    # providers here is what catches an unknown *_PROVIDER name; the session
+    # it as a one-line setup error instead of a traceback. Trying each
+    # language line's providers here finds a missing key: that line is off
+    # (said here, flagged on the dashboards through the check-in), the other
+    # still answers; with neither, nothing can, so it exits. The session
     # itself needs a running event loop, so it is left to the entrypoint.
     # Opening the database here catches an old schema; console also resolves
     # its clinic, since it has no dispatch to name one.
@@ -159,9 +160,13 @@ if __name__ == "__main__":
         requested = _take_clinic_flag(sys.argv)
         language = _take_language_flag(sys.argv)
         cfg = load_settings()
-        build_llm(cfg)
-        if not TEXT_ONLY:
-            build_stt(cfg), build_tts(cfg)
+        lines_off = {lang: why for lang, why in available(cfg, TEXT_ONLY).items() if why}
+        ready = [lang for lang in LINES if lang not in lines_off]
+        if not ready:
+            raise ConfigError("no language line can take calls: " + "; ".join(
+                f"{NAMES[lang]}: {why}" for lang, why in lines_off.items()))
+        if CONSOLE and language in lines_off:
+            raise ConfigError(f"the {NAMES[language]} line is off: {lines_off[language]}")
         sessions_for(cfg.database_url)
         if CONSOLE:
             LOCAL_CALL = CallFor(local_clinic(cfg, requested), language)
@@ -169,9 +174,12 @@ if __name__ == "__main__":
         sys.exit(f"configuration error: {err}")
     except (ConfigError, SchemaOutdated, ValueError) as err:
         sys.exit(f"configuration error: {err}")
+    for lang, why in lines_off.items():
+        print(f"warning: the {NAMES[lang]} line is off, calls in {NAMES[lang]} won't be offered: {why}",
+              file=sys.stderr)
 
     server = make_server()
     if not CONSOLE:
         # dev and start answer patients: check in, so the dashboards can tell when they stop.
-        heartbeat.attach(server, sessions_for(cfg.database_url))
+        heartbeat.attach(server, sessions_for(cfg.database_url), ready)
     cli.run_app(server)
