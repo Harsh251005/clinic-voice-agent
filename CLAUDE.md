@@ -11,7 +11,8 @@ are `sarvam` or `elevenlabs`, the LLM `sarvam` or `openai` — never add others
 lines** (Harsh, 2026-10-12; `clinic_agent/lines.py`): the caller picks
 English or Hindi on the call page before the call and keeps it to the end
 (no mid-call switch: it would change the voice). **English** = ElevenLabs STT
-+ OpenAI + ElevenLabs TTS, English only; **Hindi** = Sarvam × 3, Hindi only.
++ OpenAI + ElevenLabs TTS, English only; **Hindi** = Sarvam STT + OpenAI LLM
++ Sarvam TTS (LLM is OpenAI "for now", Harsh 2026-10-12; was Sarvam), Hindi only.
 Neither is "testing" or "production": both are real. A line whose key is
 missing is off, not fatal (worker warns, check-in leaves it out, call page
 hides it, `language_off` problem on both dashboards). The `*_PROVIDER` lines

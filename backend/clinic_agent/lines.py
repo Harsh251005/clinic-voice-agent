@@ -5,7 +5,8 @@ and keeps it for the whole call: switching lines mid-call would change the
 voice. Each line is its own pipeline, tuned for its language only:
 
 - English: ElevenLabs ears, OpenAI brain, ElevenLabs voice.
-- Hindi:   Sarvam ears, brain and voice.
+- Hindi:   Sarvam ears and voice, OpenAI brain (Harsh, 2026-10-12, "for
+  now"; the line was Sarvam for all three, and llm="sarvam" puts it back).
 
 A line whose keys are missing is unavailable, not fatal: the worker answers
 on the other line, its check-in says which lines are up, the call page
@@ -31,7 +32,7 @@ class Line:
 
 LINES: dict[Language, Line] = {
     "en": Line("en", stt="elevenlabs", llm="openai", tts="elevenlabs"),
-    "hi": Line("hi", stt="sarvam", llm="sarvam", tts="sarvam"),
+    "hi": Line("hi", stt="sarvam", llm="openai", tts="sarvam"),
 }
 
 NAMES: dict[Language, str] = {"en": "English", "hi": "Hindi"}
