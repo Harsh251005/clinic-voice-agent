@@ -42,7 +42,7 @@ panel. Every failure is flagged on screen.
 ```mermaid
 flowchart LR
     caller(["📱 Patient<br/>browser call page"]) -- WebRTC audio --> lk["LiveKit Cloud<br/>(media server)"]
-    lk -- dispatch with clinic id --> worker
+    lk -- dispatch with clinic id + language --> worker
 
     subgraph worker["Voice agent worker (Python)"]
         direction LR
@@ -58,8 +58,8 @@ flowchart LR
 ```
 
 - **The call path:** the browser gets a short-lived, signed pass for a
-  fresh room bound to one clinic. LiveKit dispatches the worker with that
-  clinic's id. Each turn goes VAD → STT → LLM (with tools) → TTS.
+  fresh room bound to one clinic and one language. LiveKit dispatches the
+  worker with both. Each turn goes VAD → STT → LLM (with tools) → TTS.
 - **The rules live in plain Python** (`booking.py`), not in the prompt.
   They are tested without any voice or model.
 - **The database guarantees what code can't:** one booking per doctor per

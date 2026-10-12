@@ -44,6 +44,7 @@ uv run python -m clinic_agent.store.migrations  # schema up to date (after every
 uv run python main.py console    # talk over the local mic — spends no LiveKit minutes
 uv run python main.py console --text  # typed, LLM-only: no STT/TTS built or billed
 uv run python main.py console --clinic 2  # pick a clinic when there are several
+uv run python main.py console --language en  # caller's language: hi (default) or en
 uv run python main.py dev        # join rooms it is dispatched to (LiveKit 1.8 dropped reload: restart after edits)
 uv run python main.py start      # production worker
 uv run python -m api             # call-link server: /call/<slug> page + join passes
@@ -74,18 +75,20 @@ The pipeline is split so each concern lives in exactly one module:
   (a `ConfigError`, unknown provider, missing key, old schema or, in console,
   a missing clinic exits with a one-line message, not a traceback). **One
   worker serves every clinic:** it registers as `dispatch.AGENT_NAME`
-  (explicit dispatch) and each job reads its clinic from the dispatch
-  metadata (`dispatch.clinic_id_from`); no clinic or an unknown one → job
-  refused, never guessed. Console has no dispatch: `--clinic N` (console-only;
-  stripped from argv before LiveKit's CLI) or the only clinic. Each job loads
+  (explicit dispatch) and each job reads its clinic **and language** (`en` |
+  `hi`) from the dispatch metadata (`dispatch.call_from`); no clinic, an
+  unknown one or no known language → job refused, never guessed. Console has
+  no dispatch: `--clinic N` (or the only clinic) and `--language en|hi`
+  (default `hi`), both console-only and stripped from argv before LiveKit's CLI. Each job loads
   the clinic (`context.load_clinic`, off the event loop), builds instructions,
   builds a session and starts `ClinicAgent` in the room, then starts
   `call_limit.end_after` (`MAX_CALL_MINUTES`), cancelled on job shutdown.
   The prompt's opening rule makes the agent say it is an automated assistant.
 - `api/` — FastAPI call-link server (browser calls until telephony).
-  `/call/<slug>` page; `POST /call/<slug>/pass` signs a LiveKit token for a
+  `/call/<slug>` page; `POST /call/<slug>/pass` (body `{"language": "en"|"hi"}`,
+  required: 400 otherwise, never a default) signs a LiveKit token for a
   fresh room whose `RoomConfiguration` dispatches `AGENT_NAME` with
-  `dispatch.metadata_for(clinic_id)`: mic-only, 2 participants, 5-min TTL.
+  `dispatch.metadata_for(clinic_id, language)`: mic-only, 2 participants, 5-min TTL.
   In-memory rate limits (per IP, per clinic); `CLIENT_IP_HEADER` names the
   trusted proxy header (last entry used). Strict CSP; livekit-client pinned
   with SRI. Reads data only via `repo`; fails fast on missing LiveKit

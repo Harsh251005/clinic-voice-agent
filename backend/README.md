@@ -58,19 +58,22 @@ command.
 uv run python main.py console   # talk over your mic — no LiveKit minutes used
 uv run python main.py console --text   # type instead: LLM only, no STT/TTS cost
 uv run python main.py console --clinic 2   # which clinic, when there are several
+uv run python main.py console --language en   # the caller's language: hi (default) or en
 uv run python main.py dev       # join LiveKit rooms it is dispatched to; restart it after a code change
 uv run python main.py start     # production worker
 ```
 
 **One worker answers for every clinic.** It registers as
 `clinic-receptionist` (explicit dispatch), so it joins only rooms it is
-dispatched to, and each dispatch carries the clinic in its metadata:
-`{"clinic_id": 2}`. The format lives in `clinic_agent/dispatch.py`, and
-anything that starts a call (the browser call link, later a phone number)
-uses it. A call that names no clinic, or an unknown one, is refused (logged,
-job ended): the agent never answers as a guessed clinic. `console` has no
-dispatch, so it takes `--clinic <id>` or uses the only clinic in the
-database. `--clinic` is console-only: `dev` behaves like `start`.
+dispatched to, and each dispatch carries the clinic and the caller's
+language in its metadata: `{"clinic_id": 2, "language": "hi"}` (`en` or
+`hi`). The format lives in `clinic_agent/dispatch.py`, and anything that
+starts a call (the browser call link, later a phone number) uses it. A call
+that names no clinic, an unknown one, or no known language is refused
+(logged, job ended): the agent never answers on a guess. `console` has no
+dispatch, so it takes `--clinic <id>` (or uses the only clinic in the
+database) and `--language en|hi` (default `hi`). Both flags are
+console-only: `dev` behaves like `start`.
 
 **Use `console --text` for testing conversations, tools and bookings.** It
 builds no speech providers at all, so it spends only LLM tokens and needs no
@@ -119,9 +122,11 @@ uv run python -m api     # serves /call/<link name> on API_HOST:API_PORT (defaul
    clinic up by its link name and signs a short-lived LiveKit token for a new
    private room (`call-<link name>-<random>`). The token lets the caller
    publish only a microphone, allows 2 participants (caller + receptionist),
-   and dispatches `clinic-receptionist` with `{"clinic_id": N}`. The
-   signature is made with `LIVEKIT_API_SECRET`, so a caller can't change the
-   clinic.
+   and dispatches `clinic-receptionist` with `{"clinic_id": N, "language":
+   "hi"}`. The request must name the language (`{"language": "en"}` or
+   `"hi"`); anything else gets a 400, never a default. The page sends `hi`
+   until it offers the English | हिन्दी choice. The signature is made with
+   `LIVEKIT_API_SECRET`, so a caller can't change the clinic or language.
 3. The browser joins with the pass, and LiveKit sends the receptionist in for
    that clinic. If it hasn't joined within 20 s, the page says so.
 
@@ -398,7 +403,7 @@ api/                    call-link server: page + signed join pass (python -m api
     ├── prompts.py      persona rules + clinic facts built from the database per call
     ├── spoken.py       clock times as Hindi words ("साढ़े बारह बजे") for the tools
     ├── context.py      loads the call's clinic and its local time
-    ├── dispatch.py     which clinic a call is for: the agent name + metadata format
+    ├── dispatch.py     which clinic and language a call is for: the agent name + metadata format
     ├── call_limit.py   hard cap on call length: goodbye, then close the room
     ├── call_record.py  each call's trace (timings, tools, errors) + transcript
     ├── incidents.py    problems: what counts, when one opens and closes

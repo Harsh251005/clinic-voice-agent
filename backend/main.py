@@ -3,12 +3,15 @@
     uv run python main.py console   talk to it locally (no LiveKit minutes)
     uv run python main.py console --text
                                     type to it: LLM only, no STT/TTS cost
+    uv run python main.py console --language en
+                                    the caller's language: hi (default) or en
     uv run python main.py dev       join LiveKit rooms it is dispatched to (restart it after a code change)
     uv run python main.py start     production worker
 
 One worker answers for every clinic: each call's dispatch names its clinic
-(see clinic_agent/dispatch.py). Console has no dispatch, so it takes
-`--clinic <id>`, or uses the only clinic in the database.
+and language (see clinic_agent/dispatch.py). Console has no dispatch, so it
+takes `--clinic <id>` (or uses the only clinic in the database) and
+`--language`.
 """
 
 from __future__ import annotations
@@ -25,7 +28,7 @@ from clinic_agent.call_limit import end_after
 from clinic_agent.call_record import CallRecorder, stack_of
 from clinic_agent.config import ConfigError, load_settings
 from clinic_agent.context import clinic_now, load_clinic, local_clinic
-from clinic_agent.dispatch import AGENT_NAME, NoClinic, clinic_id_from
+from clinic_agent.dispatch import AGENT_NAME, BadDispatch, CallFor, Language, call_from, language_of
 from clinic_agent.prompts import build_instructions
 from clinic_agent.providers import build_llm, build_stt, build_tts
 from clinic_agent.session import build_session
@@ -42,35 +45,52 @@ CONSOLE = sys.argv[1:2] == ["console"]
 # `console --text` is the cheap testing mode: no speech providers are built.
 # Console jobs run in this same process, so the entrypoint can read it.
 TEXT_ONLY = CONSOLE and "--text" in sys.argv
-# The clinic a console call is for, set at boot. Always None under dev and
-# start: those calls run in child processes and must name their clinic.
-LOCAL_CLINIC: int | None = None
+# The clinic and language a console call is for, set at boot. Always None
+# under dev and start: those calls run in child processes and must name both.
+LOCAL_CALL: CallFor | None = None
+
+
+def _take_flag(argv: list[str], name: str) -> str | None:
+    """Remove `--name V` / `--name=V` from argv (LiveKit's CLI rejects
+    unknown flags) and return V. Both flags are console-only: dev and start
+    calls name their clinic and language in the dispatch."""
+    flag = f"--{name}"
+    for i, arg in enumerate(argv):
+        if arg == flag or arg.startswith(f"{flag}="):
+            value = arg.partition("=")[2] or (argv[i + 1] if i + 1 < len(argv) else "")
+            del argv[i : i + (1 if "=" in arg else 2)]
+            if not CONSOLE:
+                raise ValueError(f"{flag} is for console only; dev and start calls name their {name}")
+            return value
+    return None
 
 
 def _take_clinic_flag(argv: list[str]) -> int | None:
-    """Remove `--clinic N` from argv (LiveKit's CLI rejects unknown flags)."""
-    for i, arg in enumerate(argv):
-        if arg == "--clinic" or arg.startswith("--clinic="):
-            value = arg.partition("=")[2] or (argv[i + 1] if i + 1 < len(argv) else "")
-            del argv[i : i + (1 if "=" in arg else 2)]
-            if not value.isdigit():
-                raise ValueError(f"--clinic needs a clinic id, got {value!r}")
-            if not CONSOLE:
-                raise ValueError("--clinic is for console only; dev and start calls name their clinic")
-            return int(value)
-    return None
+    value = _take_flag(argv, "clinic")
+    if value is not None and not value.isdigit():
+        raise ValueError(f"--clinic needs a clinic id, got {value!r}")
+    return None if value is None else int(value)
+
+
+def _take_language_flag(argv: list[str]) -> Language:
+    value = _take_flag(argv, "language")
+    try:
+        return language_of("hi" if value is None else value)
+    except BadDispatch as err:
+        raise ValueError(f"--language: {err}") from None
 
 
 async def entrypoint(ctx: JobContext) -> None:
     cfg = load_settings()
 
     try:
-        clinic_id = clinic_id_from(ctx.job.metadata, fallback=LOCAL_CLINIC)
-        clinic, time_off = await asyncio.to_thread(load_clinic, cfg, clinic_id)
-    except (NoClinic, NotFound) as err:
-        # Never answer as a guessed clinic: wrong name, wrong doctors, wrong bookings.
+        call = call_from(ctx.job.metadata, fallback=LOCAL_CALL)
+        clinic, time_off = await asyncio.to_thread(load_clinic, cfg, call.clinic_id)
+    except (BadDispatch, NotFound) as err:
+        # Never answer on a guess: a wrong clinic means wrong doctors and
+        # wrong bookings; a wrong language means a caller who can't follow.
         logger.error("refusing call in room %s: %s", ctx.room.name, err)
-        ctx.shutdown(reason=f"no clinic: {err}")
+        ctx.shutdown(reason=f"bad dispatch: {err}")
         return
     if not clinic.active:
         # Paused in the admin panel: its call page already says so; a call
@@ -78,7 +98,7 @@ async def entrypoint(ctx: JobContext) -> None:
         logger.warning("refusing call in room %s: clinic %s is paused", ctx.room.name, clinic.id)
         ctx.shutdown(reason="clinic paused")
         return
-    logger.info("clinic %s: %s", clinic.id, clinic.name)
+    logger.info("clinic %s: %s, language %s", clinic.id, clinic.name, call.language)
     instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone))
     sessions = sessions_for(cfg.database_url)
     session = build_session(cfg, text_only=TEXT_ONLY)
@@ -125,13 +145,14 @@ if __name__ == "__main__":
     # its clinic, since it has no dispatch to name one.
     try:
         requested = _take_clinic_flag(sys.argv)
+        language = _take_language_flag(sys.argv)
         cfg = load_settings()
         build_llm(cfg)
         if not TEXT_ONLY:
             build_stt(cfg), build_tts(cfg)
         sessions_for(cfg.database_url)
         if CONSOLE:
-            LOCAL_CLINIC = local_clinic(cfg, requested)
+            LOCAL_CALL = CallFor(local_clinic(cfg, requested), language)
     except NotFound as err:
         sys.exit(f"configuration error: {err}")
     except (ConfigError, SchemaOutdated, ValueError) as err:

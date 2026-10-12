@@ -1,5 +1,5 @@
 """Signed join passes: which room, what the caller may do, and which clinic's
-receptionist LiveKit sends in with them."""
+receptionist LiveKit sends in with them, in which language."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from datetime import timedelta
 from livekit import api as lk
 
 from clinic_agent.config import Settings
-from clinic_agent.dispatch import AGENT_NAME, metadata_for
+from clinic_agent.dispatch import AGENT_NAME, Language, metadata_for
 
 # Long enough to allow the microphone and join; not a call-length limit.
 PASS_TTL = timedelta(minutes=5)
@@ -23,9 +23,10 @@ class CallPass:
     room: str
 
 
-def call_pass(cfg: Settings, clinic_id: int, slug: str) -> CallPass:
+def call_pass(cfg: Settings, clinic_id: int, slug: str, language: Language) -> CallPass:
     """A pass for one new, private call. The dispatch is signed into the pass
-    with the LiveKit secret, so a caller cannot change which clinic answers."""
+    with the LiveKit secret, so a caller cannot change which clinic answers
+    or slip in a language the pass wasn't issued for."""
     room = f"call-{slug}-{secrets.token_hex(4)}"
     token = (
         lk.AccessToken(cfg.livekit_api_key, cfg.livekit_api_secret)
@@ -44,7 +45,7 @@ def call_pass(cfg: Settings, clinic_id: int, slug: str) -> CallPass:
             max_participants=2,  # the caller and the receptionist, nobody else
             empty_timeout=60,
             departure_timeout=10,
-            agents=[lk.RoomAgentDispatch(agent_name=AGENT_NAME, metadata=metadata_for(clinic_id))],
+            agents=[lk.RoomAgentDispatch(agent_name=AGENT_NAME, metadata=metadata_for(clinic_id, language))],
         ))
         .to_jwt()
     )
