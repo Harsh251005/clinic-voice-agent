@@ -214,6 +214,9 @@ PATIENT_DATA = [
     ("GET", "/calls", None),
     ("GET", "/calls/today", None),
     ("GET", "/calls/{cure_call}", None),
+    ("POST", "/calls/test", {"language": "hi"}),  # a test call holds patient data too
+    ("GET", "/calls/by-room/room", None),
+    ("DELETE", "/calls/{cure_call}", None),
 ]
 
 
@@ -267,6 +270,7 @@ ATTACKS = [
     ("PUT", "/appointments/{cure_appt}", {"doctor_id": "{demo_doctor}", "starts_at": "2026-12-08T10:00",
                                           "patient_name": "X", "patient_phone": "9876543210"}),
     ("GET", "/calls/{demo_call}", None),
+    ("DELETE", "/calls/{demo_call}", None),
     ("POST", "/problems/{demo_problem}/seen", None),
 ]
 

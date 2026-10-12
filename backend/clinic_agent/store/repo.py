@@ -580,10 +580,12 @@ def _patient(s: Session, clinic_id: int, name: str, phone: str) -> Patient:
 
 # ---------- calls ----------
 
-def start_call(s: Session, clinic_id: int, room: str, stack: str, language: str, started_at: datetime) -> Call:
+def start_call(
+    s: Session, clinic_id: int, room: str, stack: str, language: str, started_at: datetime, test: bool = False
+) -> Call:
     """Open a call's record as it starts, so a call the worker never
     finishes still leaves a trace."""
-    call = Call(clinic_id=clinic_id, room=room, stack=stack, language=language, started_at=started_at)
+    call = Call(clinic_id=clinic_id, room=room, stack=stack, language=language, started_at=started_at, test=test)
     s.add(call)
     s.commit()
     return call
@@ -827,9 +829,78 @@ def delete_old_incidents(s: Session, before: datetime) -> int:
     return n
 
 
-def patient_calls_since(s: Session, since: datetime) -> list[Call]:
-    """Calls from patients (not the developer console) started since then."""
-    return list(s.scalars(select(Call).where(Call.started_at >= since, Call.room != CONSOLE_ROOM)))
+def patient_calls_since(s: Session, since: datetime, *, with_tests: bool = False) -> list[Call]:
+    """Calls from patients (not the developer console) started since then;
+    staff's test calls too only `with_tests` (they spend LiveKit minutes)."""
+    q = select(Call).where(Call.started_at >= since, Call.room != CONSOLE_ROOM)
+    return list(s.scalars(q if with_tests else q.where(Call.test.is_(False))))
+
+
+def call_in_room(s: Session, clinic_id: int, room: str) -> Call:
+    """The newest call in this room at this clinic."""
+    call = s.scalar(select(Call).where(Call.clinic_id == clinic_id, Call.room == room).order_by(Call.id.desc()).limit(1))
+    if call is None:
+        raise NotFound(f"no call in room {room!r} at clinic {clinic_id}")
+    return call
+
+
+class CantErase(Exception):
+    """Undoing a test call's change would clash with something done since:
+    `doctor_id`'s slot at `starts_at` (the one the undo needs) is taken."""
+
+    def __init__(self, doctor_id: int, starts_at: datetime, why: str) -> None:
+        super().__init__(why)
+        self.doctor_id, self.starts_at, self.why = doctor_id, starts_at, why
+
+
+def erase_test_call(s: Session, call_id: int) -> None:
+    """Undo everything a test call changed, newest change first, then delete
+    the call with its trace and transcript (the database cascades them).
+    A booking is deleted, with its patient if they have no other
+    appointment; a cancellation is put back; a move goes back where it was.
+    All or nothing: if one undo would take a slot someone has booked since,
+    CantErase names it and nothing changes."""
+    call = _get(s, Call, call_id)
+    if not call.test:
+        raise ValueError("Only test calls can be erased.")
+    for change in reversed(call.appointments):
+        appt = s.get(Appointment, change["id"])
+        if appt is None or appt.clinic_id != call.clinic_id:
+            continue  # gone already (its doctor was removed)
+        match change["action"]:
+            case "booked":
+                patient_id = appt.patient_id
+                s.delete(appt)
+                s.flush()
+                if not s.scalar(select(func.count()).select_from(Appointment).where(Appointment.patient_id == patient_id)):
+                    s.execute(delete(Patient).where(Patient.id == patient_id))
+            case "cancelled":
+                appt.status = "booked"
+                _undo_flush(s, appt, "was booked by someone else after this test call cancelled it")
+            case "moved":
+                undo = change.get("undo")
+                if not undo:
+                    at = (appt.doctor_id, appt.starts_at)
+                    s.rollback()
+                    raise CantErase(*at, "was moved by a call from before moves could be undone")
+                appt.doctor_id = undo["doctor_id"]
+                appt.starts_at = datetime.fromisoformat(undo["starts_at"])
+                appt.ends_at = datetime.fromisoformat(undo["ends_at"])
+                appt.visit = None
+                _undo_flush(s, appt, "was booked by someone else after this test call moved it away")
+    s.execute(delete(Call).where(Call.id == call.id))
+    s.commit()
+
+
+def _undo_flush(s: Session, appt: Appointment, why: str) -> None:
+    at = (appt.doctor_id, appt.starts_at)  # the slot the undo needs, before a rollback reloads the row
+    try:
+        s.flush()
+    except IntegrityError as err:
+        s.rollback()
+        if _is_slot_clash(err):
+            raise CantErase(*at, why) from None
+        raise
 
 
 def _is_slot_clash(err: IntegrityError) -> bool:

@@ -9,8 +9,12 @@ from datetime import timedelta
 
 from livekit import api as lk
 
+from clinic_agent import incidents
 from clinic_agent.config import Settings
-from clinic_agent.dispatch import AGENT_NAME, Language, metadata_for
+from clinic_agent.dispatch import AGENT_NAME, LANGUAGES, Language, metadata_for
+from clinic_agent.store import repo
+from clinic_agent.store.db import Session
+from clinic_agent.store.models import utc_now
 
 # Long enough to allow the microphone and join; not a call-length limit.
 PASS_TTL = timedelta(minutes=5)
@@ -23,11 +27,20 @@ class CallPass:
     room: str
 
 
-def call_pass(cfg: Settings, clinic_id: int, slug: str, language: Language) -> CallPass:
+def offered(s: Session) -> list[Language]:
+    """The languages a caller may choose: the lines a live worker says it
+    can answer. With no live worker nobody knows, so both are offered (the
+    call then fails as offline, which is flagged on its own)."""
+    live = repo.live_languages(s, utc_now() - incidents.HEARTBEAT_STALE)
+    return [lang for lang in LANGUAGES if not live or lang in live]
+
+
+def call_pass(cfg: Settings, clinic_id: int, slug: str, language: Language, test: bool = False) -> CallPass:
     """A pass for one new, private call. The dispatch is signed into the pass
-    with the LiveKit secret, so a caller cannot change which clinic answers
-    or slip in a language the pass wasn't issued for."""
-    room = f"call-{slug}-{secrets.token_hex(4)}"
+    with the LiveKit secret, so a caller cannot change which clinic answers,
+    slip in a language the pass wasn't issued for, or make a patient's call
+    look like a staff test (which could then be erased)."""
+    room = f"{'test' if test else 'call'}-{slug}-{secrets.token_hex(4)}"
     token = (
         lk.AccessToken(cfg.livekit_api_key, cfg.livekit_api_secret)
         .with_identity(f"caller-{secrets.token_hex(4)}")
@@ -45,7 +58,7 @@ def call_pass(cfg: Settings, clinic_id: int, slug: str, language: Language) -> C
             max_participants=2,  # the caller and the receptionist, nobody else
             empty_timeout=60,
             departure_timeout=10,
-            agents=[lk.RoomAgentDispatch(agent_name=AGENT_NAME, metadata=metadata_for(clinic_id, language))],
+            agents=[lk.RoomAgentDispatch(agent_name=AGENT_NAME, metadata=metadata_for(clinic_id, language, test))],
         ))
         .to_jwt()
     )

@@ -189,6 +189,26 @@ in `repo.py`.
 - Rule violations come back as 422 with a message staff can read (bad link
   name, overlapping sittings); rows outside the clinic as 404.
 
+### Test calls (staff calling their own receptionist)
+
+Staff call their own receptionist from the dashboard, in English or Hindi,
+exactly as a patient would: `POST /api/clinics/{id}/calls/test`
+(`{"language": "en" | "hi"}`, staff only, only a language a live worker
+offers) returns a LiveKit pass for a `test-<link name>-…` room whose
+dispatch is marked `"test": true`. **It is a real call**: it books, moves
+and cancels for real, and is recorded like any other. It is marked as a
+test (`calls.test`, rev 0010) and kept out of the clinic's call counts and
+problems, but not the LiveKit minutes it spends.
+
+`GET …/calls/by-room/{room}` finds it once the worker has answered.
+`DELETE …/calls/{id}` **erases** a finished test call: every change it made
+is undone, newest first (a booking deleted, with its patient if they have
+no other appointment; a cancellation put back; a move returned to where it
+was, which each move now records), then the call, its trace and its
+transcript are deleted. All or nothing: if an undo needs a slot someone
+has booked since, it says which and nothing changes. A patient's call can
+never be erased, and a test call can't be while it's still going.
+
 ## Admin panel (the operator)
 
 `/admin` in the dashboard, for `ADMIN_EMAILS` only (`/api/admin/*`,

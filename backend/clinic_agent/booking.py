@@ -17,7 +17,7 @@ from clinic_agent.clock import clock12
 from clinic_agent.spoken import hindi_time
 from clinic_agent.store import repo
 from clinic_agent.store.db import Session
-from clinic_agent.store.models import Appointment, Clinic, Doctor, TimeOff
+from clinic_agent.store.models import Appointment, Call, Clinic, Doctor, TimeOff
 
 
 class BookingError(Exception):
@@ -26,11 +26,13 @@ class BookingError(Exception):
 
 class Changed(str):
     """The sentence for the LLM, carrying which appointment changed and how
-    ("booked", "moved", "cancelled"), so a call's record can link to it."""
+    ("booked", "moved", "cancelled"), so a call's record can link to it.
+    `undo` is what it takes to put it back, beyond the action itself: for a
+    move, where it was (a test call is erased this way, repo.erase_test_call)."""
 
-    def __new__(cls, text: str, appointment_id: int, action: str) -> Changed:
+    def __new__(cls, text: str, appointment_id: int, action: str, undo: dict | None = None) -> Changed:
         obj = super().__new__(cls, text)
-        obj.appointment_id, obj.action = appointment_id, action
+        obj.appointment_id, obj.action, obj.undo = appointment_id, action, undo
         return obj
 
 
@@ -267,6 +269,7 @@ def reschedule_booking(
 ) -> str:
     appt, doctor, starts_at = _move_plan(s, clinic_id, appointment_id, patient_phone, patient_name, day, start, now, doctor_name)
     old = f"{appt.doctor.name}, {_day(appt.starts_at.date())} at {appt.starts_at:%H:%M}"
+    was = {"doctor_id": appt.doctor_id, "starts_at": appt.starts_at.isoformat(), "ends_at": appt.ends_at.isoformat()}
     try:
         repo.move_appointment(s, appt.id, doctor.id, starts_at)
     except repo.SlotTaken:
@@ -276,7 +279,7 @@ def reschedule_booking(
     return Changed(
         f"Moved appointment {appt.id} from {old} to {doctor.name}, "
         f"{_day(day)} at {start:%H:%M}.",
-        appt.id, "moved",
+        appt.id, "moved", undo=was,
     )
 
 
@@ -584,3 +587,19 @@ def _spoken_person(name: str) -> str:
 
 def _name_key(name: str) -> str:
     return re.sub(r"^(dr|doctor)\.?\s+", "", name.strip().lower()).replace(".", "")
+
+
+def erase_test_call(s: Session, clinic_id: int, call_id: int) -> None:
+    """Undo everything a staff test call changed, then delete it (repo.erase_test_call),
+    with a message staff can act on when something done since is in the way."""
+    call = repo.in_clinic(s, Call, call_id, clinic_id)
+    try:
+        repo.erase_test_call(s, call.id)
+    except repo.CantErase as err:
+        doctor = s.get(Doctor, err.doctor_id)
+        slot = f"{doctor.name if doctor else 'The doctor'}'s {clock12(err.starts_at)} on {err.starts_at.day} {err.starts_at:%b}"
+        raise BookingError(
+            f"This test call can't be erased yet: {slot} {err.why}. "
+            "Move or cancel that booking first, then erase again. Nothing was changed."
+        ) from None
+

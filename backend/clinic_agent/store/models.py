@@ -201,9 +201,14 @@ class Call(Base):
     stack: Mapped[str] = mapped_column(String(300), default="")  # provider/model for STT, LLM, TTS: which took each turn
     # The line the caller chose: "en" | "hi". "" for calls from before there were two.
     language: Mapped[str] = mapped_column(String(2), default="", server_default="")
+    # Staff calling their own receptionist from the dashboard: a real call
+    # (real bookings), left out of the clinic's call counts and problems, and
+    # erasable with everything it changed (repo.erase_test_call).
+    test: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     turn_count: Mapped[int] = mapped_column(default=0)  # times the caller spoke
     error_count: Mapped[int] = mapped_column(default=0)  # vendor (STT/LLM/TTS) errors
-    # What the call changed: [{"id": 12, "action": "booked"}, ...]
+    # What the call changed: [{"id": 12, "action": "booked"}, ...]; a move also
+    # keeps where it was ({"undo": {"doctor_id", "starts_at", "ends_at"}}).
     appointments: Mapped[list] = mapped_column(JSON, default=list)
 
 

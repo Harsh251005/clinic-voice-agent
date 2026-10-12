@@ -379,6 +379,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clinics/{clinic_id}/calls/by-room/{room}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Call In Room
+         * @description The call that took place in this room: how the test-call screen finds
+         *     the call it just made (the worker opens its record as it answers).
+         */
+        get: operations["call_in_room_api_clinics__clinic_id__calls_by_room__room__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clinics/{clinic_id}/calls/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Call
+         * @description A pass for staff to call their own receptionist, exactly as a patient would.
+         */
+        post: operations["test_call_api_clinics__clinic_id__calls_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/clinics/{clinic_id}/calls/today": {
         parameters: {
             query?: never;
@@ -410,7 +451,12 @@ export interface paths {
         get: operations["call_api_clinics__clinic_id__calls__call_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Erase
+         * @description Erase a test call: undo every booking, cancellation and move it made,
+         *     then delete its record, trace and transcript. Patients' calls can't be.
+         */
+        delete: operations["erase_api_clinics__clinic_id__calls__call_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -855,6 +901,8 @@ export interface components {
              * @enum {string}
              */
             status: "live" | "ended" | "dropped";
+            /** Test */
+            test: boolean;
             /** Tool Failures */
             tool_failures: number;
             /** Turn Count */
@@ -899,6 +947,8 @@ export interface components {
              * @enum {string}
              */
             status: "live" | "ended" | "dropped";
+            /** Test */
+            test: boolean;
             /** Tool Failures */
             tool_failures: number;
             /** Transcript Kept */
@@ -975,6 +1025,8 @@ export interface components {
              * @enum {string}
              */
             status: "live" | "ended" | "dropped";
+            /** Test */
+            test: boolean;
         };
         /**
          * ClinicCallChange
@@ -1025,6 +1077,8 @@ export interface components {
             status: "live" | "ended" | "dropped";
             /** Support Views */
             support_views: components["schemas"]["SupportView"][];
+            /** Test */
+            test: boolean;
             /** Transcript Kept */
             transcript_kept: boolean;
         };
@@ -1408,6 +1462,26 @@ export interface components {
             at: string;
             /** Reason */
             reason: string;
+        };
+        /**
+         * TestCallPass
+         * @description Join a LiveKit room as the caller; the clinic's receptionist is sent in.
+         */
+        TestCallPass: {
+            /** Room */
+            room: string;
+            /** Token */
+            token: string;
+            /** Url */
+            url: string;
+        };
+        /** TestCallRequest */
+        TestCallRequest: {
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "en" | "hi";
         };
         /** TimeOff */
         TimeOff: {
@@ -2326,6 +2400,73 @@ export interface operations {
             };
         };
     };
+    call_in_room_api_clinics__clinic_id__calls_by_room__room__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room: string;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicCall"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_call_api_clinics__clinic_id__calls_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestCallRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestCallPass"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     today_api_clinics__clinic_id__calls_today_get: {
         parameters: {
             query?: never;
@@ -2377,6 +2518,36 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ClinicCallDetail"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    erase_api_clinics__clinic_id__calls__call_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: number;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

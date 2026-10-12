@@ -20,10 +20,10 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from api import dashboard
 from api.limits import RateLimiter
-from api.passes import call_pass
+from api.passes import call_pass, offered
 from clinic_agent import incidents
 from clinic_agent.config import ConfigError, Settings, load_settings, require_key
-from clinic_agent.dispatch import LANGUAGES, BadDispatch, Language, language_of
+from clinic_agent.dispatch import BadDispatch, Language, language_of
 from clinic_agent.lines import NAMES
 from clinic_agent.store import repo
 from clinic_agent.store.db import Sessions, sessions_for
@@ -138,13 +138,9 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
         response.headers["Permissions-Policy"] = "microphone=(self), camera=()"
         return response
 
-    def offered() -> list[Language]:
-        """The languages callers may choose: the lines a live worker says it
-        can answer. With no live worker nobody knows, so both are offered
-        (the call then fails as offline, which is flagged on its own)."""
+    def _offered() -> list[Language]:
         with sessions() as s:
-            live = repo.live_languages(s, utc_now() - incidents.HEARTBEAT_STALE)
-        return [lang for lang in LANGUAGES if not live or lang in live]
+            return offered(s)
 
     def clinic_for(slug: str):
         if not repo.SLUG.fullmatch(slug):
@@ -175,7 +171,7 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
             return HTMLResponse(PAUSED.substitute(name=e(clinic.name), phone=_call_the_clinic(clinic)), status_code=503)
         return PAGE.substitute(
             name=e(clinic.name), address=e(clinic.address), slug=e(clinic.slug), phone=_call_the_clinic(clinic),
-            languages=_language_choices(offered()),
+            languages=_language_choices(_offered()),
         )
 
     @app.post("/call/{slug}/pass")
@@ -192,7 +188,7 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
             # Never default: each language is its own pipeline, and a caller
             # put through in the wrong one can't follow the call.
             return JSONResponse({"error": "Choose English or Hindi for the call."}, status_code=400)
-        if chosen not in offered():
+        if chosen not in _offered():
             # The page offered it before the line went off (an old tab).
             return JSONResponse(
                 {"error": f"Calls in {NAMES[chosen]} aren't available right now. Please choose another language."},
