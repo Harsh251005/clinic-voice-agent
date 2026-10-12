@@ -99,6 +99,9 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
         case "livekit_minutes":
             return (f"LiveKit minutes: {inc.detail}.",
                     "Upgrade the LiveKit plan or self-host before calls are refused.", None)
+        case "hindi_names_failing":
+            return (f"{at}Hindi name suggestions are failing ({inc.subject}), {_plural(inc.count, 'time')}.",
+                    "Names save without one and the Hindi line spells them itself. Check OPENAI_API_KEY and the API log.", None)
         case "purge_failed":
             return ("Deleting expired transcripts failed.",
                     "Transcripts older than 30 days may still be stored: check the API log.", None)

@@ -48,6 +48,7 @@ KINDS = {
     "bookings_need_call": Kind("warning", clinic_sees=True),
     "livekit_minutes": Kind("warning", clinic_sees=False),
     "purge_failed": Kind("warning", clinic_sees=False, quiet_minutes=24 * 60),
+    "hindi_names_failing": Kind("warning", clinic_sees=False, quiet_minutes=60),
 }
 
 def clinic_sees(kind: str) -> bool:

@@ -585,10 +585,31 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /** Update Faq */
+        put: operations["update_faq_api_clinics__clinic_id__faq__faq_id__put"];
         post?: never;
         /** Delete Faq */
         delete: operations["delete_faq_api_clinics__clinic_id__faq__faq_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clinics/{clinic_id}/hindi-name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest
+         * @description For the settings forms: the suggestion staff see in the Hindi box.
+         */
+        post: operations["suggest_api_clinics__clinic_id__hindi_name_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1294,6 +1315,11 @@ export interface components {
             /** With Errors */
             with_errors: number;
         };
+        /** HindiName */
+        HindiName: {
+            /** Name Hi */
+            name_hi: string;
+        };
         /** HoursIn */
         HoursIn: {
             /** Sittings */
@@ -1329,6 +1355,11 @@ export interface components {
         MemberIn: {
             /** Email */
             email: string;
+        };
+        /** NameIn */
+        NameIn: {
+            /** Name */
+            name: string;
         };
         /** NewClinic */
         NewClinic: {
@@ -2885,6 +2916,42 @@ export interface operations {
             };
         };
     };
+    update_faq_api_clinics__clinic_id__faq__faq_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                faq_id: number;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FaqIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Faq"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_faq_api_clinics__clinic_id__faq__faq_id__delete: {
         parameters: {
             query?: never;
@@ -2906,6 +2973,41 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_api_clinics__clinic_id__hindi_name_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NameIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HindiName"];
                 };
             };
             /** @description Validation Error */

@@ -197,14 +197,14 @@ in `repo.py`.
   confirmed detail, and use no dashes, semicolons or brackets (the voice
   reads them oddly). The English rules share the last three.
 - **Names said one way:** the clinic and each doctor have a *Name in Hindi*
-  (Devanagari, settings). The Hindi line says it exactly as written; blank,
-  it writes its own Devanagari (which varies call to call).
-- **No dead air:** a quiet office sound for the whole call and keyboard
-  typing while the receptionist thinks or looks something up
-  (`clinic_agent/ambience.py`, LiveKit's own clips, no vendor or credits;
-  `BACKGROUND_AUDIO=off` to turn it off). Not in console. If it fails to
-  start, the call goes on and the trace records a `livekit/background-audio`
-  error.
+  (Devanagari), **filled in from the English name** as staff type
+  (`POST /api/clinics/{id}/hindi-name`: one short OpenAI text request,
+  `gpt-4.1-mini`, `clinic_agent/providers/hindi.py`), reusing words the
+  clinic already spells so a surname comes out the same everywhere. Staff
+  can change it; their own text is never overwritten. Saving with the box
+  blank fills it in the same way. A failed suggestion never blocks a save
+  (the Hindi line then spells the name itself) and raises the admin's
+  `hindi_names_failing` problem. The Hindi line says the name exactly as written.
 
 ### Test calls (staff calling their own receptionist)
 
@@ -358,7 +358,7 @@ instructions in its README); every action below is an `/api` endpoint here.
   "Blurred vision"), since the dashboard is English only. It is shown on the row; staff can add or change it. It is health
   information: shown to the clinic, never written to logs.
 - **Clinic settings**: details, booking rules, the receptionist link, doctors, weekly
-  hours (any number of sessions a day), leave and holidays, FAQ answers, and (admins) the
+  hours (any number of sessions a day), leave and holidays, FAQ answers (each editable in place), and (admins) the
   team. Everything the agent knows about a clinic is entered here.
 - **A new doctor starts with hours**, not an empty week: *Starting hours*
   defaults to Mon–Sat, 10 am–1 pm and 5–8 pm (or another pattern, a

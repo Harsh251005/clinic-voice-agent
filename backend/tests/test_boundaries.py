@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = [p for d in ("clinic_agent", "seeds", "api") for p in (ROOT / d).rglob("*.py")] + [ROOT / "main.py"]
-VENDORS = ("livekit.plugins",)
+VENDORS = ("livekit.plugins", "openai", "elevenlabs", "sarvamai")  # vendor SDKs, directly or through LiveKit
 DATABASE = ("sqlalchemy", "alembic")
 
 

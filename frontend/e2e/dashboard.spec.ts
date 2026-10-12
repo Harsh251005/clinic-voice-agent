@@ -171,14 +171,40 @@ test("weekly hours: copy Monday to Monday–Saturday", async ({ page }) => {
   await page.getByRole("button", { name: "Discard changes" }).click();
 });
 
-test("answers to common questions can be added and removed", async ({ page }) => {
+test("answers to common questions can be added, edited in place and removed", async ({ page }) => {
   await page.goto(`${SETUP}?tab=faq`);
   await page.getByLabel("Question", { exact: true }).fill("Do you do home visits?");
   await page.getByLabel("Answer", { exact: true }).fill("No, only at the clinic.");
   await page.getByRole("button", { name: "Add answer" }).click();
   await expect(page.getByText("Do you do home visits?")).toBeVisible();
+
+  await page.getByRole("button", { name: 'Edit "Do you do home visits?"' }).click();
+  const answer = page.getByRole("listitem").getByLabel("Answer");
+  await expect(answer).toHaveValue("No, only at the clinic."); // starts from what's there
+  await answer.fill("Yes, on Sundays for elderly patients.");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Yes, on Sundays for elderly patients.")).toBeVisible();
+  await expect(page.getByText("No, only at the clinic.")).toBeHidden();
+
   await page.getByRole("button", { name: 'Remove "Do you do home visits?"' }).click();
   await expect(page.getByText("Do you do home visits?")).toBeHidden();
+});
+
+test("a doctor's name in Hindi is filled in from the English name, and staff can change it", async ({ page }) => {
+  // The suggestion comes from the API (OpenAI behind it): answered here, no vendor in tests.
+  await page.route("**/api/clinics/*/hindi-name", (route) =>
+    route.fulfill({ json: { name_hi: "डॉक्टर मीरा कपूर" } }));
+  await page.goto(`${SETUP}?tab=doctors`);
+  await page.getByRole("button", { name: "Add doctor" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Dr. Meera Kapoor");
+  const hindi = page.getByLabel("Name in Hindi");
+  await expect(hindi).toHaveValue("डॉक्टर मीरा कपूर");
+  await expect(page.getByText("Filled in from the English name.")).toBeVisible();
+  await hindi.fill("डॉक्टर मीरा कपूर जी"); // staff's own: kept even if the English name changes
+  await page.getByLabel("Name", { exact: true }).fill("Dr. Meera Kapoor Sharma");
+  await page.waitForTimeout(1000);
+  await expect(hindi).toHaveValue("डॉक्टर मीरा कपूर जी");
+  await page.keyboard.press("Escape");
 });
 
 test("a clinic holiday can be added", async ({ page }) => {
