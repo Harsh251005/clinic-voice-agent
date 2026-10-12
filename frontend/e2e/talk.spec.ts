@@ -39,3 +39,16 @@ test("a test call is marked, and erasing it undoes its booking", async ({ page }
   const res = await page.request.get(`/api/clinics/${clinicUrl.split("/").pop()}/appointments/search?q=Test%20Patient`);
   expect(await res.json()).toEqual([]);
 });
+
+test("Talk to receptionist erases every test call on record at once, and hides the button when there are none", async ({ page }) => {
+  testCallThatBooked(10);
+  testCallThatBooked(12);
+  await page.goto("/clinics/1/talk");
+  await expect(page.getByText("2 test calls on record")).toBeVisible();
+  await page.getByRole("button", { name: "Erase all 2" }).click();
+  await page.getByRole("button", { name: "Yes, erase them" }).click();
+  await expect(page.getByText("2 test calls erased. Everything they did is undone.")).toBeVisible();
+  await expect(page.getByText(/test calls? on record/)).toHaveCount(0);
+  const res = await page.request.get("/api/clinics/1/appointments/search?q=Test%20Patient");
+  expect(await res.json()).toEqual([]);
+});

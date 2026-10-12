@@ -108,6 +108,29 @@ export async function testCallInRoom(clinicId: number, room: string) {
   }));
 }
 
+/** How many staff test calls are on record (count), and how many have ended (erasable). */
+export function useTestCalls(clinicId: number) {
+  return useQuery({
+    queryKey: [...keys.calls(clinicId), "tests"],
+    queryFn: () => unwrap(api.GET("/api/clinics/{clinic_id}/calls/tests", { params: { path: { clinic_id: clinicId } } })),
+    refetchInterval: 30_000,
+  });
+}
+
+/** Erase every finished test call at once: all or none, like one. */
+export function useEraseAllTestCalls(clinicId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.DELETE("/api/clinics/{clinic_id}/calls/tests", { params: { path: { clinic_id: clinicId } } })),
+    onSuccess: ({ erased }) => {
+      toast.success(`${erased} test call${erased === 1 ? "" : "s"} erased. Everything they did is undone.`);
+      return Promise.all([keys.calls(clinicId), keys.appointments(clinicId), keys.clinic(clinicId)]
+        .map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+    },
+    onError: (err) => toast.error(err.message),
+  });
+}
+
 /** Erase a finished test call: everything it booked, moved or cancelled is
  *  undone, and its record goes. All or nothing; the API names what's in the way. */
 export function useEraseTestCall(clinicId: number) {

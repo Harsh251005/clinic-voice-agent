@@ -592,14 +592,19 @@ def _name_key(name: str) -> str:
 def erase_test_call(s: Session, clinic_id: int, call_id: int) -> None:
     """Undo everything a staff test call changed, then delete it (repo.erase_test_call),
     with a message staff can act on when something done since is in the way."""
-    call = repo.in_clinic(s, Call, call_id, clinic_id)
+    erase_test_calls(s, clinic_id, [call_id])
+
+
+def erase_test_calls(s: Session, clinic_id: int, call_ids: list[int]) -> None:
+    """Several at once (Talk to receptionist's "erase all"): all or none."""
+    calls = [repo.in_clinic(s, Call, i, clinic_id) for i in call_ids]
     try:
-        repo.erase_test_call(s, call.id)
+        repo.erase_test_calls(s, [c.id for c in calls])
     except repo.CantErase as err:
         doctor = s.get(Doctor, err.doctor_id)
         slot = f"{doctor.name if doctor else 'The doctor'}'s {clock12(err.starts_at)} on {err.starts_at.day} {err.starts_at:%b}"
+        what = "This test call" if len(calls) == 1 else "These test calls"
         raise BookingError(
-            f"This test call can't be erased yet: {slot} {err.why}. "
+            f"{what} can't be erased yet: {slot} {err.why}. "
             "Move or cancel that booking first, then erase again. Nothing was changed."
         ) from None
-

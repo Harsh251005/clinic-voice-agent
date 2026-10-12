@@ -1,20 +1,25 @@
 "use client";
 // Staff call their own receptionist, exactly as a patient would: same
 // languages, same voices, same tools. It is a real call (it books for real),
-// so when it ends the page shows what it did and offers to erase it all.
+// so when it ends the page shows what it did, and while any test call is on
+// record the page offers to erase them all, with everything they did.
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Room } from "livekit-client";
-import { Info, Mic, PhoneOff } from "lucide-react";
+import { Eraser, Info, Mic, PhoneOff } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/app/page-header";
 import { CallResult } from "@/components/admin/bits";
-import { EraseTestCall } from "@/components/calls/erase-test-call";
 import { api, ApiError, unwrap, type Schemas } from "@/lib/api/client";
 import { changeText, visitTime, type ClinicCall } from "@/lib/calls";
-import { testCallInRoom } from "@/lib/queries";
+import { keys, testCallInRoom, useEraseAllTestCalls, useTestCalls } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 type Language = Schemas["TestCallRequest"]["language"];
@@ -39,6 +44,7 @@ export default function TalkPage() {
   const noAnswer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const gaveUp = useRef(false); // the call never got going: there's no record to look for
   const audio = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
   const inCall = state === "connecting" || state === "waiting" || state === "live";
 
@@ -55,7 +61,10 @@ export default function TalkPage() {
     for (let i = 0; i < FIND_TRIES; i++) {
       try {
         const found = await testCallInRoom(clinicId, name);
-        if (found.status !== "live") return setCall(found);
+        if (found.status !== "live") {
+          setCall(found);
+          return queryClient.invalidateQueries({ queryKey: keys.calls(clinicId) }); // the test-call count
+        }
       } catch (err) {
         if (!(err instanceof ApiError && err.status === 404)) break;
       }
@@ -175,12 +184,13 @@ export default function TalkPage() {
         <div ref={audio} hidden />
       </section>
 
-      {call && <AfterCall clinicId={clinicId} call={call} onErased={() => { setCall(null); setState("idle"); }} />}
+      {call && <AfterCall clinicId={clinicId} call={call} />}
+      <TestCallsOnRecord clinicId={clinicId} onErased={() => { setCall(null); if (state === "ended") setState("idle"); }} />
     </div>
   );
 }
 
-function AfterCall({ clinicId, call, onErased }: { clinicId: number; call: ClinicCall; onErased: () => void }) {
+function AfterCall({ clinicId, call }: { clinicId: number; call: ClinicCall }) {
   return (
     <section className="mx-auto max-w-md space-y-4 rounded-2xl border bg-card p-6">
       <div className="flex items-center justify-between gap-3">
@@ -198,12 +208,54 @@ function AfterCall({ clinicId, call, onErased }: { clinicId: number; call: Clini
       ) : (
         <p className="text-sm text-muted-foreground">It didn&apos;t book, move or cancel anything.</p>
       )}
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" asChild>
-          <Link href={`/clinics/${clinicId}/calls/${call.id}`}>Read the conversation</Link>
-        </Button>
-        <EraseTestCall clinicId={clinicId} callId={call.id} changes={call.changes.length} onErased={onErased} />
+      <Button variant="outline" asChild>
+        <Link href={`/clinics/${clinicId}/calls/${call.id}`}>Read the conversation</Link>
+      </Button>
+    </section>
+  );
+}
+
+/** While any test call is on record: how many, and one button to erase them all. */
+function TestCallsOnRecord({ clinicId, onErased }: { clinicId: number; onErased: () => void }) {
+  const tests = useTestCalls(clinicId);
+  const erase = useEraseAllTestCalls(clinicId);
+  if (!tests.data?.count) return null;
+  const { count, erasable } = tests.data;
+  const calls = (n: number) => `${n} test call${n === 1 ? "" : "s"}`;
+  return (
+    <section className="mx-auto flex max-w-md flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed bg-muted/40 p-5">
+      <div className="text-sm">
+        <p className="font-medium">{calls(count)} on record</p>
+        <p className="text-muted-foreground">
+          {erasable < count ? `${count - erasable === 1 ? "One is" : `${count - erasable} are`} still going: erase once it ends. ` : ""}
+          Their bookings are real until you erase them.
+        </p>
       </div>
+      {erasable > 0 && (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" className="text-destructive hover:text-destructive" disabled={erase.isPending}>
+              <Eraser /> Erase {erasable === 1 ? "it" : `all ${erasable}`}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Erase {calls(erasable)}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Every appointment they booked, moved or cancelled goes back to how it was, and their records and
+                conversations are deleted. Patients&apos; calls aren&apos;t touched. This can&apos;t be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep them</AlertDialogCancel>
+              <AlertDialogAction onClick={() => erase.mutate(undefined, { onSuccess: onErased })}
+                className="bg-destructive text-white hover:bg-destructive/90">
+                Yes, erase {erasable === 1 ? "it" : "them"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </section>
   );
 }

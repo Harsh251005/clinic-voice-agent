@@ -217,6 +217,8 @@ PATIENT_DATA = [
     ("POST", "/calls/test", {"language": "hi"}),  # a test call holds patient data too
     ("GET", "/calls/by-room/room", None),
     ("DELETE", "/calls/{cure_call}", None),
+    ("GET", "/calls/tests", None),
+    ("DELETE", "/calls/tests", None),
 ]
 
 

@@ -1852,6 +1852,38 @@
         "title": "TestCallRequest",
         "type": "object"
       },
+      "TestCalls": {
+        "description": "The clinic's own test calls still on record (Talk to receptionist).",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "erasable": {
+            "title": "Erasable",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "erasable"
+        ],
+        "title": "TestCalls",
+        "type": "object"
+      },
+      "TestCallsErased": {
+        "properties": {
+          "erased": {
+            "title": "Erased",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "erased"
+        ],
+        "title": "TestCallsErased",
+        "type": "object"
+      },
       "TimeOff": {
         "properties": {
           "date_from": {
@@ -3511,6 +3543,84 @@
           }
         },
         "summary": "Test Call"
+      }
+    },
+    "/api/clinics/{clinic_id}/calls/tests": {
+      "delete": {
+        "description": "Erase every finished test call at once, with everything they changed:\nall of them or none (newest first). A call still going is left alone.",
+        "operationId": "erase_tests_api_clinics__clinic_id__calls_tests_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestCallsErased"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Erase Tests"
+      },
+      "get": {
+        "description": "How many test calls are on record, for Talk to receptionist's \"erase all\".",
+        "operationId": "tests_api_clinics__clinic_id__calls_tests_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestCalls"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tests"
       }
     },
     "/api/clinics/{clinic_id}/calls/today": {

@@ -330,6 +330,16 @@ class TestCallRequest(BaseModel):
     language: Literal["en", "hi"]
 
 
+class TestCalls(BaseModel):
+    """The clinic's own test calls still on record (Talk to receptionist)."""
+    count: int  # all of them
+    erasable: int  # finished: a call still going can't be erased yet
+
+
+class TestCallsErased(BaseModel):
+    erased: int
+
+
 class TestCallPass(BaseModel):
     """Join a LiveKit room as the caller; the clinic's receptionist is sent in."""
     url: str
