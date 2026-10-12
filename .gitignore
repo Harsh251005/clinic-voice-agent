@@ -13,5 +13,5 @@ desktop.ini
 .vscode/
 
 # ---------- Other AI assistants' local files ----------
-AGENTS.md
-.codex/
+/AGENTS.md
+/.codex/
