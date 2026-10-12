@@ -116,3 +116,14 @@ async def test_entrypoint_refuses_a_real_clinics_call_without_a_known_language(e
     ctx = _Ctx(json.dumps(fields))
     await main.entrypoint(ctx)
     assert ctx.shutdown_reason.startswith("bad dispatch") and built == []
+
+
+def test_the_worker_registers_under_the_name_call_passes_dispatch(monkeypatch):
+    import main
+    from clinic_agent.dispatch import AGENT_NAME
+
+    monkeypatch.setenv("LIVEKIT_AGENT_NAME", "someone-else")  # overwritten: passes only dispatch AGENT_NAME
+    monkeypatch.delenv("LIVEKIT_AGENT_NAME_OVERRIDE", raising=False)
+    server = main.make_server()
+    assert server._agent_name == AGENT_NAME
+    assert server._agent_name_source == "env"  # not "code": LiveKit's deprecated path

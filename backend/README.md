@@ -64,7 +64,8 @@ uv run python main.py start     # production worker
 ```
 
 **One worker answers for every clinic.** It registers as
-`clinic-receptionist` (explicit dispatch), so it joins only rooms it is
+`clinic-receptionist` (explicit dispatch; set through `LIVEKIT_AGENT_NAME`
+at boot, not `livekit.toml`, which `dev` ignores), so it joins only rooms it is
 dispatched to, and each dispatch carries the clinic and the caller's
 language in its metadata: `{"clinic_id": 2, "language": "hi"}` (`en` or
 `hi`). The format lives in `clinic_agent/dispatch.py`, and anything that
