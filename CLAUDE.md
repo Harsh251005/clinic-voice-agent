@@ -110,6 +110,11 @@ The pipeline is split so each concern lives in exactly one module:
   logged transcript opening); add an entry to
   `ATTACKS` in `tests/test_dashboard_api.py` for any new row type. Tests
   set the viewer with `dependency_overrides`, never a backdoor.
+  **Staff test calls** (`calls.py`, page `talk`): a real call (books for
+  real), dispatch `"test": true` signed into the pass, `calls.test`, kept out
+  of counts/problems (not LiveKit minutes); `DELETE …/calls/{id}` erases a
+  finished one via `repo.erase_test_call` (all or nothing; moves record
+  `undo` so they can be put back). Patients' calls are never erasable.
 - `clinic_agent/config.py` — the **only** place that reads `os.environ`.
   Frozen `Settings` dataclass; a new setting means a field, a line in
   `load_settings()`, and an entry in `.env.example`.

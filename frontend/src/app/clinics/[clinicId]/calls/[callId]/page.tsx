@@ -2,11 +2,12 @@
 // One call as the clinic sees it: when, what it changed, and what the caller
 // and the receptionist said. Plus every time ClinicDesk support opened it.
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { AlertCircle, ArrowLeft, Eye, MessagesSquare } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CallResult } from "@/components/admin/bits";
+import { EraseTestCall } from "@/components/calls/erase-test-call";
 import { Transcript } from "@/components/calls/transcript";
 import { duration, when } from "@/lib/admin";
 import type { Schemas } from "@/lib/api/client";
@@ -38,9 +39,10 @@ function Body({ clinicId, call }: { clinicId: number; call: Schemas["ClinicCallD
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Call · {when(call.started_at)}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{call.test ? "Test call" : "Call"} · {when(call.started_at)}</h1>
         <CallResult call={call} />
       </div>
+      {call.test && <TestCallNote clinicId={clinicId} call={call} />}
 
       <section className="grid gap-4 rounded-xl border bg-card p-5 sm:grid-cols-[10rem_1fr]">
         <div className="flex gap-8 sm:block sm:space-y-4">
@@ -97,5 +99,21 @@ function Body({ clinicId, call }: { clinicId: number; call: Schemas["ClinicCallD
         </div>
       </section>
     </>
+  );
+}
+
+function TestCallNote({ clinicId, call }: { clinicId: number; call: Schemas["ClinicCallDetail"] }) {
+  const router = useRouter();
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed bg-muted/40 p-4 text-sm">
+      <p className="text-muted-foreground">
+        Your own test call from <Link className="text-primary hover:underline" href={`/clinics/${clinicId}/talk`}>Talk to receptionist</Link>.
+        It isn&apos;t counted as a patient&apos;s call.
+      </p>
+      {call.status !== "live" && (
+        <EraseTestCall clinicId={clinicId} callId={call.id} changes={call.changes.length}
+          onErased={() => router.push(`/clinics/${clinicId}/calls`)} />
+      )}
+    </div>
   );
 }

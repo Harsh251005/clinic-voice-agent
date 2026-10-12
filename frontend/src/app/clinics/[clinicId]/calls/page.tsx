@@ -62,6 +62,7 @@ function CallRows({ clinicId, beforeId, first, onMore }: {
               <span className="font-medium tabular-nums md:font-normal">
                 {when(c.started_at)}
                 {languageName(c.language) && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{languageName(c.language)}</span>}
+                {c.test && <span className="ml-1.5 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Test</span>}
               </span>
               <span className="justify-self-end md:justify-self-start"><CallResult call={c} /></span>
               <span className="col-span-2 text-muted-foreground md:col-span-1 md:text-foreground">

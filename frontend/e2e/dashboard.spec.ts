@@ -27,7 +27,7 @@ test("Today shows the receptionist is ready and the appointments page is one cli
   await page.goto("/clinics/1/today");
   // The API re-checks every 30 s and the page refreshes every 30 s.
   await expect(page.getByText("Ready. It answers from your clinic's details.")).toBeVisible({ timeout: 75_000 });
-  await expect(page.getByRole("link", { name: "Try a call" })).toHaveAttribute("href", /\/call\/demo-family-clinic$/);
+  await expect(page.getByRole("link", { name: "Try a call" })).toHaveAttribute("href", "/clinics/1/talk");
   await page.getByRole("link", { name: "Open diary" }).click();
   await expect(page.getByRole("heading", { name: "Appointments" })).toBeVisible();
 });

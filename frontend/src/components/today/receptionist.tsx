@@ -73,7 +73,7 @@ export function Receptionist({ clinic, today, down }: {
           <ol className="space-y-1 p-3">
             {steps.map((s) => (
               <li key={s.id}>
-                <StepLink step={s} href={s.href ?? `/clinics/${clinic.id}/setup?tab=${s.tab}`}>
+                <StepLink step={s} href={`/clinics/${clinic.id}/${s.page ?? `setup?tab=${s.tab}`}`}>
                   {s.done
                     ? <CircleCheck className="mt-0.5 size-5 shrink-0 text-success-foreground" aria-label="Done" />
                     : <Circle className="mt-0.5 size-5 shrink-0 text-muted-foreground/50" aria-label="To do" />}
@@ -90,7 +90,7 @@ export function Receptionist({ clinic, today, down }: {
 
       <div className="flex gap-2 border-t p-4">
         <Button variant={ready ? "default" : "outline"} className="flex-1" asChild>
-          <a href={clinic.call_link} target="_blank" rel="noreferrer"><Headset /> Try a call</a>
+          <Link href={`/clinics/${clinic.id}/talk`}><Headset /> Try a call</Link>
         </Button>
         <Button variant="outline" className="flex-1" onClick={copy}>
           {copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy link"}
@@ -102,10 +102,7 @@ export function Receptionist({ clinic, today, down }: {
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-/** A setup step: a settings tab, or (the test call) the call page in a new tab. */
+/** A setup step: a settings tab, or (the test call) Talk to receptionist. */
 function StepLink({ step, href, children }: { step: SetupStep; href: string; children: ReactNode }) {
-  const className = cn("flex gap-3 rounded-lg px-2 py-2 hover:bg-muted", step.done && "pointer-events-none");
-  return step.href
-    ? <a href={href} target="_blank" rel="noreferrer" className={className}>{children}</a>
-    : <Link href={href} className={className}>{children}</Link>;
+  return <Link href={href} className={cn("flex gap-3 rounded-lg px-2 py-2 hover:bg-muted", step.done && "pointer-events-none")}>{children}</Link>;
 }

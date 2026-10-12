@@ -61,6 +61,5 @@ test("a clinic with no calls yet is asked to make a test call", async ({ page, r
   await page.goto(`/clinics/${id}/today`);
   await expect(page.getByText("No calls yet today")).toBeVisible();
   const step = page.getByRole("link", { name: /Make a test call/ });
-  await expect(step).toHaveAttribute("target", "_blank");
-  await expect(step).toHaveAttribute("href", /\/call\/quiet-test-clinic$/);
+  await expect(step).toHaveAttribute("href", `/clinics/${id}/talk`); // calls it from the dashboard, as a test
 });
