@@ -119,11 +119,11 @@ async def entrypoint(ctx: JobContext) -> None:
         logger.error("refusing call in room %s: the %s line is off: %s", ctx.room.name, NAMES[call.language], err)
         ctx.shutdown(reason=f"line off: {call.language}")
         return
-    logger.info("clinic %s: %s, %s line", clinic.id, clinic.name, NAMES[call.language])
+    logger.info("clinic %s: %s, %s line%s", clinic.id, clinic.name, NAMES[call.language], " (staff test call)" if call.test else "")
     instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone), call.language)
     sessions = sessions_for(cfg.database_url)
     stack = stack_of(session, line, TEXT_ONLY)
-    record = CallRecorder(sessions, clinic.id, ctx.room.name, stack, call.language)
+    record = CallRecorder(sessions, clinic.id, ctx.room.name, stack, call.language, call.test)
     await record.start()
     record.attach(session)
     ctx.add_shutdown_callback(record.finish)

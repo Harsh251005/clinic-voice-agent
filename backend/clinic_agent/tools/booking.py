@@ -32,9 +32,9 @@ class ClinicLink:
     timezone: str
     sessions: Sessions
     language: Language  # the call's line: what the "one moment" filler is said in
-    # Told of every appointment a tool changes: (appointment id, action).
+    # Told of every appointment a tool changes: (appointment id, action, undo).
     # The call's record uses it (clinic_agent/call_record.py).
-    on_change: Callable[[int, str], None] | None = None
+    on_change: Callable[[int, str, dict | None], None] | None = None
 
 
 MAX_MISSED_LOOKUPS = 3
@@ -88,7 +88,7 @@ def booking_tools(link: ClinicLink) -> list:
         except booking.BookingError as err:
             raise ToolError(str(err)) from None
         if isinstance(result, booking.Changed) and link.on_change:
-            link.on_change(result.appointment_id, result.action)
+            link.on_change(result.appointment_id, result.action, result.undo)
         return str(result)
 
     async def confirmed(ctx: RunContext | None, action: str, key: tuple, check: Callable, act: Callable, args: tuple,

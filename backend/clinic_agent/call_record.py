@@ -56,9 +56,11 @@ TOOL_TEXT_MAX = 2000  # a tool result in the transcript; slot lists can run long
 
 
 class CallRecorder:
-    def __init__(self, sessions: Sessions, clinic_id: int, room: str, stack: str, language: str) -> None:
+    def __init__(
+        self, sessions: Sessions, clinic_id: int, room: str, stack: str, language: str, test: bool = False
+    ) -> None:
         self.sessions, self.clinic_id, self.room, self.stack = sessions, clinic_id, room, stack
-        self.language = language
+        self.language, self.test = language, test
         self.call_id: int | None = None
         self.t0 = time.time()
         self.started_at = utc_now()
@@ -75,7 +77,7 @@ class CallRecorder:
     async def start(self) -> None:
         def work() -> int:
             with self.sessions() as s:
-                return repo.start_call(s, self.clinic_id, self.room, self.stack, self.language, self.started_at).id
+                return repo.start_call(s, self.clinic_id, self.room, self.stack, self.language, self.started_at, self.test).id
 
         try:
             self.call_id = await asyncio.to_thread(work)
@@ -91,9 +93,9 @@ class CallRecorder:
         ):
             session.on(name, _safe(handler))
 
-    def on_change(self, appointment_id: int, action: str) -> None:
+    def on_change(self, appointment_id: int, action: str, undo: dict | None = None) -> None:
         """An appointment a tool booked, moved or cancelled (tools.booking.ClinicLink)."""
-        self.changes.append({"id": appointment_id, "action": action})
+        self.changes.append({"id": appointment_id, "action": action} | ({"undo": undo} if undo else {}))
 
     def mark(self, end_reason: str) -> None:
         """Say why the call is ending when the session can't tell (the time limit)."""

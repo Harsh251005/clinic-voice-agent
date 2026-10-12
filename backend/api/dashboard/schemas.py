@@ -260,6 +260,7 @@ class CallSummary(BaseModel):
     end_reason: str
     outcome: str
     language: Literal["en", "hi", ""]  # the line the caller chose; "" before there were two
+    test: bool  # staff calling from the dashboard, not a patient
     stack: str
     turn_count: int
     error_count: int
@@ -321,7 +322,19 @@ class ClinicCall(BaseModel):
     status: Literal["live", "ended", "dropped"]
     outcome: str
     language: Literal["en", "hi", ""]  # the language the caller chose; "" before there was a choice
+    test: bool  # staff's own test call from the dashboard: erasable, left out of the counts
     changes: list[ClinicCallChange]
+
+
+class TestCallRequest(BaseModel):
+    language: Literal["en", "hi"]
+
+
+class TestCallPass(BaseModel):
+    """Join a LiveKit room as the caller; the clinic's receptionist is sent in."""
+    url: str
+    token: str
+    room: str
 
 
 class SpokenLine(BaseModel):

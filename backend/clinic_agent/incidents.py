@@ -145,7 +145,7 @@ def _minutes(s: Session, now: datetime, max_call_minutes: int) -> list[Finding]:
     month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     cap = timedelta(minutes=max_call_minutes)
     used = sum(
-        (min((c.ended_at or now) - c.started_at, cap) for c in repo.patient_calls_since(s, month)),
+        (min((c.ended_at or now) - c.started_at, cap) for c in repo.patient_calls_since(s, month, with_tests=True)),
         timedelta(),
     ).total_seconds() / 60
     share = used / LIVEKIT_FREE_MINUTES

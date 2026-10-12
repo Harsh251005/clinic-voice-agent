@@ -352,6 +352,10 @@
             "title": "Status",
             "type": "string"
           },
+          "test": {
+            "title": "Test",
+            "type": "boolean"
+          },
           "tool_failures": {
             "title": "Tool Failures",
             "type": "integer"
@@ -371,6 +375,7 @@
           "end_reason",
           "outcome",
           "language",
+          "test",
           "stack",
           "turn_count",
           "error_count",
@@ -465,6 +470,10 @@
             "title": "Status",
             "type": "string"
           },
+          "test": {
+            "title": "Test",
+            "type": "boolean"
+          },
           "tool_failures": {
             "title": "Tool Failures",
             "type": "integer"
@@ -488,6 +497,7 @@
           "end_reason",
           "outcome",
           "language",
+          "test",
           "stack",
           "turn_count",
           "error_count",
@@ -664,6 +674,10 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "test": {
+            "title": "Test",
+            "type": "boolean"
           }
         },
         "required": [
@@ -673,6 +687,7 @@
           "status",
           "outcome",
           "language",
+          "test",
           "changes"
         ],
         "title": "ClinicCall",
@@ -804,6 +819,10 @@
             "title": "Support Views",
             "type": "array"
           },
+          "test": {
+            "title": "Test",
+            "type": "boolean"
+          },
           "transcript_kept": {
             "title": "Transcript Kept",
             "type": "boolean"
@@ -816,6 +835,7 @@
           "status",
           "outcome",
           "language",
+          "test",
           "changes",
           "transcript_kept",
           "conversation",
@@ -1789,6 +1809,47 @@
           "at"
         ],
         "title": "SupportView",
+        "type": "object"
+      },
+      "TestCallPass": {
+        "description": "Join a LiveKit room as the caller; the clinic's receptionist is sent in.",
+        "properties": {
+          "room": {
+            "title": "Room",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "token",
+          "room"
+        ],
+        "title": "TestCallPass",
+        "type": "object"
+      },
+      "TestCallRequest": {
+        "properties": {
+          "language": {
+            "enum": [
+              "en",
+              "hi"
+            ],
+            "title": "Language",
+            "type": "string"
+          }
+        },
+        "required": [
+          "language"
+        ],
+        "title": "TestCallRequest",
         "type": "object"
       },
       "TimeOff": {
@@ -3353,6 +3414,105 @@
         "summary": "Calls"
       }
     },
+    "/api/clinics/{clinic_id}/calls/by-room/{room}": {
+      "get": {
+        "description": "The call that took place in this room: how the test-call screen finds\nthe call it just made (the worker opens its record as it answers).",
+        "operationId": "call_in_room_api_clinics__clinic_id__calls_by_room__room__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "room",
+            "required": true,
+            "schema": {
+              "title": "Room",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicCall"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Call In Room"
+      }
+    },
+    "/api/clinics/{clinic_id}/calls/test": {
+      "post": {
+        "description": "A pass for staff to call their own receptionist, exactly as a patient would.",
+        "operationId": "test_call_api_clinics__clinic_id__calls_test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestCallRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestCallPass"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Call"
+      }
+    },
     "/api/clinics/{clinic_id}/calls/today": {
       "get": {
         "description": "Declared before /{call_id}, which would otherwise catch \"today\".",
@@ -3394,6 +3554,46 @@
       }
     },
     "/api/clinics/{clinic_id}/calls/{call_id}": {
+      "delete": {
+        "description": "Erase a test call: undo every booking, cancellation and move it made,\nthen delete its record, trace and transcript. Patients' calls can't be.",
+        "operationId": "erase_api_clinics__clinic_id__calls__call_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "call_id",
+            "required": true,
+            "schema": {
+              "title": "Call Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Erase"
+      },
       "get": {
         "operationId": "call_api_clinics__clinic_id__calls__call_id__get",
         "parameters": [

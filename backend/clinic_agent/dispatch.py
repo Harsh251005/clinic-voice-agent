@@ -30,6 +30,9 @@ class BadDispatch(ValueError):
 class CallFor:
     clinic_id: int
     language: Language
+    # Staff calling their own receptionist from the dashboard. Answered exactly
+    # like a patient's call (real bookings); marked so it can be erased after.
+    test: bool = False
 
 
 def language_of(value: object) -> Language:
@@ -39,8 +42,9 @@ def language_of(value: object) -> Language:
     return value  # type: ignore[return-value]
 
 
-def metadata_for(clinic_id: int, language: Language) -> str:
-    return json.dumps({"clinic_id": clinic_id, "language": language_of(language)})
+def metadata_for(clinic_id: int, language: Language, test: bool = False) -> str:
+    fields = {"clinic_id": clinic_id, "language": language_of(language)}
+    return json.dumps(fields | {"test": True} if test else fields)
 
 
 def call_from(metadata: str, fallback: CallFor | None = None) -> CallFor:
@@ -58,4 +62,7 @@ def call_from(metadata: str, fallback: CallFor | None = None) -> CallFor:
         raise BadDispatch(f"job metadata needs clinic_id and language: {metadata!r}") from None
     if not isinstance(clinic_id, int) or isinstance(clinic_id, bool):
         raise BadDispatch(f"clinic_id must be an integer, got {clinic_id!r}")
-    return CallFor(clinic_id, language_of(language))
+    test = fields.get("test", False)
+    if not isinstance(test, bool):
+        raise BadDispatch(f"test must be true or false, got {test!r}")
+    return CallFor(clinic_id, language_of(language), test)
