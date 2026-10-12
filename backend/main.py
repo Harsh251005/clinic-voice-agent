@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 
 from livekit.agents import AgentServer, JobContext, WorkerOptions, cli
@@ -78,6 +79,17 @@ def _take_language_flag(argv: list[str]) -> Language:
         return language_of("hi" if value is None else value)
     except BadDispatch as err:
         raise ValueError(f"--language: {err}") from None
+
+
+def make_server() -> AgentServer:
+    """The worker, registered as AGENT_NAME (explicit dispatch: it joins only
+    rooms a call pass dispatches it to). LiveKit deprecated passing the name
+    in code; livekit.toml is no substitute, since `dev` ignores it and `start`
+    reads it from whatever folder it runs in, and a worker with no name joins
+    every room. LIVEKIT_AGENT_NAME is read in every mode, and setting it here
+    keeps the one name the call passes use."""
+    os.environ["LIVEKIT_AGENT_NAME"] = AGENT_NAME
+    return AgentServer.from_server_options(WorkerOptions(entrypoint_fnc=entrypoint))
 
 
 async def entrypoint(ctx: JobContext) -> None:
@@ -158,7 +170,7 @@ if __name__ == "__main__":
     except (ConfigError, SchemaOutdated, ValueError) as err:
         sys.exit(f"configuration error: {err}")
 
-    server = AgentServer.from_server_options(WorkerOptions(entrypoint_fnc=entrypoint, agent_name=AGENT_NAME))
+    server = make_server()
     if not CONSOLE:
         # dev and start answer patients: check in, so the dashboards can tell when they stop.
         heartbeat.attach(server, sessions_for(cfg.database_url))
