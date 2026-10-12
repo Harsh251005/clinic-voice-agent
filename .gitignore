@@ -11,3 +11,7 @@ desktop.ini
 # ---------- Editors ----------
 .idea/
 .vscode/
+
+# ---------- Other AI assistants' local files ----------
+AGENTS.md
+.codex/
