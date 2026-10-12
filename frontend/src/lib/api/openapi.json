@@ -1381,6 +1381,19 @@
         "title": "Health",
         "type": "object"
       },
+      "HindiName": {
+        "properties": {
+          "name_hi": {
+            "title": "Name Hi",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name_hi"
+        ],
+        "title": "HindiName",
+        "type": "object"
+      },
       "HoursIn": {
         "properties": {
           "sittings": {
@@ -1474,6 +1487,20 @@
           "email"
         ],
         "title": "MemberIn",
+        "type": "object"
+      },
+      "NameIn": {
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "NameIn",
         "type": "object"
       },
       "NewClinic": {
@@ -4160,6 +4187,112 @@
           }
         },
         "summary": "Delete Faq"
+      },
+      "put": {
+        "operationId": "update_faq_api_clinics__clinic_id__faq__faq_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "faq_id",
+            "required": true,
+            "schema": {
+              "title": "Faq Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FaqIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Faq"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Faq"
+      }
+    },
+    "/api/clinics/{clinic_id}/hindi-name": {
+      "post": {
+        "description": "For the settings forms: the suggestion staff see in the Hindi box.",
+        "operationId": "suggest_api_clinics__clinic_id__hindi_name_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NameIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HindiName"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suggest"
       }
     },
     "/api/clinics/{clinic_id}/members": {

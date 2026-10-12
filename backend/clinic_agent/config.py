@@ -53,7 +53,6 @@ class Settings:
 
     # --- calls ---
     max_call_minutes: float  # then a goodbye and hang up
-    background_audio: bool  # quiet office sound, typing while it thinks (clinic_agent/ambience.py)
 
     # --- dashboard ---
     dashboard_login: str  # "google", or "off" for local development only
@@ -203,7 +202,6 @@ def load_settings() -> Settings:
         interrupt_min_speech=_number("INTERRUPT_MIN_SPEECH", 0.3),
         vad_min_silence=_number("VAD_MIN_SILENCE", 0.6),
         max_call_minutes=_number("MAX_CALL_MINUTES", 10),
-        background_audio=_choice("BACKGROUND_AUDIO", ("on", "off")) == "on",
         dashboard_login=_choice("DASHBOARD_LOGIN", ("google", "off")),
         admin_emails=frozenset(
             e.strip().lower() for e in (_text("ADMIN_EMAILS") or "").split(",") if e.strip()

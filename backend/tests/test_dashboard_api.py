@@ -259,6 +259,7 @@ ATTACKS = [
                                           "patient_name": "X", "patient_phone": "9876543210"}),
     ("GET", "/doctors/{demo_doctor}/free?day=2026-12-07", None),
     ("DELETE", "/faq/{demo_faq}", None),
+    ("PUT", "/faq/{demo_faq}", {"question": "Hacked?", "answer": "Yes."}),
     ("DELETE", "/time-off/{demo_off}", None),
     ("PATCH", "/doctors/{demo_doctor}", {"fee": 1}),
     ("PUT", "/doctors/{demo_doctor}/hours", {"sittings": []}),
@@ -394,6 +395,9 @@ def test_faq_and_time_off(world):
                                            "doctor_id": world["khushboo"], "reason": "Leave"}).json()
     backwards = c.post(f"{base}/time-off", json={"date_from": "2026-12-12", "date_to": "2026-12-10"})
     assert backwards.status_code == 422
+    edited = c.put(f"{base}/faq/{faq['id']}", json={"question": " UPI or cards? ", "answer": " Both. "}).json()
+    assert edited == {"id": faq["id"], "question": "UPI or cards?", "answer": "Both."}  # same row, edited in place
+    assert c.put(f"{base}/faq/{faq['id']}", json={"question": "", "answer": "x"}).status_code == 422
     assert c.delete(f"{base}/faq/{faq['id']}").status_code == 200
     assert c.delete(f"{base}/time-off/{off['id']}").status_code == 200
     clinic = c.get(base).json()

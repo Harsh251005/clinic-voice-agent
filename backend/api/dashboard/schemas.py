@@ -107,6 +107,14 @@ class ClinicDetails(NewClinic):
         return hindi_name(value)
 
 
+class NameIn(BaseModel):
+    name: str = Field(max_length=200)
+
+
+class HindiName(BaseModel):
+    name_hi: str
+
+
 class SlugIn(BaseModel):
     slug: str
 

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Request
 
 from api.dashboard import convert, schemas
 from api.dashboard.access import Viewer, admin, open_clinic, staff_errors
+from api.dashboard.hindi import suggestion
 from clinic_agent.context import clinic_now
 from clinic_agent.store import repo
 
@@ -33,6 +34,7 @@ def get_clinic(request: Request, clinic_id: int = Depends(open_clinic)):
 def create_clinic(body: schemas.NewClinic, request: Request, viewer: Viewer = Depends(admin)):
     with staff_errors(), request.app.state.sessions() as s:
         c = repo.create_clinic(s, name=body.name.strip(), address=body.address.strip(), phone=body.phone.strip())
+        c = repo.update_clinic(s, c.id, name_hi=suggestion(request, c.name, c.id))
         return schemas.ClinicSummary(id=c.id, name=c.name, slug=c.slug, staff=viewer.is_staff(c.id))
 
 
@@ -43,7 +45,9 @@ def update_clinic(body: schemas.ClinicDetails, request: Request, clinic_id: int 
     if fields["name_hi"] is None:
         del fields["name_hi"]  # an older screen that doesn't send it keeps what's there
     with staff_errors(), request.app.state.sessions() as s:
-        repo.update_clinic(s, clinic_id, **fields)
+        clinic = repo.update_clinic(s, clinic_id, **fields)
+        if not clinic.name_hi:  # blank: fill in the suggestion, so the name has one fixed spelling
+            repo.update_clinic(s, clinic_id, name_hi=suggestion(request, clinic.name, clinic_id))
     return load(request, clinic_id)
 
 

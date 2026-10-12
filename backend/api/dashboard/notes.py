@@ -20,6 +20,14 @@ def add_faq(body: schemas.FaqIn, request: Request, clinic_id: int = Depends(open
         return schemas.Faq(id=f.id, question=f.question, answer=f.answer)
 
 
+@router.put("/api/clinics/{clinic_id}/faq/{faq_id}", response_model=schemas.Faq)
+def update_faq(faq_id: int, body: schemas.FaqIn, request: Request, clinic_id: int = Depends(open_clinic)):
+    with staff_errors(), request.app.state.sessions() as s:
+        f = repo.in_clinic(s, repo.ClinicFaq, faq_id, clinic_id)
+        f = repo.update_faq(s, f.id, body.question.strip(), body.answer.strip())
+        return schemas.Faq(id=f.id, question=f.question, answer=f.answer)
+
+
 @router.delete("/api/clinics/{clinic_id}/faq/{faq_id}")
 def delete_faq(faq_id: int, request: Request, clinic_id: int = Depends(open_clinic)) -> dict:
     with staff_errors(), request.app.state.sessions() as s:

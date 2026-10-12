@@ -208,6 +208,13 @@ def add_faq(s: Session, clinic_id: int, question: str, answer: str) -> ClinicFaq
     return faq
 
 
+def update_faq(s: Session, faq_id: int, question: str, answer: str) -> ClinicFaq:
+    faq = _get(s, ClinicFaq, faq_id)
+    faq.question, faq.answer = question, answer
+    s.commit()
+    return faq
+
+
 def delete_faq(s: Session, faq_id: int) -> None:
     s.delete(_get(s, ClinicFaq, faq_id))
     s.commit()

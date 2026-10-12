@@ -187,14 +187,6 @@ class CallRecorder:
         self._event(self._ms(ev.created_at), "error", name, None, ok=False, detail=detail)
         self.transcript.append({"t_ms": self._ms(ev.created_at), "role": "error", "text": f"{name}: {exc}"[:TOOL_TEXT_MAX]})
 
-    def fault(self, name: str, exc: BaseException) -> None:
-        """A part outside the speech pipeline failed (e.g. the background
-        sound) and the call went on without it: traced like a vendor error,
-        so three in 15 minutes raise the vendor_errors problem."""
-        self.errors += 1
-        self._event(round((time.time() - self.t0) * 1000), "error", name, None, ok=False,
-                    detail=f"{type(exc).__name__}, call went on")
-
     def _on_close(self, ev: CloseEvent) -> None:
         if not self.end_reason:
             self.end_reason = END_REASONS.get(ev.reason, "shutdown")

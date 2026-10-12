@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { useClinicChange } from "@/lib/queries";
 import { Field } from "./field";
+import { HindiNameField } from "./hindi-name";
 import { Section } from "./section";
 
 type Details = Schemas["ClinicDetails"];
@@ -36,11 +37,8 @@ export function ClinicDetails({ clinic }: { clinic: Schemas["Clinic"] }) {
           <Field id="name" label="Clinic name">
             <Input id="name" required maxLength={200} value={form.name} onChange={(e) => set({ name: e.target.value })} />
           </Field>
-          <Field id="name-hi" label="Clinic name in Hindi"
-            hint="How the receptionist says it on Hindi calls, in Hindi letters. Leave blank and it works it out itself.">
-            <Input id="name-hi" lang="hi" maxLength={200} placeholder="डेमो फ़ैमिली क्लिनिक" value={form.name_hi ?? ""}
-              onChange={(e) => set({ name_hi: e.target.value })} />
-          </Field>
+          <HindiNameField id="name-hi" label="Clinic name in Hindi" clinicId={clinic.id} english={form.name}
+            value={form.name_hi ?? ""} onChange={(name_hi) => set({ name_hi })} placeholder="डेमो फ़ैमिली क्लिनिक" />
           <Field id="phone" label="Phone">
             <Input id="phone" maxLength={20} inputMode="tel" value={form.phone} onChange={(e) => set({ phone: e.target.value })} />
           </Field>

@@ -10,6 +10,8 @@ export DATABASE_URL="sqlite:///$PWD/data/e2e.db"
 export DASHBOARD_LOGIN=off ADMIN_EMAILS= API_HOST=127.0.0.1 API_PORT=8095
 export PUBLIC_BASE_URL=http://127.0.0.1:8095 DASHBOARD_URL=http://localhost:3200
 export LIVEKIT_URL=wss://e2e.invalid LIVEKIT_API_KEY=e2e LIVEKIT_API_SECRET=e2e-only-secret-not-used-for-real-calls
+# No vendor is ever called from a test: blank keys beat the developer's .env (load_dotenv never overrides).
+export OPENAI_API_KEY= SARVAM_API_KEY= ELEVENLABS_API_KEY=
 uv run python -m clinic_agent.store.migrations
 uv run python - <<'PY'
 from datetime import datetime, time

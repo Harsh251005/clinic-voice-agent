@@ -15,6 +15,7 @@ import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { weekText } from "@/lib/dates";
 import { useClinicChange, usePatterns } from "@/lib/queries";
 import { Field } from "./field";
+import { HindiNameField } from "./hindi-name";
 import { Section } from "./section";
 
 type Doctor = Schemas["Doctor"];
@@ -46,7 +47,8 @@ export function Doctors({ clinic }: { clinic: Schemas["Clinic"] }) {
                     <Stethoscope className="size-5" aria-hidden />
                   </span>
                   <div>
-                    <p className="font-semibold">{d.name}{d.name_hi && <span lang="hi" className="ml-2 font-normal text-muted-foreground">{d.name_hi}</span>}</p>
+                    <p className="font-semibold">{d.name}</p>
+                    {d.name_hi && <p lang="hi" className="text-sm text-muted-foreground">{d.name_hi}</p>}
                     <p className="text-sm text-muted-foreground">{d.specialty || "No specialty"}</p>
                   </div>
                 </div>
@@ -78,7 +80,7 @@ export function Doctors({ clinic }: { clinic: Schemas["Clinic"] }) {
             <DialogDescription>Hours are on the Weekly hours tab.</DialogDescription>
           </DialogHeader>
           {editing && (
-            <DoctorForm key={editing.id} initial={editing} submitLabel="Save doctor" pending={update.isPending}
+            <DoctorForm key={editing.id} clinicId={clinic.id} initial={editing} submitLabel="Save doctor" pending={update.isPending}
               onSubmit={(body) => update.mutate({ id: editing.id, body }, { onSuccess: () => setEditing(null) })} />
           )}
         </DialogContent>
@@ -144,7 +146,7 @@ function AddDoctor({ clinic }: { clinic: Schemas["Clinic"] }) {
   return (
     <Section title="Add a doctor"
       description="They start with the hours you pick here and are bookable right away, so check them on the Weekly hours tab.">
-      <DoctorForm key={formKey} submitLabel="Add doctor" pending={add.isPending}
+      <DoctorForm key={formKey} clinicId={clinic.id} submitLabel="Add doctor" pending={add.isPending}
         extra={
           <Field id="starting" label="Starting hours" hint="Adjust them afterwards on the Weekly hours tab.">
             <Select value={start} onValueChange={setStart}>
@@ -160,8 +162,8 @@ function AddDoctor({ clinic }: { clinic: Schemas["Clinic"] }) {
   );
 }
 
-function DoctorForm({ initial, extra, submitLabel, pending, onSubmit }: {
-  initial?: Doctor; extra?: React.ReactNode; submitLabel: string; pending: boolean; onSubmit: (fields: DoctorFields) => void;
+function DoctorForm({ clinicId, initial, extra, submitLabel, pending, onSubmit }: {
+  clinicId: number; initial?: Doctor; extra?: React.ReactNode; submitLabel: string; pending: boolean; onSubmit: (fields: DoctorFields) => void;
 }) {
   const [f, setF] = useState<DoctorFields>({
     name: initial?.name ?? "", name_hi: initial?.name_hi ?? "", specialty: initial?.specialty ?? "",
@@ -174,10 +176,8 @@ function DoctorForm({ initial, extra, submitLabel, pending, onSubmit }: {
       <Field id={`${id}-name`} label="Name">
         <Input id={`${id}-name`} required maxLength={200} placeholder="Dr. Asha Mehta" value={f.name} onChange={(e) => set({ name: e.target.value })} />
       </Field>
-      <Field id={`${id}-name-hi`} label="Name in Hindi" hint="How the receptionist says it on Hindi calls. Blank: it works it out itself.">
-        <Input id={`${id}-name-hi`} lang="hi" maxLength={200} placeholder="डॉक्टर आशा मेहता" value={f.name_hi ?? ""}
-          onChange={(e) => set({ name_hi: e.target.value })} />
-      </Field>
+      <HindiNameField id={`${id}-name-hi`} label="Name in Hindi" clinicId={clinicId} english={f.name}
+        value={f.name_hi ?? ""} onChange={(name_hi) => set({ name_hi })} placeholder="डॉक्टर आशा मेहता" />
       <Field id={`${id}-specialty`} label="Specialty">
         <Input id={`${id}-specialty`} maxLength={200} placeholder="General Physician" value={f.specialty} onChange={(e) => set({ specialty: e.target.value })} />
       </Field>
