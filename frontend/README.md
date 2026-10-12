@@ -65,8 +65,10 @@ src/lib/visit.ts                 visit marks (Arrived, Done, No-show): word, ico
 src/lib/product.ts               the product name
 ```
 
-- Dark mode follows the operating system (`globals.css`), like the patient
-  call page. Teal on cool slate, with a teal-ink sidebar; `--success` and
+- Light, Dark or "Same as this computer" (the default), from the switch
+  beside the problems bell, kept per browser (`src/lib/theme.ts`; a script
+  in `<head>` sets `<html data-theme>` before the first paint, so no flash).
+  The patient call page always follows the computer. Teal on cool slate, with a teal-ink sidebar; `--success` and
   `--warning` colours always come with an icon and a word.
 - Words staff read are plain clinic words, never setting names: *time per
   patient*, *pause bookings*, *leave & holidays*, *common questions*,

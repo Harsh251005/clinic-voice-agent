@@ -13,6 +13,7 @@ import { ProblemBanner, ProblemBell, useProblemAlerts } from "@/components/probl
 import { PRODUCT_NAME } from "@/lib/product";
 import { BrandMark } from "@/components/app/brand";
 import { CenteredCard, FullPageLoading, LoadError, SignIn, signOut } from "@/components/app/gates";
+import { ThemeMenu } from "@/components/app/theme-menu";
 
 const PAGES = [
   { href: "/admin", label: "Health", icon: Activity },
@@ -58,6 +59,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <p className="text-base font-semibold tracking-tight text-ops-accent-foreground">{PRODUCT_NAME}</p>
             <p className="text-[11px] font-semibold tracking-wider text-ops-primary uppercase">Operator</p>
           </div>
+          <ThemeMenu className="text-ops-foreground hover:bg-ops-accent hover:text-ops-accent-foreground" />
           {bell}
         </div>
 
@@ -106,6 +108,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <p className="flex-1 font-semibold text-ops-accent-foreground">
           {PRODUCT_NAME} <span className="text-xs font-semibold tracking-wider text-ops-primary uppercase">Operator</span>
         </p>
+        <ThemeMenu className="text-ops-foreground hover:bg-ops-accent hover:text-ops-accent-foreground" />
         {bell}
         {hasClinics && (
           <Button variant="ghost" size="icon" asChild aria-label="Clinic dashboard" title="Clinic dashboard"
