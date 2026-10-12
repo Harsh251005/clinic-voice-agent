@@ -209,7 +209,7 @@ def test_a_line_off_reads_plainly_for_the_clinic_and_technically_for_the_operato
     clinic = [p["title"] for p in client_as("reception@cure.in").get(f"/api/clinics/{world['cure']}/problems").json()["open"]]
     assert clinic == ["Patients can't call your receptionist in Hindi right now."]
     admin = [p["title"] for p in client_as("harsh@example.com", admin=True).get("/api/admin/problems").json()["open"]]
-    assert "The Hindi line is off: the worker started without a key for sarvam + openai. Callers aren't offered Hindi." in admin
+    assert "The Hindi line is off: the worker started without a key for sarvam. Callers aren't offered Hindi." in admin
 
 
 def test_the_clinic_marks_its_own_problem_seen_but_not_a_system_one(world):  # noqa: F811

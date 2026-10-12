@@ -27,7 +27,7 @@ change the voice. Each language is its own pipeline, set in
 | Line | STT | LLM | TTS |
 |---|---|---|---|
 | English | ElevenLabs | OpenAI | ElevenLabs |
-| Hindi | Sarvam | OpenAI (for now; was Sarvam) | Sarvam |
+| Hindi | Sarvam | Sarvam | Sarvam |
 
 Fill in the keys for both. **A line whose key is missing is off, not
 fatal:** the worker prints a warning and answers the other line, its
@@ -408,9 +408,9 @@ TEST_POSTGRES_URL=postgresql+psycopg://clinic:clinic-dev@127.0.0.1:5433/clinic_t
 
 Live tests use only the English line's vendors (ElevenLabs STT + OpenAI +
 ElevenLabs TTS, each with its default model and voice), so they never spend
-Sarvam credits. The conversation evals grade the Hindi rules on OpenAI, the
-Hindi line's LLM for now. Only the two keys come from `.env`. Nothing tests
-the Hindi line's Sarvam ears and voice automatically; check them by hand
+Sarvam credits. The conversation evals grade the Hindi rules on OpenAI (they
+check rules and tools, not Sarvam's model). Only the two keys come from
+`.env`. Nothing tests the Hindi line (Sarvam) automatically; check it by hand
 before a production release.
 
 Offline tests prove the wiring, not the conversation. Live tests are evals:

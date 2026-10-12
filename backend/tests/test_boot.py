@@ -42,24 +42,24 @@ def test_no_line_with_its_keys_exits_with_one_line(tmp_path):
     assert r.returncode == 1
     err = r.stderr.strip()
     assert err.startswith("configuration error: no language line can take calls: English: ")
-    assert "English: OPENAI_API_KEY is not set" in err and "Hindi: OPENAI_API_KEY is not set" in err
+    assert "OPENAI_API_KEY is not set" in err and "Hindi: SARVAM_API_KEY is not set" in err
 
 
 def test_one_line_without_keys_is_off_and_the_worker_still_starts(tmp_path):
     # Harsh (2026-10-12): better a conversation in one language than no calls at all.
-    r = run_main(tmp_path, SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 0, r.stderr
-    assert "warning: the English line is off, calls in English won't be offered: ELEVENLABS_API_KEY is not set" in r.stderr
+    assert "warning: the English line is off, calls in English won't be offered: OPENAI_API_KEY is not set" in r.stderr
 
 
 def test_a_retired_vendor_switch_exits_with_one_line(tmp_path):
-    r = run_main(tmp_path, SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", TTS_PROVIDER="elevenlabs")
+    r = run_main(tmp_path, SARVAM_API_KEY="x", TTS_PROVIDER="elevenlabs")
     assert r.returncode == 1
     assert r.stderr.strip().startswith("configuration error: remove from .env: TTS_PROVIDER (the call's language")
 
 
 def test_unmigrated_database_exits_with_one_line(tmp_path):
-    r = run_main(tmp_path, SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", DATABASE_URL=f"sqlite:///{tmp_path}/none.db")
+    r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=f"sqlite:///{tmp_path}/none.db")
     assert r.returncode == 1
     assert r.stderr.strip().startswith("configuration error: database schema is not set up")
     assert "python -m clinic_agent.store.migrations" in r.stderr
@@ -80,14 +80,14 @@ def test_console_with_no_clinics_says_how_to_make_one(tmp_path):
     from clinic_agent.store.db import make_engine
 
     migrations.upgrade(make_engine(f"sqlite:///{tmp_path}/empty.db"))
-    r = run_main(tmp_path, "console", "--help", SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", DATABASE_URL=f"sqlite:///{tmp_path}/empty.db")
+    r = run_main(tmp_path, "console", "--help", SARVAM_API_KEY="x", DATABASE_URL=f"sqlite:///{tmp_path}/empty.db")
     assert r.returncode == 1
     assert r.stderr.strip().startswith("configuration error: no clinics in sqlite:///")
     assert "seeds.demo_clinic" in r.stderr
 
 
 def test_console_with_several_clinics_asks_which(tmp_path):
-    r = run_main(tmp_path, "console", "--help", SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", DATABASE_URL=_two_clinics(tmp_path))
+    r = run_main(tmp_path, "console", "--help", SARVAM_API_KEY="x", DATABASE_URL=_two_clinics(tmp_path))
     assert r.returncode == 1
     assert r.stderr.strip() == (
         "configuration error: several clinics, pick one with --clinic <id> "
@@ -96,19 +96,19 @@ def test_console_with_several_clinics_asks_which(tmp_path):
 
 
 def test_console_clinic_flag_picks_one(tmp_path):
-    r = run_main(tmp_path, "console", "--clinic", "2", "--help", SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", DATABASE_URL=_two_clinics(tmp_path))
+    r = run_main(tmp_path, "console", "--clinic", "2", "--help", SARVAM_API_KEY="x", DATABASE_URL=_two_clinics(tmp_path))
     assert r.returncode == 0, r.stderr
 
 
 def test_console_unknown_clinic_exits_with_one_line(tmp_path):
-    r = run_main(tmp_path, "console", "--clinic=9", "--help", SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, "console", "--clinic=9", "--help", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 1
     assert r.stderr.strip() == "configuration error: no clinic with id 9"
 
 
 def test_clinic_flag_is_console_only(tmp_path):
     # dev and start calls run in child processes and must name their clinic.
-    r = run_main(tmp_path, "start", "--clinic", "1", SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, "start", "--clinic", "1", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 1
     assert "--clinic is for console only" in r.stderr
 
@@ -121,20 +121,20 @@ def test_console_language_flag_takes_en_or_hi(tmp_path, flag):
 
 
 def test_console_unknown_language_exits_with_one_line(tmp_path):
-    r = run_main(tmp_path, "console", "--language", "ta", "--help", SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, "console", "--language", "ta", "--help", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 1
     assert r.stderr.strip() == "configuration error: --language: language must be one of en, hi, got 'ta'"
 
 
 def test_language_flag_is_console_only(tmp_path):
     # dev and start calls name their language in the dispatch, like their clinic.
-    r = run_main(tmp_path, "start", "--language", "en", SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, "start", "--language", "en", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 1
     assert "--language is for console only" in r.stderr
 
 
 def test_valid_config_reaches_the_cli(tmp_path):
-    r = run_main(tmp_path, SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 0
     assert "console" in r.stdout and "dev" in r.stdout and "start" in r.stdout
 

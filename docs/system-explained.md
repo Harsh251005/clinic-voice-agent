@@ -88,10 +88,10 @@ Ravi's voice → 👂 EARS (STT) → text → 🧠 BRAIN (LLM) → text → 👄
 **Why two vendor sets?** Each is a language line. The caller picks English or
 Hindi on the call page before calling, and the whole call stays in that
 language (switching mid-call would change the voice). **English** calls use
-ElevenLabs ears and voice with OpenAI's brain. **Hindi** calls use Sarvam's
-ears and voice, since it's built for Indian languages, and for now OpenAI's
-brain too (it was Sarvam's). If one line's key is missing, that language is
-switched off: the other still takes calls, and both dashboards say so.
+ElevenLabs ears and voice with OpenAI's brain; **Hindi** calls use Sarvam for
+all three, since it's built for Indian languages. If one line's key is
+missing, that language is switched off: the other still takes calls, and
+both dashboards say so.
 
 **The rule:** only Sarvam, ElevenLabs and OpenAI are allowed, and a test fails
 if anyone adds another vendor.
