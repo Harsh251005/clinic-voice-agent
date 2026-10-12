@@ -39,6 +39,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.2.0  # this action publishes full version tags only
         with:
           enable-cache: true
+          python-version: "3.13"  # as Docker and development; the newest (3.15) lacks livekit-blingfire wheels
       - run: uv sync --locked
       - name: Tests, every database test on both engines
         run: uv run pytest -q
@@ -72,6 +73,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.2.0  # this action publishes full version tags only
         with:
           enable-cache: true
+          python-version: "3.13"  # as Docker and development; the newest (3.15) lacks livekit-blingfire wheels
       - run: uv sync --locked
         working-directory: backend
       - uses: actions/setup-node@v7
