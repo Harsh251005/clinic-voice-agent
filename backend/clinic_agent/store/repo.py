@@ -836,6 +836,11 @@ def patient_calls_since(s: Session, since: datetime, *, with_tests: bool = False
     return list(s.scalars(q if with_tests else q.where(Call.test.is_(False))))
 
 
+def test_calls(s: Session, clinic_id: int) -> list[Call]:
+    """The clinic's staff test calls, newest first."""
+    return list(s.scalars(select(Call).where(Call.clinic_id == clinic_id, Call.test.is_(True)).order_by(Call.id.desc())))
+
+
 def call_in_room(s: Session, clinic_id: int, room: str) -> Call:
     """The newest call in this room at this clinic."""
     call = s.scalar(select(Call).where(Call.clinic_id == clinic_id, Call.room == room).order_by(Call.id.desc()).limit(1))
@@ -860,9 +865,24 @@ def erase_test_call(s: Session, call_id: int) -> None:
     appointment; a cancellation is put back; a move goes back where it was.
     All or nothing: if one undo would take a slot someone has booked since,
     CantErase names it and nothing changes."""
-    call = _get(s, Call, call_id)
-    if not call.test:
+    erase_test_calls(s, [call_id])
+
+
+def erase_test_calls(s: Session, call_ids: Iterable[int]) -> None:
+    """erase_test_call for several, newest call first (a later test call may
+    have moved what an earlier one booked), in one transaction: all of them
+    or none."""
+    calls = sorted((_get(s, Call, i) for i in set(call_ids)), key=lambda c: c.id, reverse=True)
+    if not all(c.test for c in calls):
         raise ValueError("Only test calls can be erased.")
+    for call in calls:
+        _undo_changes(s, call)
+    s.execute(delete(Call).where(Call.id.in_([c.id for c in calls])))
+    s.commit()
+
+
+def _undo_changes(s: Session, call: Call) -> None:
+    """Put back what one test call changed, newest first; flushed, not committed."""
     for change in reversed(call.appointments):
         appt = s.get(Appointment, change["id"])
         if appt is None or appt.clinic_id != call.clinic_id:
@@ -876,7 +896,7 @@ def erase_test_call(s: Session, call_id: int) -> None:
                     s.execute(delete(Patient).where(Patient.id == patient_id))
             case "cancelled":
                 appt.status = "booked"
-                _undo_flush(s, appt, "was booked by someone else after this test call cancelled it")
+                _undo_flush(s, appt, "was booked by someone else after a test call cancelled it")
             case "moved":
                 undo = change.get("undo")
                 if not undo:
@@ -887,9 +907,7 @@ def erase_test_call(s: Session, call_id: int) -> None:
                 appt.starts_at = datetime.fromisoformat(undo["starts_at"])
                 appt.ends_at = datetime.fromisoformat(undo["ends_at"])
                 appt.visit = None
-                _undo_flush(s, appt, "was booked by someone else after this test call moved it away")
-    s.execute(delete(Call).where(Call.id == call.id))
-    s.commit()
+                _undo_flush(s, appt, "was booked by someone else after a test call moved it away")
 
 
 def _undo_flush(s: Session, appt: Appointment, why: str) -> None:

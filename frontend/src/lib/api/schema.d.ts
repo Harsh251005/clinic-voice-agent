@@ -420,6 +420,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clinics/{clinic_id}/calls/tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tests
+         * @description How many test calls are on record, for Talk to receptionist's "erase all".
+         */
+        get: operations["tests_api_clinics__clinic_id__calls_tests_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Erase Tests
+         * @description Erase every finished test call at once, with everything they changed:
+         *     all of them or none (newest first). A call still going is left alone.
+         */
+        delete: operations["erase_tests_api_clinics__clinic_id__calls_tests_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/clinics/{clinic_id}/calls/today": {
         parameters: {
             query?: never;
@@ -1483,6 +1508,21 @@ export interface components {
              */
             language: "en" | "hi";
         };
+        /**
+         * TestCalls
+         * @description The clinic's own test calls still on record (Talk to receptionist).
+         */
+        TestCalls: {
+            /** Count */
+            count: number;
+            /** Erasable */
+            erasable: number;
+        };
+        /** TestCallsErased */
+        TestCallsErased: {
+            /** Erased */
+            erased: number;
+        };
         /** TimeOff */
         TimeOff: {
             /**
@@ -2454,6 +2494,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TestCallPass"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tests_api_clinics__clinic_id__calls_tests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestCalls"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    erase_tests_api_clinics__clinic_id__calls_tests_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestCallsErased"];
                 };
             };
             /** @description Validation Error */

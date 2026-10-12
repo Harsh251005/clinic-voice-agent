@@ -87,6 +87,32 @@ def test_call(body: schemas.TestCallRequest, request: Request, clinic_id: int = 
     return schemas.TestCallPass(url=p.url, token=p.token, room=p.room)
 
 
+def _finished_tests(s, clinic_id: int, request: Request) -> tuple[list, list]:
+    """(every test call, the ones that have ended)."""
+    tests = repo.test_calls(s, clinic_id)
+    cutoff = dropped_before(request, utc_now())
+    return tests, [c for c in tests if convert.call_status(c, cutoff) != "live"]
+
+
+@router.get("/tests", response_model=schemas.TestCalls)
+def tests(request: Request, clinic_id: int = Depends(clinic_staff)):
+    """How many test calls are on record, for Talk to receptionist's "erase all"."""
+    with request.app.state.sessions() as s:
+        every, done = _finished_tests(s, clinic_id, request)
+        return schemas.TestCalls(count=len(every), erasable=len(done))
+
+
+@router.delete("/tests", response_model=schemas.TestCallsErased)
+def erase_tests(request: Request, clinic_id: int = Depends(clinic_staff)):
+    """Erase every finished test call at once, with everything they changed:
+    all of them or none (newest first). A call still going is left alone."""
+    with staff_errors(), request.app.state.sessions() as s:
+        _, done = _finished_tests(s, clinic_id, request)
+        booking.erase_test_calls(s, clinic_id, [c.id for c in done])
+    logger.info("erased %s test calls of clinic %s", len(done), clinic_id)
+    return schemas.TestCallsErased(erased=len(done))
+
+
 @router.get("/by-room/{room}", response_model=schemas.ClinicCall)
 def call_in_room(room: str, request: Request, clinic_id: int = Depends(clinic_staff)):
     """The call that took place in this room: how the test-call screen finds

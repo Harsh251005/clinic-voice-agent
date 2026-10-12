@@ -126,6 +126,37 @@ def test_a_move_records_where_it_was_so_it_can_be_undone(db):
                             "ends_at": (datetime.combine(day, first) + timedelta(minutes=doc.slot_minutes)).isoformat()}
 
 
+def test_erasing_several_undoes_the_later_call_first(db):
+    # Call 1 booked it, call 2 moved it: putting the move back, then deleting
+    # the booking, leaves nothing behind.
+    s, clinic_id = db
+    doc = _doctor(s, clinic_id)
+    appt = repo.book(s, clinic_id, doc.id, DAY.replace(hour=10), "Test", "9000000010")
+    first = _call(s, clinic_id, [{"id": appt.id, "action": "booked"}])
+    was = {"doctor_id": doc.id, "starts_at": appt.starts_at.isoformat(), "ends_at": appt.ends_at.isoformat()}
+    repo.move_appointment(s, appt.id, doc.id, DAY.replace(hour=11))
+    second = _call(s, clinic_id, [{"id": appt.id, "action": "moved", "undo": was}], room="test-demo-2")
+    booking.erase_test_calls(s, clinic_id, [first, second])
+    assert s.get(Appointment, appt.id) is None
+    assert s.get(Call, first) is None and s.get(Call, second) is None
+
+
+def test_erasing_several_is_all_or_nothing(db):
+    s, clinic_id = db
+    doc = _doctor(s, clinic_id)
+    booked = repo.book(s, clinic_id, doc.id, DAY.replace(hour=9), "Test", "9000000011")
+    first = _call(s, clinic_id, [{"id": booked.id, "action": "booked"}])
+    cancelled = repo.book(s, clinic_id, doc.id, DAY.replace(hour=10), "Riya", "9000000012")
+    repo.cancel_appointment(s, cancelled.id)
+    second = _call(s, clinic_id, [{"id": cancelled.id, "action": "cancelled"}], room="test-demo-2")
+    repo.book(s, clinic_id, doc.id, DAY.replace(hour=10), "Someone Else", "9000000013")
+    with pytest.raises(booking.BookingError, match="These test calls can't be erased yet"):
+        booking.erase_test_calls(s, clinic_id, [first, second])
+    s.expire_all()
+    assert s.get(Appointment, booked.id) is not None  # the first call's undo didn't happen either
+    assert s.get(Call, first) is not None and s.get(Call, second) is not None
+
+
 # ---------- counts ----------
 
 def test_test_calls_stay_out_of_patient_counts_but_not_livekit_minutes(db):
@@ -202,3 +233,22 @@ def test_a_patients_call_and_a_live_test_call_cant_be_erased(world_calls):  # no
         live = repo.start_call(s, world["cure"], "test-cure-2", "stack", "hi", utc_now(), True).id
     r = c.delete(f"{base}/{live}")
     assert r.status_code == 409 and "still going" in r.json()["detail"]
+
+
+def test_talk_to_receptionist_counts_and_erases_every_finished_test_call(world_calls):  # noqa: F811
+    from clinic_agent.config import load_settings
+    from clinic_agent.store.db import sessions_for
+    from clinic_agent.store.models import utc_now
+
+    world = world_calls
+    with sessions_for(load_settings().database_url)() as s:
+        done = [_call(s, world["cure"], [], room=f"test-cure-{i}") for i in range(2)]
+        live = repo.start_call(s, world["cure"], "test-cure-live", "stack", "hi", utc_now(), True).id
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}/calls/tests"
+    assert c.get(base).json() == {"count": 3, "erasable": 2}
+    assert c.delete(base).json() == {"erased": 2}
+    assert c.get(base).json() == {"count": 1, "erasable": 0}  # the one still going stays
+    with sessions_for(load_settings().database_url)() as s:
+        assert [s.get(Call, i) for i in done] == [None, None] and s.get(Call, live) is not None
+        assert s.get(Call, world["cure_call"]) is not None  # a patient's call is never touched

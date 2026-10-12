@@ -208,6 +208,11 @@ was, which each move now records), then the call, its trace and its
 transcript are deleted. All or nothing: if an undo needs a slot someone
 has booked since, it says which and nothing changes. A patient's call can
 never be erased, and a test call can't be while it's still going.
+`GET …/calls/tests` counts the clinic's test calls on record, and
+`DELETE …/calls/tests` erases every finished one at once, newest first
+(a later test call may have moved what an earlier one booked), in one
+transaction: all or none. The Talk to receptionist tab shows "N test calls
+on record" with that button whenever there are any.
 
 ## Admin panel (the operator)
 
