@@ -101,6 +101,30 @@ export function useClinicCall(clinicId: number, callId: number) {
   });
 }
 
+/** The call a test pass started, once the receptionist has answered it (404 until then). */
+export async function testCallInRoom(clinicId: number, room: string) {
+  return unwrap(api.GET("/api/clinics/{clinic_id}/calls/by-room/{room}", {
+    params: { path: { clinic_id: clinicId, room } },
+  }));
+}
+
+/** Erase a finished test call: everything it booked, moved or cancelled is
+ *  undone, and its record goes. All or nothing; the API names what's in the way. */
+export function useEraseTestCall(clinicId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (callId: number) => unwrap(api.DELETE("/api/clinics/{clinic_id}/calls/{call_id}", {
+      params: { path: { clinic_id: clinicId, call_id: callId } },
+    })),
+    onSuccess: () => {
+      toast.success("Test call erased. Everything it did is undone.");
+      return Promise.all([keys.calls(clinicId), keys.appointments(clinicId), keys.clinic(clinicId)]
+        .map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+    },
+    onError: (err) => toast.error(err.message),
+  });
+}
+
 // Problems keep refreshing in a background tab too: the tab title and desktop
 // alerts are how a problem reaches someone working in another window.
 const PROBLEMS_EVERY = { refetchInterval: 30_000, refetchIntervalInBackground: true } as const;

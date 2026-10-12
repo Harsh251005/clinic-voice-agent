@@ -4,7 +4,7 @@
 import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Gauge, House, LogOut, Phone, Settings2, FlaskConical, ShieldCheck } from "lucide-react";
+import { CalendarDays, Gauge, Headset, House, LogOut, Phone, Settings2, FlaskConical, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Schemas } from "@/lib/api/client";
@@ -22,6 +22,7 @@ const PAGES = [
   { segment: "today", label: "Today", icon: House, staff: true },
   { segment: "appointments", label: "Appointments", icon: CalendarDays, staff: true },
   { segment: "calls", label: "Calls", icon: Phone, staff: true },
+  { segment: "talk", label: "Talk to receptionist", short: "Talk", icon: Headset, staff: true },
   { segment: "setup", label: "Clinic settings", short: "Settings", icon: Settings2, staff: false },
 ] as const;
 

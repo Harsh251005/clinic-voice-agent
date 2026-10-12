@@ -17,3 +17,27 @@ export function heartbeat(ageSeconds = 0) {
     `    repo.beat(s, 'AW_e2e', 'e2e', ['en', 'hi'], utc_now() - timedelta(seconds=${Number(ageSeconds)}))`,
   ].join("\n")], { cwd: BACKEND, stdio: "pipe" });
 }
+
+/** A finished staff test call that booked "Test Patient" tomorrow at 11:00,
+ *  as a real one would. Returns its call id. */
+export function testCallThatBooked(): number {
+  const out = execFileSync("uv", ["run", "python", "-c", [
+    "from datetime import datetime, time, timedelta",
+    "from clinic_agent.context import clinic_now",
+    "from clinic_agent.store import repo",
+    "from clinic_agent.store.db import sessions_for",
+    "from clinic_agent.store.models import utc_now",
+    "with sessions_for('sqlite:///data/e2e.db')() as s:",
+    "    clinic = repo.list_clinics(s)[0]",
+    "    day = clinic_now(clinic.timezone).date() + timedelta(days=1)",
+    "    appt = repo.book(s, clinic.id, clinic.doctors[0].id, datetime.combine(day, time(11)), 'Test Patient', '9000000099')",
+    "    started = utc_now() - timedelta(minutes=5)",
+    "    c = repo.start_call(s, clinic.id, 'test-e2e', 'stack', 'en', started, True)",
+    "    repo.finish_call(s, c.id, ended_at=started + timedelta(minutes=2), end_reason='agent_ended', outcome='booked',",
+    "                     turn_count=2, error_count=0, appointments=[{'id': appt.id, 'action': 'booked'}], events=[],",
+    "                     transcript=[{'t_ms': 0, 'role': 'caller', 'text': 'Book me tomorrow at 11'}],",
+    "                     purge_after=started + timedelta(days=30))",
+    "    print(c.id)",
+  ].join("\n")], { cwd: BACKEND, stdio: ["ignore", "pipe", "pipe"] });
+  return Number(String(out).trim());
+}
