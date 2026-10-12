@@ -10,9 +10,10 @@ from livekit import api as lk
 
 from api.limits import RateLimiter
 from clinic_agent.config import ConfigError, load_settings
-from clinic_agent.dispatch import AGENT_NAME, clinic_id_from
+from clinic_agent.dispatch import AGENT_NAME, CallFor, call_from
 
 KEY, SECRET = "APItestkey", "s" * 40
+HINDI = {"language": "hi"}
 
 
 @pytest.fixture
@@ -88,18 +89,31 @@ def test_the_livekit_client_is_pinned_with_an_integrity_hash(client):
 # ---------- join pass ----------
 
 def test_pass_dispatches_this_clinics_receptionist(client):
-    r = client.post("/call/demo-family-clinic/pass")
+    r = client.post("/call/demo-family-clinic/pass", json=HINDI)
     assert r.status_code == 200
     body = r.json()
     assert body["url"] == "wss://clinic-voice-agent-a35bk4rv.livekit.cloud"
     claims = _claims(body["token"])
     (dispatch,) = claims.room_config.agents
     assert dispatch.agent_name == AGENT_NAME
-    assert clinic_id_from(dispatch.metadata) == 1
+    assert call_from(dispatch.metadata) == CallFor(1, "hi")
+
+
+def test_pass_carries_the_chosen_language(client):
+    token = client.post("/call/demo-family-clinic/pass", json={"language": "en"}).json()["token"]
+    (dispatch,) = _claims(token).room_config.agents
+    assert call_from(dispatch.metadata) == CallFor(1, "en")
+
+
+@pytest.mark.parametrize("body", [None, {}, {"language": ""}, {"language": "ta"}, {"language": "EN"}])
+def test_pass_without_a_known_language_is_refused(client, body):
+    r = client.post("/call/demo-family-clinic/pass", json=body)
+    assert r.status_code == 400
+    assert r.json() == {"error": "Choose English or Hindi for the call."}
 
 
 def test_pass_allows_one_private_voice_call(client):
-    claims = _claims(client.post("/call/demo-family-clinic/pass").json()["token"])
+    claims = _claims(client.post("/call/demo-family-clinic/pass", json=HINDI).json()["token"])
     assert claims.video.room_join and claims.video.room.startswith("call-demo-family-clinic-")
     assert claims.video.can_publish_sources == ["microphone"]
     assert not claims.video.can_publish_data
@@ -109,13 +123,13 @@ def test_pass_allows_one_private_voice_call(client):
 
 
 def test_every_call_gets_its_own_room(client):
-    rooms = {_claims(client.post("/call/demo-family-clinic/pass").json()["token"]).video.room for _ in range(3)}
+    rooms = {_claims(client.post("/call/demo-family-clinic/pass", json=HINDI).json()["token"]).video.room for _ in range(3)}
     assert len(rooms) == 3
 
 
 def test_a_tampered_pass_is_rejected(client):
     # Pointing the pass at another clinic breaks the signature.
-    token = client.post("/call/demo-family-clinic/pass").json()["token"]
+    token = client.post("/call/demo-family-clinic/pass", json=HINDI).json()["token"]
     head, payload, sig = token.split(".")
     claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
     claims["roomConfig"]["agents"][0]["metadata"] = '{"clinic_id": 2}'
@@ -125,21 +139,21 @@ def test_a_tampered_pass_is_rejected(client):
 
 
 def test_pass_for_unknown_clinic_is_404(client):
-    r = client.post("/call/no-such-clinic/pass")
+    r = client.post("/call/no-such-clinic/pass", json=HINDI)
     assert r.status_code == 404
     assert r.json()["error"] == "This call link doesn't exist."
 
 
 def test_one_caller_is_rate_limited(client):
-    codes = [client.post("/call/demo-family-clinic/pass").status_code for _ in range(6)]
+    codes = [client.post("/call/demo-family-clinic/pass", json=HINDI).status_code for _ in range(6)]
     assert codes == [200] * 5 + [429]
-    assert "Too many calls" in client.post("/call/demo-family-clinic/pass").json()["error"]
+    assert "Too many calls" in client.post("/call/demo-family-clinic/pass", json=HINDI).json()["error"]
 
 
 def test_a_forwarded_ip_header_is_ignored_unless_configured(client):
     # Unconfigured, a caller can't dodge the limit by inventing IPs.
     codes = [
-        client.post("/call/demo-family-clinic/pass", headers={"CF-Connecting-IP": f"1.2.3.{i}"}).status_code
+        client.post("/call/demo-family-clinic/pass", json=HINDI, headers={"CF-Connecting-IP": f"1.2.3.{i}"}).status_code
         for i in range(6)
     ]
     assert codes[-1] == 429
@@ -156,7 +170,7 @@ def test_configured_ip_header_separates_callers_behind_a_tunnel(env, seeded_url)
 
     c = TestClient(create_app(load_settings()))
     for i in range(6):  # six different patients, one call each
-        assert c.post("/call/demo-family-clinic/pass", headers={"CF-Connecting-IP": f"1.2.3.{i}"}).status_code == 200
+        assert c.post("/call/demo-family-clinic/pass", json=HINDI, headers={"CF-Connecting-IP": f"1.2.3.{i}"}).status_code == 200
 
 
 def test_health(client):

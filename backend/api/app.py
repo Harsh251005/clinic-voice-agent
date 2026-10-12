@@ -12,7 +12,7 @@ from pathlib import Path
 from string import Template
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, Request
+from fastapi import Body, FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -22,6 +22,7 @@ from api.limits import RateLimiter
 from api.passes import call_pass
 from clinic_agent import incidents
 from clinic_agent.config import ConfigError, Settings, load_settings, require_key
+from clinic_agent.dispatch import BadDispatch, language_of
 from clinic_agent.store import repo
 from clinic_agent.store.db import Sessions, sessions_for
 from clinic_agent.store.models import utc_now
@@ -147,13 +148,19 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
         )
 
     @app.post("/call/{slug}/pass")
-    def join_pass(slug: str, request: Request):
+    def join_pass(slug: str, request: Request, language: str = Body("", embed=True)):
         try:
             clinic = clinic_for(slug)
         except repo.NotFound:
             return JSONResponse({"error": "This call link doesn't exist."}, status_code=404)
         if not clinic.active:
             return JSONResponse({"error": "This clinic isn't taking calls here right now."}, status_code=503)
+        try:
+            chosen = language_of(language)
+        except BadDispatch:
+            # Never default: each language is its own pipeline, and a caller
+            # put through in the wrong one can't follow the call.
+            return JSONResponse({"error": "Choose English or Hindi for the call."}, status_code=400)
         ip = _client_ip(request, cfg.client_ip_header)
         if not per_ip.allow(ip) or not per_clinic.allow(clinic.slug):
             logger.warning("rate limited a call to %s from %s", clinic.slug, ip)
@@ -161,8 +168,8 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
                 {"error": "Too many calls just now. Please wait a few minutes and try again."},
                 status_code=429,
             )
-        p = call_pass(cfg, clinic.id, clinic.slug)
-        logger.info("call pass for clinic %s (%s): room %s", clinic.id, clinic.slug, p.room)
+        p = call_pass(cfg, clinic.id, clinic.slug, chosen)
+        logger.info("call pass for clinic %s (%s), language %s: room %s", clinic.id, clinic.slug, chosen, p.room)
         return {"url": p.url, "token": p.token}
 
     @app.post("/call/{slug}/report", status_code=204)

@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 BACKEND = Path(__file__).resolve().parents[1]
 
 
@@ -106,6 +108,25 @@ def test_clinic_flag_is_console_only(tmp_path):
     r = run_main(tmp_path, "start", "--clinic", "1", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 1
     assert "--clinic is for console only" in r.stderr
+
+
+@pytest.mark.parametrize("flag", [["--language", "en"], ["--language=hi"]])
+def test_console_language_flag_takes_en_or_hi(tmp_path, flag):
+    r = run_main(tmp_path, "console", *flag, "--help", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
+    assert r.returncode == 0, r.stderr
+
+
+def test_console_unknown_language_exits_with_one_line(tmp_path):
+    r = run_main(tmp_path, "console", "--language", "ta", "--help", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
+    assert r.returncode == 1
+    assert r.stderr.strip() == "configuration error: --language: language must be one of en, hi, got 'ta'"
+
+
+def test_language_flag_is_console_only(tmp_path):
+    # dev and start calls name their language in the dispatch, like their clinic.
+    r = run_main(tmp_path, "start", "--language", "en", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
+    assert r.returncode == 1
+    assert "--language is for console only" in r.stderr
 
 
 def test_valid_config_reaches_the_cli(tmp_path):

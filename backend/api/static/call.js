@@ -65,7 +65,12 @@
     show("connecting", "Connecting…");
     let pass;
     try {
-      const res = await fetch(`/call/${encodeURIComponent(slug)}/pass`, { method: "POST" });
+      const res = await fetch(`/call/${encodeURIComponent(slug)}/pass`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Hindi until this page offers the English | हिन्दी choice.
+        body: JSON.stringify({ language: "hi" }),
+      });
       pass = await res.json();
       // Too many calls (429) and a paused clinic (503) are limits working, not faults.
       if (!res.ok) throw Object.assign(new Error(pass.error || "The call could not start."), { expected: [429, 503].includes(res.status) });
