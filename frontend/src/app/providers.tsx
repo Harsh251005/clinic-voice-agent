@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/client";
 import { Toaster } from "@/components/ui/sonner";
+import { useThemeSync } from "@/lib/theme";
 
 let browserQueryClient: QueryClient | undefined;
 
@@ -24,6 +25,7 @@ function getQueryClient() {
 }
 
 export function Providers({ children }: { children: ReactNode }) {
+  useThemeSync();
   return (
     <QueryClientProvider client={getQueryClient()}>
       {children}

@@ -14,6 +14,7 @@ import { ProblemBanner, ProblemBell, useProblemAlerts } from "@/components/probl
 import { rememberClinic } from "@/lib/last-clinic";
 import { PRODUCT_NAME } from "@/lib/product";
 import { BrandMark } from "./brand";
+import { ThemeMenu } from "./theme-menu";
 import { ClinicNotFound, FullPageLoading, LoadError, NoClinic, SignIn, signOut } from "./gates";
 
 // `staff`: shows patients, so only the clinic's own members see it. An admin
@@ -89,6 +90,7 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
         <div className="flex items-center gap-2.5 px-2 pt-1">
           <BrandMark className="bg-sidebar-primary text-sidebar-primary-foreground" />
           <span className="flex-1 text-base font-semibold tracking-tight text-sidebar-accent-foreground">{PRODUCT_NAME}</span>
+          <ThemeMenu className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
           {bell}
         </div>
 
@@ -146,6 +148,7 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
       <header className="sticky top-0 z-20 flex items-center gap-3 bg-sidebar px-4 py-3 text-sidebar-foreground md:hidden">
         <BrandMark className="size-7 bg-sidebar-primary text-sidebar-primary-foreground" />
         <div className="min-w-0 flex-1">{clinicPicker}</div>
+        <ThemeMenu className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
         {bell}
         {is_admin && (
           <Button variant="ghost" size="icon" asChild aria-label="Admin panel" title="Admin panel"

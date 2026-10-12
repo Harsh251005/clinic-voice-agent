@@ -2,8 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* Dark mode follows the operating system, like the patient call page. */
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/* Dark mode: <html data-theme="dark">, set from the viewer's choice (Light,
+   Dark, or the computer's setting) before the first paint (src/lib/theme.ts). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
   --color-background: var(--background);
@@ -108,45 +109,44 @@
   --ops-border: oklch(1 0 0 / 9%);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.129 0.042 264.695);  /* #020617 */
-    --foreground: oklch(0.929 0.013 255.508);
-    --card: oklch(0.208 0.042 265.755);        /* #0F172A */
-    --card-foreground: oklch(0.929 0.013 255.508);
-    --popover: oklch(0.208 0.042 265.755);
-    --popover-foreground: oklch(0.929 0.013 255.508);
-    --primary: oklch(0.704 0.14 182.503);      /* #14B8A6 */
-    --primary-foreground: oklch(0.208 0.042 265.755);
-    --secondary: oklch(0.279 0.041 260.031);   /* #1E293B */
-    --secondary-foreground: oklch(0.929 0.013 255.508);
-    --muted: oklch(0.279 0.041 260.031);
-    --muted-foreground: oklch(0.704 0.04 256.788);  /* #94A3B8 */
-    --accent: oklch(0.277 0.046 192.524);
-    --accent-foreground: oklch(0.855 0.138 181.071);
-    --destructive: oklch(0.704 0.191 22.216);
-    --warning: oklch(0.279 0.077 45.635);
-    --warning-foreground: oklch(0.879 0.169 91.605);
-    --success: oklch(0.3 0.06 160);
-    --success-foreground: oklch(0.85 0.13 160);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.704 0.14 182.503);
-    --sidebar: oklch(0.17 0.03 215);
-    --sidebar-foreground: oklch(0.78 0.025 200);
-    --sidebar-primary: oklch(0.78 0.13 180);
-    --sidebar-primary-foreground: oklch(0.2 0.04 205);
-    --sidebar-accent: oklch(0.26 0.045 200);
-    --sidebar-accent-foreground: oklch(0.99 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.704 0.14 182.503);
-    --ops: oklch(0.16 0.02 265);
-    --ops-foreground: oklch(0.76 0.015 265);
-    --ops-accent: oklch(0.25 0.025 265);
-    --ops-accent-foreground: oklch(0.99 0 0);
-    --ops-primary: oklch(0.83 0.14 78);
-    --ops-border: oklch(1 0 0 / 10%);
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark; /* scrollbars, date pickers and other built-in controls */
+  --background: oklch(0.129 0.042 264.695);  /* #020617 */
+  --foreground: oklch(0.929 0.013 255.508);
+  --card: oklch(0.208 0.042 265.755);        /* #0F172A */
+  --card-foreground: oklch(0.929 0.013 255.508);
+  --popover: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.929 0.013 255.508);
+  --primary: oklch(0.704 0.14 182.503);      /* #14B8A6 */
+  --primary-foreground: oklch(0.208 0.042 265.755);
+  --secondary: oklch(0.279 0.041 260.031);   /* #1E293B */
+  --secondary-foreground: oklch(0.929 0.013 255.508);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);  /* #94A3B8 */
+  --accent: oklch(0.277 0.046 192.524);
+  --accent-foreground: oklch(0.855 0.138 181.071);
+  --destructive: oklch(0.704 0.191 22.216);
+  --warning: oklch(0.279 0.077 45.635);
+  --warning-foreground: oklch(0.879 0.169 91.605);
+  --success: oklch(0.3 0.06 160);
+  --success-foreground: oklch(0.85 0.13 160);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.704 0.14 182.503);
+  --sidebar: oklch(0.17 0.03 215);
+  --sidebar-foreground: oklch(0.78 0.025 200);
+  --sidebar-primary: oklch(0.78 0.13 180);
+  --sidebar-primary-foreground: oklch(0.2 0.04 205);
+  --sidebar-accent: oklch(0.26 0.045 200);
+  --sidebar-accent-foreground: oklch(0.99 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.704 0.14 182.503);
+  --ops: oklch(0.16 0.02 265);
+  --ops-foreground: oklch(0.76 0.015 265);
+  --ops-accent: oklch(0.25 0.025 265);
+  --ops-accent-foreground: oklch(0.99 0 0);
+  --ops-primary: oklch(0.83 0.14 78);
+  --ops-border: oklch(1 0 0 / 10%);
 }
 
 @layer base {
