@@ -40,6 +40,8 @@ def create_clinic(body: schemas.NewClinic, request: Request, viewer: Viewer = De
 def update_clinic(body: schemas.ClinicDetails, request: Request, clinic_id: int = Depends(open_clinic)):
     fields = body.model_dump()
     fields.update(name=body.name.strip(), address=body.address.strip(), phone=body.phone.strip())
+    if fields["name_hi"] is None:
+        del fields["name_hi"]  # an older screen that doesn't send it keeps what's there
     with staff_errors(), request.app.state.sessions() as s:
         repo.update_clinic(s, clinic_id, **fields)
     return load(request, clinic_id)

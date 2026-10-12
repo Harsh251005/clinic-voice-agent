@@ -189,6 +189,23 @@ in `repo.py`.
 - Rule violations come back as 422 with a message staff can read (bad link
   name, overlapping sittings); rows outside the clinic as 404.
 
+### Sounding like a person (Hindi first)
+
+- **Everyday spoken Hindi**, not written Hindi: the Hindi rules name the
+  common words to use and the bookish ones to avoid ("कृपया", "विवरण",
+  "उपलब्ध"…), start replies with a short "जी" / "अच्छा", never repeat a
+  confirmed detail, and use no dashes, semicolons or brackets (the voice
+  reads them oddly). The English rules share the last three.
+- **Names said one way:** the clinic and each doctor have a *Name in Hindi*
+  (Devanagari, settings). The Hindi line says it exactly as written; blank,
+  it writes its own Devanagari (which varies call to call).
+- **No dead air:** a quiet office sound for the whole call and keyboard
+  typing while the receptionist thinks or looks something up
+  (`clinic_agent/ambience.py`, LiveKit's own clips, no vendor or credits;
+  `BACKGROUND_AUDIO=off` to turn it off). Not in console. If it fails to
+  start, the call goes on and the trace records a `livekit/background-audio`
+  error.
+
 ### Test calls (staff calling their own receptionist)
 
 Staff call their own receptionist from the dashboard, in English or Hindi,

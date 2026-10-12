@@ -39,6 +39,9 @@ class Clinic(Base):
     # Public name in the clinic's call link (/call/<slug>): the link, not the
     # database id, is what patients see. Set by repo.create_clinic.
     slug: Mapped[str] = mapped_column(String(60), unique=True)
+    # How the Hindi line says the name, in Devanagari ("" = the LLM's own
+    # transliteration, which varied call to call: "धर्निधारका", "धनिधार्का").
+    name_hi: Mapped[str] = mapped_column(String(200), default="", server_default="")
     address: Mapped[str] = mapped_column(String(500), default="")
     phone: Mapped[str] = mapped_column(String(20), default="")
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Kolkata")
@@ -85,6 +88,7 @@ class Doctor(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     clinic_id: Mapped[int] = mapped_column(ForeignKey("clinics.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(200))
+    name_hi: Mapped[str] = mapped_column(String(200), default="", server_default="")  # as Clinic.name_hi
     specialty: Mapped[str] = mapped_column(String(200), default="")
     fee: Mapped[int] = mapped_column(default=0)  # rupees
     slot_minutes: Mapped[int] = mapped_column(default=15)

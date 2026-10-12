@@ -1014,6 +1014,8 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /** Name Hi */
+            name_hi: string;
             /** Phone */
             phone: string;
             /** Slots Offered */
@@ -1118,6 +1120,8 @@ export interface components {
             booking_window_days: number;
             /** Name */
             name: string;
+            /** Name Hi */
+            name_hi?: string | null;
             /**
              * Phone
              * @default
@@ -1174,6 +1178,8 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /** Name Hi */
+            name_hi: string;
             /** Slot Minutes */
             slot_minutes: number;
             /** Specialty */
@@ -1209,6 +1215,8 @@ export interface components {
             fee?: number | null;
             /** Name */
             name?: string | null;
+            /** Name Hi */
+            name_hi?: string | null;
             /** Slot Minutes */
             slot_minutes?: number | null;
             /** Specialty */
@@ -1348,6 +1356,11 @@ export interface components {
             hours: components["schemas"]["Sitting"][];
             /** Name */
             name: string;
+            /**
+             * Name Hi
+             * @default
+             */
+            name_hi: string;
             /** Slot Minutes */
             slot_minutes: number;
             /**
