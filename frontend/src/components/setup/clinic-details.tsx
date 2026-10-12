@@ -12,7 +12,7 @@ type Details = Schemas["ClinicDetails"];
 
 export function ClinicDetails({ clinic }: { clinic: Schemas["Clinic"] }) {
   const saved: Details = {
-    name: clinic.name, address: clinic.address, phone: clinic.phone,
+    name: clinic.name, name_hi: clinic.name_hi, address: clinic.address, phone: clinic.phone,
     booking_window_days: clinic.booking_window_days, slots_offered: clinic.slots_offered,
   };
   const [form, setForm] = useState<Details>(saved);
@@ -35,6 +35,11 @@ export function ClinicDetails({ clinic }: { clinic: Schemas["Clinic"] }) {
         <div className="grid gap-4 md:grid-cols-2">
           <Field id="name" label="Clinic name">
             <Input id="name" required maxLength={200} value={form.name} onChange={(e) => set({ name: e.target.value })} />
+          </Field>
+          <Field id="name-hi" label="Clinic name in Hindi"
+            hint="How the receptionist says it on Hindi calls, in Hindi letters. Leave blank and it works it out itself.">
+            <Input id="name-hi" lang="hi" maxLength={200} placeholder="डेमो फ़ैमिली क्लिनिक" value={form.name_hi ?? ""}
+              onChange={(e) => set({ name_hi: e.target.value })} />
           </Field>
           <Field id="phone" label="Phone">
             <Input id="phone" maxLength={20} inputMode="tel" value={form.phone} onChange={(e) => set({ phone: e.target.value })} />

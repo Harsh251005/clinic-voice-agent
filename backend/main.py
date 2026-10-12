@@ -25,6 +25,7 @@ from livekit.agents import AgentServer, JobContext, WorkerOptions, cli
 
 from clinic_agent import heartbeat
 from clinic_agent.agent import ClinicAgent
+from clinic_agent.ambience import front_desk
 from clinic_agent.call_limit import end_after
 from clinic_agent.call_record import CallRecorder, stack_of
 from clinic_agent.config import ConfigError, load_settings
@@ -136,6 +137,14 @@ async def entrypoint(ctx: JobContext) -> None:
     # the project's setting says. Our own record (above) keeps the transcript
     # as text only; audio is never stored anywhere.
     await session.start(agent=ClinicAgent(instructions, tools), room=ctx.room, record=False)
+    if cfg.background_audio and not CONSOLE:  # console has no room to play it in
+        sound = front_desk()
+        try:
+            await sound.start(room=ctx.room, agent_session=session)
+            ctx.add_shutdown_callback(sound.aclose)
+        except Exception as err:  # noqa: BLE001 - a quiet call beats no call
+            logger.exception("background sound failed to start; the call goes on without it")
+            record.fault("livekit/background-audio", err)
 
     limit = asyncio.create_task(
         end_after(session, ctx, cfg.max_call_minutes * 60, on_limit=lambda: record.mark("time_limit"))

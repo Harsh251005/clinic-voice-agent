@@ -23,14 +23,14 @@ def hours_text(items: list[schemas.Sitting]) -> str:
 def doctor(d, upcoming: int) -> schemas.Doctor:
     hours = sittings(d.hours)
     return schemas.Doctor(
-        id=d.id, name=d.name, specialty=d.specialty, fee=d.fee, slot_minutes=d.slot_minutes,
+        id=d.id, name=d.name, name_hi=d.name_hi, specialty=d.specialty, fee=d.fee, slot_minutes=d.slot_minutes,
         active=d.active, hours=hours, hours_text=hours_text(hours), upcoming=upcoming,
     )
 
 
 def clinic(c, time_off, upcoming: dict[int, int], public_base_url: str, has_calls: bool) -> schemas.Clinic:
     return schemas.Clinic(
-        id=c.id, name=c.name, slug=c.slug, call_link=f"{public_base_url}/call/{c.slug}",
+        id=c.id, name=c.name, name_hi=c.name_hi, slug=c.slug, call_link=f"{public_base_url}/call/{c.slug}",
         address=c.address, phone=c.phone, timezone=c.timezone,
         booking_window_days=c.booking_window_days, slots_offered=c.slots_offered,
         doctors=[doctor(d, upcoming.get(d.id, 0)) for d in c.doctors],

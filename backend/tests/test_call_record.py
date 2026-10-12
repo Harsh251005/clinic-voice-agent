@@ -202,3 +202,11 @@ def test_purge_deletes_expired_transcripts_and_old_calls_only(db):
 
 def test_purge_runs_on_a_session_factory(link):
     assert purge(link.sessions) == (0, 0)
+
+
+def test_a_part_that_failed_beside_the_call_is_traced_as_an_error(link):
+    record = CallRecorder(link.sessions, link.clinic_id, "r", "s", "hi")
+    record.fault("livekit/background-audio", RuntimeError("no track"))
+    (event,) = record.events
+    assert (event["kind"], event["name"], event["ok"]) == ("error", "livekit/background-audio", False)
+    assert event["detail"] == "RuntimeError, call went on" and record.errors == 1

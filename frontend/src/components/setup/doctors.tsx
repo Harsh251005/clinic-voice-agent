@@ -46,7 +46,7 @@ export function Doctors({ clinic }: { clinic: Schemas["Clinic"] }) {
                     <Stethoscope className="size-5" aria-hidden />
                   </span>
                   <div>
-                    <p className="font-semibold">{d.name}</p>
+                    <p className="font-semibold">{d.name}{d.name_hi && <span lang="hi" className="ml-2 font-normal text-muted-foreground">{d.name_hi}</span>}</p>
                     <p className="text-sm text-muted-foreground">{d.specialty || "No specialty"}</p>
                   </div>
                 </div>
@@ -164,7 +164,8 @@ function DoctorForm({ initial, extra, submitLabel, pending, onSubmit }: {
   initial?: Doctor; extra?: React.ReactNode; submitLabel: string; pending: boolean; onSubmit: (fields: DoctorFields) => void;
 }) {
   const [f, setF] = useState<DoctorFields>({
-    name: initial?.name ?? "", specialty: initial?.specialty ?? "", fee: initial?.fee ?? 500, slot_minutes: initial?.slot_minutes ?? 15,
+    name: initial?.name ?? "", name_hi: initial?.name_hi ?? "", specialty: initial?.specialty ?? "",
+    fee: initial?.fee ?? 500, slot_minutes: initial?.slot_minutes ?? 15,
   });
   const set = (patch: Partial<DoctorFields>) => setF((x) => ({ ...x, ...patch }));
   const id = initial ? `doc${initial.id}` : "new";
@@ -172,6 +173,10 @@ function DoctorForm({ initial, extra, submitLabel, pending, onSubmit }: {
     <form className="grid gap-4 md:grid-cols-2" onSubmit={(e) => { e.preventDefault(); onSubmit({ ...f, name: f.name.trim(), specialty: f.specialty?.trim() }); }}>
       <Field id={`${id}-name`} label="Name">
         <Input id={`${id}-name`} required maxLength={200} placeholder="Dr. Asha Mehta" value={f.name} onChange={(e) => set({ name: e.target.value })} />
+      </Field>
+      <Field id={`${id}-name-hi`} label="Name in Hindi" hint="How the receptionist says it on Hindi calls. Blank: it works it out itself.">
+        <Input id={`${id}-name-hi`} lang="hi" maxLength={200} placeholder="डॉक्टर आशा मेहता" value={f.name_hi ?? ""}
+          onChange={(e) => set({ name_hi: e.target.value })} />
       </Field>
       <Field id={`${id}-specialty`} label="Specialty">
         <Input id={`${id}-specialty`} maxLength={200} placeholder="General Physician" value={f.specialty} onChange={(e) => set({ specialty: e.target.value })} />

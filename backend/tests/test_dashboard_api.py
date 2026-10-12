@@ -343,6 +343,20 @@ def test_editing_details_and_link_name(world):
     assert taken.status_code == 422 and "already taken" in taken.json()["detail"]
 
 
+def test_names_in_hindi_are_saved_in_devanagari_only(world):
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}"
+    details = {"name": "Cure Dental", "address": "", "phone": "", "booking_window_days": 30, "slots_offered": 3}
+    assert c.patch(base, json=details | {"name_hi": " क्योर  डेंटल "}).json()["name_hi"] == "क्योर डेंटल"
+    assert c.patch(base, json=details).json()["name_hi"] == "क्योर डेंटल"  # not sent: kept
+    bad = c.patch(base, json=details | {"name_hi": "Cure Dental"})
+    assert bad.status_code == 422
+    assert bad.json()["detail"][0]["msg"] == "Write it in Hindi letters (Devanagari), for example डॉक्टर आशा मेहता."
+    doctor = f"{base}/doctors/{world['khushboo']}"
+    assert c.patch(doctor, json={"name_hi": "डॉक्टर ख़ुशबू"}).json()["name_hi"] == "डॉक्टर ख़ुशबू"
+    assert c.patch(doctor, json={"name_hi": ""}).json()["name_hi"] == ""  # cleared: its own way again
+
+
 def test_adding_a_doctor_with_a_pattern_then_editing_hours(world):
     c = client_as("reception@cure.in")
     base = f"/api/clinics/{world['cure']}"

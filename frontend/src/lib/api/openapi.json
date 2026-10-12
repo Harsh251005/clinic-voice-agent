@@ -582,6 +582,10 @@
             "title": "Name",
             "type": "string"
           },
+          "name_hi": {
+            "title": "Name Hi",
+            "type": "string"
+          },
           "phone": {
             "title": "Phone",
             "type": "string"
@@ -609,6 +613,7 @@
         "required": [
           "id",
           "name",
+          "name_hi",
           "slug",
           "call_link",
           "address",
@@ -864,6 +869,18 @@
             "title": "Name",
             "type": "string"
           },
+          "name_hi": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Hi"
+          },
           "phone": {
             "default": "",
             "maxLength": 20,
@@ -1000,6 +1017,10 @@
             "title": "Name",
             "type": "string"
           },
+          "name_hi": {
+            "title": "Name Hi",
+            "type": "string"
+          },
           "slot_minutes": {
             "title": "Slot Minutes",
             "type": "integer"
@@ -1016,6 +1037,7 @@
         "required": [
           "id",
           "name",
+          "name_hi",
           "specialty",
           "fee",
           "slot_minutes",
@@ -1122,6 +1144,18 @@
               }
             ],
             "title": "Name"
+          },
+          "name_hi": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Hi"
           },
           "slot_minutes": {
             "anyOf": [
@@ -1488,6 +1522,12 @@
             "maxLength": 200,
             "minLength": 1,
             "title": "Name",
+            "type": "string"
+          },
+          "name_hi": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Name Hi",
             "type": "string"
           },
           "slot_minutes": {

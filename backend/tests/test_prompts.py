@@ -74,7 +74,7 @@ def test_the_receptionist_speaks_as_a_woman(db):
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
     assert "You are a woman" in text
-    assert "मैं Demo Family Clinic की ऑटोमेटेड असिस्टेंट" in text
+    assert "मैं [the clinic's name, written in Devanagari] की ऑटोमेटेड असिस्टेंट" in text  # no Hindi name set
     assert "That is only for you" in text  # the caller is never addressed as a woman
 
 
@@ -142,3 +142,26 @@ def test_the_hindi_line_stays_hindi_and_points_to_the_english_line():
     rules = _rules("hi")
     assert "the call stays in Hindi to the end" in rules and "call again and choose English" in rules
     assert "never reply in English" in rules
+
+
+def test_the_hindi_line_says_names_as_the_clinic_spelt_them(db):
+    # The LLM spelt "Dharnidharka" two ways in one call (2026-10-12): staff fix it once.
+    s, clinic_id = db
+    clinic = repo.get_clinic(s, clinic_id)
+    repo.update_clinic(s, clinic_id, name_hi="डेमो फ़ैमिली क्लिनिक")
+    repo.update_doctor(s, clinic.doctors[0].id, name_hi="डॉक्टर आशा मेहता")
+    clinic = repo.get_clinic(s, clinic_id)
+    hindi = build_instructions(clinic, [], NOW, "hi")
+    assert "नमस्ते जी, डेमो फ़ैमिली क्लिनिक में आपका स्वागत है" in hindi
+    assert f"{clinic.doctors[0].name} (in Hindi: डॉक्टर आशा मेहता)" in hindi
+    english = build_instructions(clinic, [], NOW, "en")
+    assert "in Hindi:" not in english and "Demo Family Clinic" in english
+
+
+def test_the_hindi_line_speaks_everyday_hindi():
+    rules = _rules("hi")
+    for bookish in ("कृपया", "विवरण", "उपलब्ध", "सूचित", "आवश्यक", "पुष्टि"):
+        assert f'(not "{bookish}' in rules  # named only as words to avoid
+    assert '"जी", "अच्छा", "हाँ जी"' in rules  # small acknowledgements
+    assert "Never say the same thing twice in a call" in rules
+    assert "no dashes, semicolons or brackets" in rules

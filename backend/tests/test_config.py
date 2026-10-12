@@ -99,3 +99,12 @@ def test_dashboard_login_defaults_to_google_and_rejects_typos(env):
 def test_admin_emails_are_a_lowercased_set(env):
     env.setenv("ADMIN_EMAILS", " Harsh@Example.com, ,owner@clinic.in ")
     assert load_settings().admin_emails == {"harsh@example.com", "owner@clinic.in"}
+
+
+def test_background_sound_is_on_unless_turned_off(env):
+    assert load_settings().background_audio is True
+    env.setenv("BACKGROUND_AUDIO", "off")
+    assert load_settings().background_audio is False
+    env.setenv("BACKGROUND_AUDIO", "loud")
+    with pytest.raises(ConfigError, match="BACKGROUND_AUDIO must be one of on, off"):
+        load_settings()

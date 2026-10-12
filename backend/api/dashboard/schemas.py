@@ -4,10 +4,12 @@ here shows up as a type error in the frontend, not a broken screen."""
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, time
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
+from pydantic_core import PydanticCustomError
 
 
 class ClinicSummary(BaseModel):
@@ -30,9 +32,24 @@ class Sitting(BaseModel):
     end: time
 
 
+_DEVANAGARI = re.compile(r"[\u0900-\u097F]")
+
+
+def hindi_name(value: str | None) -> str | None:
+    """A name as the Hindi receptionist says it: Devanagari only, or blank."""
+    if value is None:
+        return None
+    value = " ".join(value.split())
+    if value and (not _DEVANAGARI.search(value) or re.search(r"[A-Za-z]", value)):
+        # A custom error: its message reaches staff as written, without pydantic's "Value error," prefix.
+        raise PydanticCustomError("hindi_name", "Write it in Hindi letters (Devanagari), for example डॉक्टर आशा मेहता.")
+    return value
+
+
 class Doctor(BaseModel):
     id: int
     name: str
+    name_hi: str  # how the Hindi receptionist says it; "" = its own way
     specialty: str
     fee: int
     slot_minutes: int
@@ -59,6 +76,7 @@ class TimeOff(BaseModel):
 class Clinic(BaseModel):
     id: int
     name: str
+    name_hi: str  # how the Hindi receptionist says it; "" = its own way
     slug: str
     call_link: str
     address: str
@@ -81,6 +99,12 @@ class NewClinic(BaseModel):
 class ClinicDetails(NewClinic):
     booking_window_days: int = Field(ge=1, le=365)
     slots_offered: int = Field(ge=1, le=6)
+    name_hi: str | None = Field(default=None, max_length=200)  # None: left as it is
+
+    @field_validator("name_hi")
+    @classmethod
+    def _hindi(cls, value: str | None) -> str | None:
+        return hindi_name(value)
 
 
 class SlugIn(BaseModel):
@@ -89,6 +113,12 @@ class SlugIn(BaseModel):
 
 class DoctorIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    name_hi: str = Field(default="", max_length=200)
+
+    @field_validator("name_hi")
+    @classmethod
+    def _hindi(cls, value: str | None) -> str | None:
+        return hindi_name(value)
     specialty: str = Field(default="", max_length=200)
     fee: int = Field(ge=0)
     slot_minutes: int = Field(ge=5, le=120)
@@ -100,6 +130,12 @@ class NewDoctor(DoctorIn):
 
 class DoctorPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
+    name_hi: str | None = Field(default=None, max_length=200)
+
+    @field_validator("name_hi")
+    @classmethod
+    def _hindi(cls, value: str | None) -> str | None:
+        return hindi_name(value)
     specialty: str | None = Field(default=None, max_length=200)
     fee: int | None = Field(default=None, ge=0)
     slot_minutes: int | None = Field(default=None, ge=5, le=120)
