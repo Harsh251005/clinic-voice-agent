@@ -140,7 +140,7 @@ _SPLIT_PER_VENDOR = {
 
 # Settings that chose the vendors. The caller's language does that now
 # (clinic_agent/lines.py), so a value left in .env would be silently ignored.
-_LINE_PICKS = "the call's language picks the vendors (English: ElevenLabs + OpenAI; Hindi: Sarvam + OpenAI)"
+_LINE_PICKS = "the call's language picks the vendors (English: ElevenLabs + OpenAI; Hindi: Sarvam)"
 RETIRED = {
     "STT_PROVIDER": _LINE_PICKS,
     "LLM_PROVIDER": _LINE_PICKS,

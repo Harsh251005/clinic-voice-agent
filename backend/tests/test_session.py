@@ -4,12 +4,7 @@ from clinic_agent.config import load_settings
 from clinic_agent.lines import LINES
 from clinic_agent.session import build_session
 
-HINDI = LINES["hi"]
-
-
-@pytest.fixture(autouse=True)
-def hindi_line_keys(env):
-    env.setenv("OPENAI_API_KEY", "sk-test")  # the Hindi line's LLM (the env fixture sets the Sarvam key)
+HINDI = LINES["hi"]  # the env fixture sets only a Sarvam key
 
 
 async def test_turn_detection_trusts_stt(env):
@@ -39,7 +34,7 @@ async def test_vad_waits_out_a_comma_pause(env):
 
 @pytest.mark.parametrize(("language", "vendors"), [
     ("en", ["elevenlabs", "openai", "elevenlabs"]),
-    ("hi", ["sarvam", "openai", "sarvam"]),
+    ("hi", ["sarvam", "sarvam", "sarvam"]),
 ])
 async def test_each_language_gets_its_own_vendors(env, language, vendors):
     env.setenv("OPENAI_API_KEY", "sk-test")

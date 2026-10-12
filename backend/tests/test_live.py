@@ -2,9 +2,9 @@
 
 Only the English line's vendors - ElevenLabs STT + OpenAI LLM + ElevenLabs
 TTS, with each builder's default model and voice - so tests never spend
-Sarvam credits, so the Hindi line's ears and voice (Sarvam) have no live
-tests. The conversation evals below grade the Hindi rules (most callers'
-line) on OpenAI, which is also the Hindi line's LLM for now.
+Sarvam credits, and the Hindi line (Sarvam) has no live tests. The
+conversation evals below grade the Hindi rules (most callers' line) on
+OpenAI: they check the rules and tools are followed, not Sarvam's model.
 Only the two keys come from `.env`.
 
 Behaviour is graded by an LLM judge (gpt-4.1: the agent's own mini model

@@ -47,7 +47,7 @@ flowchart LR
 
     subgraph worker["Voice agent worker (Python)"]
         direction LR
-        vad["Silero VAD<br/>turn-taking"] --> stt["STT<br/>Hindi: Sarvam · English: ElevenLabs"] --> llm["LLM<br/>OpenAI (both)"] --> tts["TTS<br/>Hindi: Sarvam · English: ElevenLabs"]
+        vad["Silero VAD<br/>turn-taking"] --> stt["STT<br/>Hindi: Sarvam · English: ElevenLabs"] --> llm["LLM<br/>Hindi: Sarvam · English: OpenAI"] --> tts["TTS<br/>Hindi: Sarvam · English: ElevenLabs"]
         llm <--> tools["Booking tools<br/>rules in plain Python"]
     end
 
@@ -60,8 +60,8 @@ flowchart LR
 
 - **The call path:** the browser gets a short-lived, signed pass for a
   fresh room bound to one clinic and one language. LiveKit dispatches the
-  worker with both. Each language is its own pipeline (Hindi: Sarvam ears
-  and voice; English: ElevenLabs; OpenAI's LLM for both, for now), kept for the whole call so the voice
+  worker with both. Each language is its own pipeline (Hindi: Sarvam for all
+  three; English: ElevenLabs + OpenAI), kept for the whole call so the voice
   never changes. Each turn goes VAD → STT → LLM (with tools) → TTS.
 - **The rules live in plain Python** (`booking.py`), not in the prompt.
   They are tested without any voice or model.
