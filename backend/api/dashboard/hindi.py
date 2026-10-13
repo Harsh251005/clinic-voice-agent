@@ -30,8 +30,16 @@ def suggestion(request: Request, name: str, clinic_id: int) -> str:
     with request.app.state.sessions() as s:
         clinic = repo.get_clinic(s, clinic_id)
         known = hindi.glossary([(clinic.name, clinic.name_hi), *((d.name, d.name_hi) for d in clinic.doctors)])
+
+    def used(model: str, tokens_in: int, cached: int, tokens_out: int) -> None:
+        # Counted in the admin panel's costs ("other costs"), never lost.
+        items = [{"provider": "openai", "model": model, "unit": unit, "quantity": float(n)}
+                 for unit, n in (("tokens_in", tokens_in - cached), ("tokens_cached", cached), ("tokens_out", tokens_out)) if n > 0]
+        with request.app.state.sessions() as s:
+            repo.add_usage(s, clinic_id, utc_now(), "hindi_names", "other", items)
+
     try:
-        return hindi.suggest(request.app.state.cfg, name, known)
+        return hindi.suggest(request.app.state.cfg, name, known, on_usage=used)
     except (ConfigError, hindi.NoSuggestion) as err:
         logger.warning("no Hindi name suggestion: %s", err)
         with request.app.state.sessions() as s:

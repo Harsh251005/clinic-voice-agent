@@ -256,6 +256,42 @@ every clinic?" and never shows patients:
   **delete** it: only once paused and with its exact name typed; removes
   everything of it. A SQLite database is copied first
   (`clinic.db.bak-…`); on Postgres that relies on your own backups.
+- **Costs**: what every call cost you, in rupees (below).
+
+### Costs: what each call cost (`/admin/costs`)
+
+No vendor returns the price of a call; every one reports exact usage. So
+at hang-up the worker saves what the call used (`usage` table, from
+LiveKit's own count for the session: LLM tokens in / cached / out, seconds
+heard, characters spoken, plus the call's LiveKit minutes; console calls
+spend no minutes), and the admin panel prices it **when shown**:
+`clinic_agent/costs.py`, usage × the price valid on the call's day.
+Hindi-name suggestions are counted too, as *other costs*.
+
+- **Costs page**: the month's full price, what you actually pay after free
+  allowances plus monthly fees, calls and the average call, each day, where
+  the money goes (listening, thinking, speaking, call line, other), by
+  vendor, language and clinic, the most expensive calls, and each vendor's
+  bill next to ours. Each call's trace page shows its cost part by part.
+- **Prices page** (`/admin/costs/prices`): everything it is worked out from,
+  edited there, never in code. Vendor prices (per model, or blank for any
+  model of that vendor), each **from a date**: a vendor's new price is a new
+  row, so the past keeps its own; fixing a wrong one is editing it, and
+  every call it covers is priced again. Also the dollar-to-rupee rate (set
+  by hand to what your card is charged, dated), free monthly allowances
+  (ElevenLabs characters, LiveKit minutes: the LiveKit-minutes problem uses
+  this allowance), monthly fees (plan subscriptions) and each month's real
+  bills.
+- Starts with the official prices as checked on 2026-10-13 (migration
+  0012). `scribe_v2_medical` has no published price, so calls using it show
+  as incomplete and the *Price missing* problem opens until you add one.
+- Usage outlives its call: erasing a test call, the 180-day trace purge or
+  deleting a clinic keeps what was spent (the call link just goes).
+- **The limits:** usage is LiveKit's per-session total, so a vendor's own
+  rounding per request (Sarvam bills listening by the second) can leave
+  paise of difference; a call the worker never finished (crash) records no
+  usage; whether a free allowance is per product or one shared pool depends
+  on the plan. The bill check catches all of these.
 
 ## Problems: every failure flagged, in the website
 
@@ -273,7 +309,8 @@ for the clinic, technical detail for the operator.
 | Callers can't book | no active doctor, or one without weekly hours | yes | it's fixed |
 | Clinic paused | paused in the admin panel | yes | turned back on |
 | Bookings need a call | upcoming bookings flagged (leave, holiday...) | yes | none left |
-| LiveKit minutes | 80% (urgent at 95%) of the free 1,000 this month | no | next month |
+| LiveKit minutes | 80% (urgent at 95%) of the monthly allowance (Prices page; 1,000 by default) | no | next month |
+| Price missing | a call in the last 35 days used a model with no price that day, or a dollar price with no rate | no | the price or rate is added |
 | Expired transcripts not deleted | the purge fails | no | the next purge works |
 
 - **The worker checks in** every 30 s (`clinic_agent/heartbeat.py`), from

@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from clinic_agent.clock import clock12
 from clinic_agent.store import migrations
 from clinic_agent.store.models import (
+    Allowance,
     Appointment,
     Call,
     CallEvent,
@@ -27,10 +28,15 @@ from clinic_agent.store.models import (
     ClinicMember,
     Doctor,
     DoctorHours,
+    ExchangeRate,
+    FixedCost,
     Incident,
     Patient,
+    Price,
     TimeOff,
     TranscriptAccess,
+    Usage,
+    VendorBill,
     WorkerHeartbeat,
 )
 
@@ -611,13 +617,22 @@ def finish_call(
     events: list[dict],
     transcript: list[dict],
     purge_after: datetime,
+    usage: list[dict] | None = None,
 ) -> Call:
-    """Close a call's record: its outcome, trace and transcript, in one write."""
+    """Close a call's record: its outcome, trace, transcript and what it
+    used of each vendor ({"part", "provider", "model", "unit", "quantity"}),
+    in one write."""
     call = _get(s, Call, call_id)
     call.ended_at, call.end_reason, call.outcome = ended_at, end_reason, outcome
     call.turn_count, call.error_count, call.appointments = turn_count, error_count, appointments
     s.add_all(CallEvent(call_id=call_id, **e) for e in events)
     s.add(CallTranscript(call_id=call_id, items=transcript, purge_after=purge_after))
+    clinic_name = s.get(Clinic, call.clinic_id).name
+    s.add_all(
+        Usage(at=call.started_at, clinic_id=call.clinic_id, clinic_name=clinic_name, call_id=call.id,
+              language=call.language, test=call.test, source="call", **u)
+        for u in usage or []
+    )
     s.commit()
     return call
 
@@ -725,6 +740,83 @@ def call_counts(s: Session, since: datetime) -> dict[int, tuple[int, int, dateti
     for cid, at in last.items():
         out.setdefault(cid, (0, 0, at))
     return out
+
+
+# ---------- costs ----------
+
+def add_usage(s: Session, clinic_id: int | None, at: datetime, source: str, part: str, items: list[dict]) -> None:
+    """Usage outside a call (a Hindi name suggestion): {"provider", "model", "unit", "quantity"}."""
+    clinic = s.get(Clinic, clinic_id) if clinic_id is not None else None
+    s.add_all(
+        Usage(at=at, clinic_id=clinic_id, clinic_name=clinic.name if clinic else "", source=source, part=part, **u)
+        for u in items
+    )
+    s.commit()
+
+
+def usage_between(s: Session, start: datetime, end: datetime) -> list[Usage]:
+    return list(s.scalars(select(Usage).where(Usage.at >= start, Usage.at < end).order_by(Usage.at, Usage.id)))
+
+
+def usage_for_calls(s: Session, call_ids: Iterable[int]) -> list[Usage]:
+    ids = list(call_ids)
+    if not ids:
+        return []
+    return list(s.scalars(select(Usage).where(Usage.call_id.in_(ids)).order_by(Usage.id)))
+
+
+def first_usage_at(s: Session) -> datetime | None:
+    """When cost tracking started recording: calls before it show as not tracked."""
+    return s.scalar(select(func.min(Usage.at)).where(Usage.source == "call"))
+
+
+# The price list and the rest the admin panel edits. Each kind is a plain
+# table of rows; the API checks the fields.
+COST_TABLES = {
+    "prices": Price,
+    "rates": ExchangeRate,
+    "allowances": Allowance,
+    "fixed": FixedCost,
+    "bills": VendorBill,
+}
+COST_ORDER = {
+    "prices": (Price.provider, Price.model, Price.unit, Price.valid_from),
+    "rates": (ExchangeRate.valid_from,),
+    "allowances": (Allowance.provider, Allowance.unit, Allowance.valid_from),
+    "fixed": (FixedCost.valid_from, FixedCost.name),
+    "bills": (VendorBill.month.desc(), VendorBill.provider),
+}
+
+
+def cost_rows(s: Session, kind: str) -> list:
+    return list(s.scalars(select(COST_TABLES[kind]).order_by(*COST_ORDER[kind])))
+
+
+def save_cost_row(s: Session, kind: str, row_id: int | None, fields: dict):
+    """Add a row (row_id None) or change one. A second rate for the same
+    day, or a second bill for the same vendor and month, is a ValueError."""
+    model = COST_TABLES[kind]
+    if row_id is None:
+        row = model(**fields)
+        s.add(row)
+    else:
+        row = _get(s, model, row_id)
+        for name, value in fields.items():
+            setattr(row, name, value)
+    try:
+        s.commit()
+    except IntegrityError:
+        s.rollback()
+        raise ValueError({
+            "rates": "There is already a rate from that date: change that one.",
+            "bills": "That vendor already has a bill for that month: change that one.",
+        }.get(kind, "That clashes with another row.")) from None
+    return row
+
+
+def delete_cost_row(s: Session, kind: str, row_id: int) -> None:
+    s.delete(_get(s, COST_TABLES[kind], row_id))
+    s.commit()
 
 
 # ---------- health ----------

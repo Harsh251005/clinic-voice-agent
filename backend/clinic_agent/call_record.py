@@ -4,7 +4,9 @@ The trace is what happened, never what was said: per-turn timings (STT,
 end of turn, LLM time to first token, TTS time to first audio, the caller's
 whole wait), each tool's
 name, result and duration, vendor errors by type, how the call ended and
-what it changed. The operator may always see it. The transcript is what was
+what it changed. With it, what the call used of each vendor (tokens,
+seconds heard, characters spoken, minutes): exact counts that the admin
+panel prices (clinic_agent/costs.py). The operator may always see it. The transcript is what was
 said, tool arguments and results included: patient data, kept apart
 (models.CallTranscript) and deleted after purge.TRANSCRIPT_DAYS. No audio
 is ever stored.
@@ -21,6 +23,7 @@ import logging
 import time
 
 from livekit.agents import AgentSession
+from livekit.agents.metrics import LLMModelUsage, STTModelUsage, TTSModelUsage
 from livekit.agents.voice.events import (
     CloseEvent,
     CloseReason,
@@ -57,10 +60,12 @@ TOOL_TEXT_MAX = 2000  # a tool result in the transcript; slot lists can run long
 
 class CallRecorder:
     def __init__(
-        self, sessions: Sessions, clinic_id: int, room: str, stack: str, language: str, test: bool = False
+        self, sessions: Sessions, clinic_id: int, room: str, stack: str, language: str, test: bool = False,
+        line: Line | None = None,
     ) -> None:
         self.sessions, self.clinic_id, self.room, self.stack = sessions, clinic_id, room, stack
-        self.language, self.test = language, test
+        self.language, self.test, self.line = language, test, line
+        self.session: AgentSession | None = None
         self.call_id: int | None = None
         self.t0 = time.time()
         self.started_at = utc_now()
@@ -85,6 +90,7 @@ class CallRecorder:
             logger.exception("could not open a call record for clinic %s", self.clinic_id)
 
     def attach(self, session: AgentSession) -> None:
+        self.session = session
         for name, handler in (
             ("conversation_item_added", self._on_item),
             ("function_tools_executed", self._on_tools),
@@ -117,6 +123,7 @@ class CallRecorder:
             events=self.events,
             transcript=self.transcript,
             purge_after=transcript_expiry(self.started_at),
+            usage=self.usage(ended_at),
         )
 
         def work() -> None:
@@ -127,6 +134,40 @@ class CallRecorder:
             await asyncio.to_thread(work)
         except Exception:  # noqa: BLE001 - the call is over either way
             logger.exception("could not save the record of call %s", self.call_id)
+
+    def usage(self, ended_at) -> list[dict]:
+        """What the call used of each vendor, from LiveKit's own count for
+        the session (every STT, LLM and TTS request it made), plus its
+        LiveKit minutes. Never fails: a count it can't read is left out."""
+        out: list[dict] = []
+        if self.room != repo.CONSOLE_ROOM:  # the local console spends no LiveKit minutes
+            minutes = (ended_at - self.started_at).total_seconds() / 60
+            out.append(_use("call_line", "livekit", "agent_session", "minutes", minutes))
+        if self.session is None or self.line is None:
+            return out
+        try:
+            out += self._vendor_usage()
+        except Exception:  # noqa: BLE001 - the call's record matters more than its cost
+            logger.exception("could not read call %s's usage", self.call_id)
+        return [u for u in out if u["quantity"] > 0]
+
+    def _vendor_usage(self) -> list[dict]:
+        out: list[dict] = []
+        for u in self.session.usage.model_usage:
+            if isinstance(u, LLMModelUsage):
+                model = u.model or _model(self.session.llm)
+                cached = u.input_cached_tokens
+                out += [
+                    _use("thinking", self.line.llm, model, "tokens_in", u.input_tokens - cached),
+                    _use("thinking", self.line.llm, model, "tokens_cached", cached),
+                    _use("thinking", self.line.llm, model, "tokens_out", u.output_tokens),
+                ]
+            elif isinstance(u, STTModelUsage):
+                out.append(_use("listening", self.line.stt, u.model or _model(self.session.stt), "seconds_heard", u.audio_duration))
+            elif isinstance(u, TTSModelUsage):
+                out.append(_use("speaking", self.line.tts, u.model or _model(self.session.tts), "characters", u.characters_count))
+            # Turn detection and interruptions run locally here (VAD, "stt"): no vendor to pay.
+        return out
 
     def outcome(self) -> str:
         """From what the tools changed and how the call ended, never from
@@ -200,6 +241,14 @@ class CallRecorder:
         })
 
 
+def _use(part: str, provider: str, model: str, unit: str, quantity: float) -> dict:
+    return {"part": part, "provider": provider, "model": model[:100], "unit": unit, "quantity": float(quantity)}
+
+
+def _model(component) -> str:
+    return (getattr(component, "model", "") or "") if component is not None else ""
+
+
 def _safe(handler):
     def run(ev) -> None:
         try:
@@ -212,7 +261,7 @@ def _safe(handler):
 
 def stack_of(session: AgentSession, line: Line, text_only: bool) -> str:
     """Which vendors and models took the call, e.g.
-    "elevenlabs/scribe_v2 · openai/gpt-6-luna · elevenlabs/eleven_v3_conversational"."""
+    "elevenlabs/scribe_v2 · openai/gpt-4.1-mini · elevenlabs/eleven_v3_conversational"."""
     if text_only:
         return f"text · {line.llm}/{session.llm.model}"
     return f"{line.stt}/{session.stt.model} · {line.llm}/{session.llm.model} · {line.tts}/{session.tts.model}"

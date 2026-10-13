@@ -34,6 +34,9 @@ panel. Every failure is flagged on screen.
 - **An admin panel for the operator:** each call's step-by-step timings,
   vendor errors, clinic health. It never shows patients unless a reason is
   written down and logged.
+- **What every call costs, in rupees:** each call's exact usage of every
+  vendor, priced from a dated price list the operator edits in the panel,
+  and checked against the vendors' own bills.
 - **Problems flagged on every page:** receptionist offline, a vendor
   failing, patients who couldn't get through, setup that stops bookings.
   The clinic reads plain words; the operator reads the technical detail.
@@ -146,8 +149,8 @@ speech costs): `uv run python main.py console --text`.
 
 | Suite | What it covers |
 |---|---|
-| **Backend**, 410+ tests | Booking rules, the tool gates through a real agent session with a scripted model, the dashboard API including cross-clinic attacks, migrations, call records, incident rules. Every database test also runs on Postgres. |
-| **Browser**, 36 tests (Playwright) | The dashboard against the real API: booking into free slots, visit marks, cancel and Undo, search, the week view, phone layout, problems appearing and clearing. |
+| **Backend**, 520+ tests | Booking rules, the tool gates through a real agent session with a scripted model, the dashboard API including cross-clinic attacks, migrations, call records, incident rules. Every database test also runs on Postgres. |
+| **Browser**, 44 tests (Playwright) | The dashboard against the real API: booking into free slots, visit marks, cancel and Undo, search, the week view, phone layout, problems appearing and clearing. |
 | **Live evals** (on demand, spends credits) | The real model and voice vendors, graded by an LLM judge: read-back before booking, refusing medical advice, escalating chest pain, replying in the caller's language, an audio round trip. |
 
 CI runs the first two on every push, with no vendor calls.

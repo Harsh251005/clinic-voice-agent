@@ -140,6 +140,14 @@ The pipeline is split so each concern lives in exactly one module:
   `transcript_access`). Recording failures are logged, never break a call.
   Tools report changes through `ClinicLink.on_change` (booking functions
   return `booking.Changed`). `store/purge.py`: transcripts 30 d, traces 180 d.
+- `clinic_agent/costs.py` — **what calls cost**: no vendor returns a price,
+  so `CallRecorder` saves each call's exact usage (`usage`, from
+  `session.usage`; never money, never words) and this prices it when shown:
+  usage × the dated price list (`prices`, `exchange_rates`, `allowances`,
+  `fixed_costs`, `vendor_bills`), all edited on the admin Prices page
+  (`api/dashboard/costs.py`), never in code (Harsh, 2026-10-13). Usage
+  outlives its call (FKs `SET NULL`). A new billable vendor call = record
+  its usage in the same change, or its cost is silently missing.
 - `clinic_agent/incidents.py` — **problems, flagged**: which conditions and
   events count (`KINDS`), `sync` (the API re-checks every 30 s: opens,
   updates, closes) and `report` (events: counted, closed after a quiet
