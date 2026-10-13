@@ -123,7 +123,7 @@ async def entrypoint(ctx: JobContext) -> None:
     instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone), call.language)
     sessions = sessions_for(cfg.database_url)
     stack = stack_of(session, line, TEXT_ONLY)
-    record = CallRecorder(sessions, clinic.id, ctx.room.name, stack, call.language, call.test)
+    record = CallRecorder(sessions, clinic.id, ctx.room.name, stack, call.language, call.test, line)
     await record.start()
     record.attach(session)
     ctx.add_shutdown_callback(record.finish)

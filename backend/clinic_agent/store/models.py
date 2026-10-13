@@ -307,3 +307,110 @@ class Incident(Base):
     # Acknowledged ("Seen") on each side, so the admin seeing it doesn't hide it from the clinic.
     seen_by_clinic_at: Mapped[datetime | None] = mapped_column(default=None)
     seen_by_admin_at: Mapped[datetime | None] = mapped_column(default=None)
+
+
+# ---------- costs: what each call used, and what that costs ----------
+
+
+class Usage(Base):
+    """How much of one vendor's service something used: a call's listening,
+    thinking and speaking, its LiveKit minutes, or a Hindi name suggestion.
+    Exact quantities as the vendors report them, never money: money is
+    worked out when shown, from the prices valid on the day (store/costs).
+
+    Outlives what it is about: an erased test call or a deleted clinic still
+    cost what it cost, so `call_id` and `clinic_id` turn to null instead of
+    taking the row with them, and the trace purge keeps it."""
+
+    __tablename__ = "usage"
+    __table_args__ = (Index("ix_usage_at", "at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime]  # UTC: when it was used (a call's start)
+    clinic_id: Mapped[int | None] = mapped_column(ForeignKey("clinics.id", ondelete="SET NULL"), default=None)
+    clinic_name: Mapped[str] = mapped_column(String(200), default="")  # kept for a deleted clinic
+    call_id: Mapped[int | None] = mapped_column(ForeignKey("calls.id", ondelete="SET NULL"), default=None, index=True)
+    language: Mapped[str] = mapped_column(String(2), default="")  # the call's line; "" for other costs
+    test: Mapped[bool] = mapped_column(default=False)  # a staff test call
+    source: Mapped[str] = mapped_column(String(20))  # call | hindi_names
+    part: Mapped[str] = mapped_column(String(12))  # listening | thinking | speaking | call_line | other
+    provider: Mapped[str] = mapped_column(String(30))  # sarvam | elevenlabs | openai | livekit
+    model: Mapped[str] = mapped_column(String(100), default="")
+    # tokens_in | tokens_cached | tokens_out | seconds_heard | characters | minutes
+    unit: Mapped[str] = mapped_column(String(20))
+    quantity: Mapped[float]
+
+
+class Price(Base):
+    """What a vendor charges for a unit of one model, from a date on. A
+    change of price is a new row from the day it applies, so the past keeps
+    its own price; fixing a wrong price is editing the row. `model` "" is
+    every model of that vendor without a price of its own."""
+
+    __tablename__ = "prices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    provider: Mapped[str] = mapped_column(String(30))
+    model: Mapped[str] = mapped_column(String(100), default="")
+    unit: Mapped[str] = mapped_column(String(20))
+    amount: Mapped[float]  # in `currency`, for `per` units
+    per: Mapped[float]  # e.g. 1,000,000 tokens, 3,600 seconds, 1,000 characters
+    currency: Mapped[str] = mapped_column(String(3))  # INR | USD
+    valid_from: Mapped[date]
+    note: Mapped[str] = mapped_column(String(300), default="")
+
+
+class ExchangeRate(Base):
+    """Rupees per dollar, from a date on: set by hand to what the card was
+    actually charged, not a market feed."""
+
+    __tablename__ = "exchange_rates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    valid_from: Mapped[date] = mapped_column(unique=True)
+    inr_per_usd: Mapped[float]
+    note: Mapped[str] = mapped_column(String(300), default="")
+
+
+class Allowance(Base):
+    """Free usage a vendor's plan includes every month (ElevenLabs' free
+    characters, LiveKit's free minutes), from a date on."""
+
+    __tablename__ = "allowances"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    provider: Mapped[str] = mapped_column(String(30))
+    unit: Mapped[str] = mapped_column(String(20))
+    quantity: Mapped[float]  # a month
+    valid_from: Mapped[date]
+    note: Mapped[str] = mapped_column(String(300), default="")
+
+
+class FixedCost(Base):
+    """A monthly fee whatever the usage (a vendor plan's subscription), for
+    the months from `valid_from` to `valid_to` (open-ended when None)."""
+
+    __tablename__ = "fixed_costs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    provider: Mapped[str] = mapped_column(String(30))
+    amount: Mapped[float]  # a month, in `currency`
+    currency: Mapped[str] = mapped_column(String(3))
+    valid_from: Mapped[date]
+    valid_to: Mapped[date | None] = mapped_column(default=None)
+
+
+class VendorBill(Base):
+    """What a vendor actually billed for a month, typed in from its invoice
+    or usage page: the check on our own numbers."""
+
+    __tablename__ = "vendor_bills"
+    __table_args__ = (UniqueConstraint("month", "provider"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    month: Mapped[str] = mapped_column(String(7))  # "2026-10"
+    provider: Mapped[str] = mapped_column(String(30))
+    amount: Mapped[float]  # in `currency`
+    currency: Mapped[str] = mapped_column(String(3))
+    note: Mapped[str] = mapped_column(String(300), default="")

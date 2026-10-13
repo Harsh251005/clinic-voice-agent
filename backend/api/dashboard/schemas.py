@@ -331,6 +331,7 @@ class CallTrace(CallSummary):
     events: list[TraceEvent]
     transcript_kept: bool  # False once deleted after the retention period
     accesses: list[TranscriptAccess]
+    cost: CallCost | None = None  # None for calls from before costs were tracked
 
 
 class TranscriptItem(BaseModel):
@@ -505,3 +506,174 @@ class Problem(BaseModel):
 class Problems(BaseModel):
     open: list[Problem]  # worst first
     recent: list[Problem]  # resolved in the last 7 days, newest first
+
+
+# ---------- costs (admin) ----------
+
+Provider = Literal["sarvam", "elevenlabs", "openai", "livekit"]
+Unit = Literal["tokens_in", "tokens_cached", "tokens_out", "seconds_heard", "characters", "minutes"]
+Currency = Literal["INR", "USD"]
+Part = Literal["listening", "thinking", "speaking", "call_line", "other"]
+MONTH = r"^\d{4}-(0[1-9]|1[0-2])$"
+
+
+class CostLine(BaseModel):
+    """One vendor's part of a call (or of another cost), priced."""
+    part: Part
+    provider: str
+    model: str
+    unit: str
+    unit_label: str  # "seconds heard"
+    quantity: float
+    rupees: float | None  # None: no price (or no dollar rate) for it on that day
+    price: str  # "₹30 per 3,600 seconds heard", "" when missing
+    missing: Literal["", "price", "rate"]
+
+
+class CallCost(BaseModel):
+    call_id: int | None  # None once the call itself was erased (a test call) or purged
+    clinic_id: int | None
+    clinic_name: str
+    started_at: datetime
+    language: Literal["en", "hi", ""]
+    test: bool
+    rupees: float  # what could be priced
+    complete: bool  # every part had a price
+    parts: dict[str, float]  # part -> rupees
+    lines: list[CostLine]
+
+
+class CostSlice(BaseModel):
+    key: str
+    label: str
+    rupees: float
+    calls: int = 0
+
+
+class CostDay(BaseModel):
+    day: date
+    rupees: float
+
+
+class FreeUse(BaseModel):
+    provider: str
+    unit_label: str
+    allowance: float
+    used: float
+    rupees: float  # what the free part would have cost
+
+
+class FixedUse(BaseModel):
+    name: str
+    provider: str
+    rupees: float | None
+
+
+class MissingPrice(BaseModel):
+    why: Literal["price", "rate"]
+    provider: str
+    model: str
+    unit_label: str
+
+
+class BillCheck(BaseModel):
+    provider: str
+    currency: str
+    ours: float | None  # None: part of it couldn't be priced
+    theirs: float
+    note: str
+
+
+class CostMonth(BaseModel):
+    month: str
+    months: list[str]  # with usage, newest first (always includes this month)
+    tracked_since: datetime | None
+    usage_rupees: float
+    free_rupees: float
+    fixed_rupees: float
+    to_pay_rupees: float
+    calls: int
+    test_calls: int
+    per_call_rupees: float | None
+    other_rupees: float
+    by_language: list[CostSlice]
+    by_part: list[CostSlice]
+    by_vendor: list[CostSlice]
+    by_clinic: list[CostSlice]
+    by_day: list[CostDay]
+    free: list[FreeUse]
+    fixed: list[FixedUse]
+    missing: list[MissingPrice]
+    bills: list[BillCheck]
+    top_calls: list[CallCost]  # most expensive first
+
+
+class PriceIn(BaseModel):
+    provider: Provider
+    model: str = Field(default="", max_length=100)  # "" = every model of the vendor without its own price
+    unit: Unit
+    amount: float = Field(ge=0)
+    per: float = Field(gt=0)
+    currency: Currency
+    valid_from: date
+    note: str = Field(default="", max_length=300)
+
+
+class PriceRow(PriceIn):
+    id: int
+
+
+class RateIn(BaseModel):
+    valid_from: date
+    inr_per_usd: float = Field(gt=0)
+    note: str = Field(default="", max_length=300)
+
+
+class RateRow(RateIn):
+    id: int
+
+
+class AllowanceIn(BaseModel):
+    provider: Provider
+    unit: Unit
+    quantity: float = Field(ge=0)
+    valid_from: date
+    note: str = Field(default="", max_length=300)
+
+
+class AllowanceRow(AllowanceIn):
+    id: int
+
+
+class FixedIn(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    provider: Provider
+    amount: float = Field(ge=0)
+    currency: Currency
+    valid_from: date
+    valid_to: date | None = None
+
+
+class FixedRow(FixedIn):
+    id: int
+
+
+class BillIn(BaseModel):
+    month: str = Field(pattern=MONTH)
+    provider: Provider
+    amount: float = Field(ge=0)
+    currency: Currency
+    note: str = Field(default="", max_length=300)
+
+
+class BillRow(BillIn):
+    id: int
+
+
+class CostSettings(BaseModel):
+    prices: list[PriceRow]
+    rates: list[RateRow]
+    allowances: list[AllowanceRow]
+    fixed: list[FixedRow]
+    bills: list[BillRow]
+    units: dict[str, str]  # unit -> plain words

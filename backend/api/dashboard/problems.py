@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Request
 
 from api.dashboard import convert, schemas
 from api.dashboard.access import Viewer, admin, open_clinic, staff_errors
-from clinic_agent import incidents
+from clinic_agent import costs, incidents
 from clinic_agent.lines import LINES, NAMES
 from clinic_agent.store import repo
 from clinic_agent.store.models import utc_now
@@ -102,6 +102,14 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
         case "hindi_names_failing":
             return (f"{at}Hindi name suggestions are failing ({inc.subject}), {_plural(inc.count, 'time')}.",
                     "Names save without one and the Hindi line spells them itself. Check OPENAI_API_KEY and the API log.", None)
+        case "price_missing":
+            if inc.subject == "rate":
+                return (f"Costs are incomplete: no dollar-to-rupee rate covers {inc.detail}.",
+                        "Add a rate from that date in Costs, Prices.", "/admin/costs/prices")
+            provider, model, unit = (inc.subject.split("/") + ["", "", ""])[:3]
+            words = costs.UNITS.get(unit, unit)
+            return (f"Costs are incomplete: {provider} {model} has no price for {words} (used since {inc.detail}).",
+                    "Add its price in Costs, Prices: the vendor's pricing page has it.", "/admin/costs/prices")
         case "purge_failed":
             return ("Deleting expired transcripts failed.",
                     "Transcripts older than 30 days may still be stored: check the API log.", None)

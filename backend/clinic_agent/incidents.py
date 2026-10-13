@@ -19,7 +19,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from clinic_agent import booking
+from clinic_agent import booking, costs
 from clinic_agent.context import clinic_now
 from clinic_agent.lines import LINES
 from clinic_agent.store import repo
@@ -49,6 +49,7 @@ KINDS = {
     "livekit_minutes": Kind("warning", clinic_sees=False),
     "purge_failed": Kind("warning", clinic_sees=False, quiet_minutes=24 * 60),
     "hindi_names_failing": Kind("warning", clinic_sees=False, quiet_minutes=60),
+    "price_missing": Kind("warning", clinic_sees=False),
 }
 
 def clinic_sees(kind: str) -> bool:
@@ -63,9 +64,10 @@ HEARTBEAT_STALE = timedelta(seconds=90)  # three missed beats
 VENDOR_WINDOW, VENDOR_MIN_ERRORS = timedelta(minutes=15), 3
 FAILING_WINDOW, FAILING_MIN_CALLS = timedelta(minutes=60), 2
 DROPPED_GRACE = timedelta(minutes=2)  # past the time limit: the worker would have ended the call
-LIVEKIT_FREE_MINUTES = 1_000  # LiveKit Cloud's free tier, agent-session minutes a month
+LIVEKIT_FREE_MINUTES = 1_000  # LiveKit Cloud's free tier, when no allowance is set in the admin panel
 LIVEKIT_WARN, LIVEKIT_CRITICAL = 0.8, 0.95
 KEEP_RESOLVED = timedelta(days=90)
+PRICED_WINDOW = timedelta(days=35)  # usage this recent must have a price (this month and the last)
 
 
 @dataclass(frozen=True)
@@ -113,7 +115,7 @@ def sync(s: Session, now: datetime, *, max_call_minutes: int) -> None:
 
 def findings(s: Session, now: datetime, *, max_call_minutes: int) -> list[Finding]:
     """Every condition true right now."""
-    out = [*_receptionist(s, now), *_vendors(s, now), *_minutes(s, now, max_call_minutes)]
+    out = [*_receptionist(s, now), *_vendors(s, now), *_minutes(s, now, max_call_minutes), *_unpriced(s, now)]
     calls = repo.patient_calls_since(s, dropped_before(now, max_call_minutes) - FAILING_WINDOW)
     for clinic in repo.list_clinics(s):
         out += _setup(clinic)
@@ -149,11 +151,34 @@ def _minutes(s: Session, now: datetime, max_call_minutes: int) -> list[Finding]:
         (min((c.ended_at or now) - c.started_at, cap) for c in repo.patient_calls_since(s, month, with_tests=True)),
         timedelta(),
     ).total_seconds() / 60
-    share = used / LIVEKIT_FREE_MINUTES
+    free = _livekit_allowance(s, now)
+    share = used / free if free else 0
     if share < LIVEKIT_WARN:
         return []
-    return [Finding("livekit_minutes", detail=f"{used:.0f} of {LIVEKIT_FREE_MINUTES} minutes this month",
+    return [Finding("livekit_minutes", detail=f"{used:.0f} of {free:.0f} minutes this month",
                     severity="critical" if share >= LIVEKIT_CRITICAL else "warning")]
+
+
+def _livekit_allowance(s: Session, now: datetime) -> float:
+    """The plan's free minutes as set in the admin panel (Costs, Prices)."""
+    rows = [a for a in repo.cost_rows(s, "allowances")
+            if a.provider == "livekit" and a.unit == "minutes" and a.valid_from <= now.date()]
+    return rows[-1].quantity if rows else LIVEKIT_FREE_MINUTES  # sorted by valid_from
+
+
+def _unpriced(s: Session, now: datetime) -> list[Finding]:
+    """Recent usage the price list can't price: a model with no price on
+    that day, or a dollar price with no rate. Its calls' costs show as
+    incomplete until it is added."""
+    book = costs.PriceBook(repo.cost_rows(s, "prices"), repo.cost_rows(s, "rates"))
+    missing: dict[str, str] = {}
+    for u in repo.usage_between(s, now - PRICED_WINDOW, now + timedelta(days=1)):
+        p = book.priced(u)
+        if p.missing == "rate":
+            missing["rate"] = f"{u.at:%Y-%m-%d}"
+        elif p.missing:
+            missing.setdefault(f"{u.provider}/{u.model or '*'}/{u.unit}", f"{u.at:%Y-%m-%d}")
+    return [Finding("price_missing", subject=subject, detail=since) for subject, since in missing.items()]
 
 
 def _setup(clinic) -> list[Finding]:

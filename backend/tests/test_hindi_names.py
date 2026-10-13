@@ -22,14 +22,16 @@ class FakeOpenAI:
             FakeOpenAI.asked.append(kw["messages"][-1]["content"])
             if isinstance(self.reply, Exception):
                 raise self.reply
-            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=self.reply))])
+            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=self.reply))],
+                                   usage=SimpleNamespace(prompt_tokens=120, completion_tokens=9,
+                                                         prompt_tokens_details=SimpleNamespace(cached_tokens=20)))
         return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
 
 
 @pytest.fixture
 def answers(env, monkeypatch):
     env.setenv("OPENAI_API_KEY", "sk-test")
-    hindi._suggest.cache_clear()
+    hindi._cache.clear()
     FakeOpenAI.asked = []
 
     def set_reply(reply):
@@ -96,3 +98,23 @@ def test_words_the_clinic_already_spells_are_spelt_the_same_again(answers):
     answers("धरनिधरका फ़ैमिली क्लिनिक")
     hindi.suggest(load_settings(), "Dharnidharka Family Clinic", known)
     assert FakeOpenAI.asked == ["Dharnidharka Family Clinic\nSpell these words exactly as the clinic already does: Dharnidharka = धरनिधरका"]
+
+
+def test_each_suggestion_asked_of_openai_is_counted_in_costs(world, answers):  # noqa: F811
+    from datetime import timedelta
+
+    from clinic_agent.store import repo
+    from clinic_agent.store.db import sessions_for
+    from clinic_agent.store.models import utc_now
+
+    answers("क्योर डेंटल क्लिनिक")
+    c = client_as("reception@cure.in")
+    for _ in range(2):  # the second answer comes from the cache: nothing spent
+        c.post(f"/api/clinics/{world['cure']}/hindi-name", json={"name": "Cure Dental Clinic"})
+    with sessions_for(load_settings().database_url)() as s:
+        rows = repo.usage_between(s, utc_now() - timedelta(minutes=1), utc_now() + timedelta(minutes=1))
+    assert {(u.source, u.part, u.provider, u.model, u.unit, u.quantity, u.clinic_id) for u in rows} == {
+        ("hindi_names", "other", "openai", hindi.MODEL, "tokens_in", 100.0, world["cure"]),
+        ("hindi_names", "other", "openai", hindi.MODEL, "tokens_cached", 20.0, world["cure"]),
+        ("hindi_names", "other", "openai", hindi.MODEL, "tokens_out", 9.0, world["cure"]),
+    }

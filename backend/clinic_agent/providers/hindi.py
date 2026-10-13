@@ -9,8 +9,8 @@ Sarvam credits), a fast model since staff wait on it while typing.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
-from functools import lru_cache
+from collections import OrderedDict
+from collections.abc import Callable, Mapping
 
 import openai
 
@@ -18,6 +18,12 @@ from clinic_agent.config import Settings, require_key
 
 MODEL = "gpt-4.1-mini"  # fastest of the capable models measured 2026-10-12 (~1 s)
 TIMEOUT = 8.0  # seconds: a settings form, not a call
+CACHE_SIZE = 512  # the same name (and spellings) always gets the same answer, and costs once
+
+# What a request used, for the admin panel's costs: (model, tokens in, of
+# them cached, tokens out). Called only when OpenAI was actually asked.
+OnUsage = Callable[[str, int, int, int], None]
+_cache: OrderedDict[tuple, str] = OrderedDict()
 
 INSTRUCTIONS = (
     "You write the names of Indian clinics and doctors in Devanagari, the way a Hindi-speaking "
@@ -34,22 +40,30 @@ class NoSuggestion(RuntimeError):
     """The vendor failed or answered with something that isn't a Devanagari name."""
 
 
-def suggest(cfg: Settings, name: str, known: Mapping[str, str] | None = None) -> str:
+def suggest(cfg: Settings, name: str, known: Mapping[str, str] | None = None, on_usage: OnUsage | None = None) -> str:
     """`name` as the Hindi line should say it. `known`: words this clinic
     already spells ({"Dharnidharka": "धरनिधरका"}), so a surname in the clinic's
     and a doctor's name comes out the same both times. Raises ConfigError
     without an OpenAI key, NoSuggestion if the request fails or the answer
-    isn't usable."""
+    isn't usable. `on_usage` hears what a request to OpenAI used (none for
+    an answer from the cache)."""
     name = " ".join(name.split())
     if not name:
         return ""
     words = {w.lower() for w in re.findall(r"[A-Za-z]+", name)}
     used = tuple(sorted((k, v) for k, v in (known or {}).items() if k.lower() in words))
-    return _suggest(require_key(cfg.openai_api_key, "OPENAI_API_KEY"), name, used)
+    key = (require_key(cfg.openai_api_key, "OPENAI_API_KEY"), name, used)
+    if key in _cache:
+        _cache.move_to_end(key)
+        return _cache[key]
+    text = _suggest(*key, on_usage)
+    _cache[key] = text
+    if len(_cache) > CACHE_SIZE:
+        _cache.popitem(last=False)
+    return text
 
 
-@lru_cache(maxsize=512)  # the same name (and spellings) always gets the same answer, and costs once
-def _suggest(api_key: str, name: str, known: tuple[tuple[str, str], ...]) -> str:
+def _suggest(api_key: str, name: str, known: tuple[tuple[str, str], ...], on_usage: OnUsage | None) -> str:
     asked = name if not known else (
         name + "\nSpell these words exactly as the clinic already does: "
         + "; ".join(f"{word} = {hindi_word}" for word, hindi_word in known)
@@ -61,6 +75,9 @@ def _suggest(api_key: str, name: str, known: tuple[tuple[str, str], ...]) -> str
         )
     except openai.OpenAIError as err:
         raise NoSuggestion(type(err).__name__) from None
+    if on_usage is not None and (used := getattr(reply, "usage", None)) is not None:
+        details = getattr(used, "prompt_tokens_details", None)
+        on_usage(MODEL, used.prompt_tokens, (getattr(details, "cached_tokens", 0) or 0), used.completion_tokens)
     text = " ".join((reply.choices[0].message.content or "").strip().strip('"\'`').split())
     if not _DEVANAGARI.search(text) or re.search(r"[A-Za-z]", text) or len(text) > 200:
         raise NoSuggestion("not a Devanagari name")

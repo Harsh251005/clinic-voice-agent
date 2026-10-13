@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from api.dashboard import convert, schemas
+from api.dashboard import convert, costs, schemas
 from api.dashboard.access import Viewer, admin, staff_errors
 from clinic_agent import incidents
 from clinic_agent.store import repo
@@ -69,6 +69,7 @@ def call_trace(call_id: int, request: Request):
             events=[convert.trace_event(e) for e in repo.call_events(s, [call.id])],
             transcript_kept=repo.has_transcript(s, call.id),
             accesses=[convert.access(a) for a in repo.transcript_accesses(s, call.id)],
+            cost=costs.cost_of_call(s, call.id),
         )
 
 
