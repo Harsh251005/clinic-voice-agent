@@ -5,7 +5,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Building2, LayoutDashboard, LogOut, PhoneCall, TriangleAlert, FlaskConical } from "lucide-react";
+import { Activity, Building2, IndianRupee, LayoutDashboard, LogOut, PhoneCall, TriangleAlert, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAdminProblems, useMe, useSeenProblem } from "@/lib/queries";
@@ -19,6 +19,7 @@ const PAGES = [
   { href: "/admin", label: "Health", icon: Activity },
   { href: "/admin/calls", label: "Calls", icon: PhoneCall },
   { href: "/admin/errors", label: "Errors", icon: TriangleAlert },
+  { href: "/admin/costs", label: "Costs", icon: IndianRupee },
   { href: "/admin/clinics", label: "Clinics", icon: Building2 },
 ] as const;
 
@@ -124,7 +125,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         )}
       </header>
       <nav aria-label="Admin pages"
-        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         {PAGES.map(({ href, label, icon: Icon }) => {
           const on = isCurrent(pathname, href);
           return (

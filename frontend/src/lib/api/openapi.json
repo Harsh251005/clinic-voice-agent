@@ -78,6 +78,111 @@
         "title": "AdminClinic",
         "type": "object"
       },
+      "AllowanceIn": {
+        "properties": {
+          "note": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Note",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "sarvam",
+              "elevenlabs",
+              "openai",
+              "livekit"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "quantity": {
+            "minimum": 0.0,
+            "title": "Quantity",
+            "type": "number"
+          },
+          "unit": {
+            "enum": [
+              "tokens_in",
+              "tokens_cached",
+              "tokens_out",
+              "seconds_heard",
+              "characters",
+              "minutes"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "unit",
+          "quantity",
+          "valid_from"
+        ],
+        "title": "AllowanceIn",
+        "type": "object"
+      },
+      "AllowanceRow": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Note",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "sarvam",
+              "elevenlabs",
+              "openai",
+              "livekit"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "quantity": {
+            "minimum": 0.0,
+            "title": "Quantity",
+            "type": "number"
+          },
+          "unit": {
+            "enum": [
+              "tokens_in",
+              "tokens_cached",
+              "tokens_out",
+              "seconds_heard",
+              "characters",
+              "minutes"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "unit",
+          "quantity",
+          "valid_from",
+          "id"
+        ],
+        "title": "AllowanceRow",
+        "type": "object"
+      },
       "Appointment": {
         "properties": {
           "doctor_id": {
@@ -258,6 +363,143 @@
         "title": "Attention",
         "type": "object"
       },
+      "BillCheck": {
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "ours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ours"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "theirs": {
+            "title": "Theirs",
+            "type": "number"
+          }
+        },
+        "required": [
+          "provider",
+          "currency",
+          "ours",
+          "theirs",
+          "note"
+        ],
+        "title": "BillCheck",
+        "type": "object"
+      },
+      "BillIn": {
+        "properties": {
+          "amount": {
+            "minimum": 0.0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "currency": {
+            "enum": [
+              "INR",
+              "USD"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "month": {
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Month",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Note",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "sarvam",
+              "elevenlabs",
+              "openai",
+              "livekit"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "provider",
+          "amount",
+          "currency"
+        ],
+        "title": "BillIn",
+        "type": "object"
+      },
+      "BillRow": {
+        "properties": {
+          "amount": {
+            "minimum": 0.0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "currency": {
+            "enum": [
+              "INR",
+              "USD"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "month": {
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Month",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Note",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "sarvam",
+              "elevenlabs",
+              "openai",
+              "livekit"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "provider",
+          "amount",
+          "currency",
+          "id"
+        ],
+        "title": "BillRow",
+        "type": "object"
+      },
       "CallChange": {
         "properties": {
           "action": {
@@ -279,6 +521,90 @@
           "action"
         ],
         "title": "CallChange",
+        "type": "object"
+      },
+      "CallCost": {
+        "properties": {
+          "call_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Call Id"
+          },
+          "clinic_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clinic Id"
+          },
+          "clinic_name": {
+            "title": "Clinic Name",
+            "type": "string"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "language": {
+            "enum": [
+              "en",
+              "hi",
+              ""
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/CostLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "parts": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Parts",
+            "type": "object"
+          },
+          "rupees": {
+            "title": "Rupees",
+            "type": "number"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "test": {
+            "title": "Test",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "call_id",
+          "clinic_id",
+          "clinic_name",
+          "started_at",
+          "language",
+          "test",
+          "rupees",
+          "complete",
+          "parts",
+          "lines"
+        ],
+        "title": "CallCost",
         "type": "object"
       },
       "CallSummary": {
@@ -408,6 +734,16 @@
           "clinic_name": {
             "title": "Clinic Name",
             "type": "string"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CallCost"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "duration_s": {
             "anyOf": [
@@ -930,6 +1266,343 @@
         "title": "ClinicSummary",
         "type": "object"
       },
+      "CostDay": {
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "rupees": {
+            "title": "Rupees",
+            "type": "number"
+          }
+        },
+        "required": [
+          "day",
+          "rupees"
+        ],
+        "title": "CostDay",
+        "type": "object"
+      },
+      "CostLine": {
+        "description": "One vendor's part of a call (or of another cost), priced.",
+        "properties": {
+          "missing": {
+            "enum": [
+              "",
+              "price",
+              "rate"
+            ],
+            "title": "Missing",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "part": {
+            "enum": [
+              "listening",
+              "thinking",
+              "speaking",
+              "call_line",
+              "other"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "price": {
+            "title": "Price",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "number"
+          },
+          "rupees": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rupees"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "unit_label": {
+            "title": "Unit Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "part",
+          "provider",
+          "model",
+          "unit",
+          "unit_label",
+          "quantity",
+          "rupees",
+          "price",
+          "missing"
+        ],
+        "title": "CostLine",
+        "type": "object"
+      },
+      "CostMonth": {
+        "properties": {
+          "bills": {
+            "items": {
+              "$ref": "#/components/schemas/BillCheck"
+            },
+            "title": "Bills",
+            "type": "array"
+          },
+          "by_clinic": {
+            "items": {
+              "$ref": "#/components/schemas/CostSlice"
+            },
+            "title": "By Clinic",
+            "type": "array"
+          },
+          "by_day": {
+            "items": {
+              "$ref": "#/components/schemas/CostDay"
+            },
+            "title": "By Day",
+            "type": "array"
+          },
+          "by_language": {
+            "items": {
+              "$ref": "#/components/schemas/CostSlice"
+            },
+            "title": "By Language",
+            "type": "array"
+          },
+          "by_part": {
+            "items": {
+              "$ref": "#/components/schemas/CostSlice"
+            },
+            "title": "By Part",
+            "type": "array"
+          },
+          "by_vendor": {
+            "items": {
+              "$ref": "#/components/schemas/CostSlice"
+            },
+            "title": "By Vendor",
+            "type": "array"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "fixed": {
+            "items": {
+              "$ref": "#/components/schemas/FixedUse"
+            },
+            "title": "Fixed",
+            "type": "array"
+          },
+          "fixed_rupees": {
+            "title": "Fixed Rupees",
+            "type": "number"
+          },
+          "free": {
+            "items": {
+              "$ref": "#/components/schemas/FreeUse"
+            },
+            "title": "Free",
+            "type": "array"
+          },
+          "free_rupees": {
+            "title": "Free Rupees",
+            "type": "number"
+          },
+          "missing": {
+            "items": {
+              "$ref": "#/components/schemas/MissingPrice"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "months": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Months",
+            "type": "array"
+          },
+          "other_rupees": {
+            "title": "Other Rupees",
+            "type": "number"
+          },
+          "per_call_rupees": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Call Rupees"
+          },
+          "test_calls": {
+            "title": "Test Calls",
+            "type": "integer"
+          },
+          "to_pay_rupees": {
+            "title": "To Pay Rupees",
+            "type": "number"
+          },
+          "top_calls": {
+            "items": {
+              "$ref": "#/components/schemas/CallCost"
+            },
+            "title": "Top Calls",
+            "type": "array"
+          },
+          "tracked_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tracked Since"
+          },
+          "usage_rupees": {
+            "title": "Usage Rupees",
+            "type": "number"
+          }
+        },
+        "required": [
+          "month",
+          "months",
+          "tracked_since",
+          "usage_rupees",
+          "free_rupees",
+          "fixed_rupees",
+          "to_pay_rupees",
+          "calls",
+          "test_calls",
+          "per_call_rupees",
+          "other_rupees",
+          "by_language",
+          "by_part",
+          "by_vendor",
+          "by_clinic",
+          "by_day",
+          "free",
+          "fixed",
+          "missing",
+          "bills",
+          "top_calls"
+        ],
+        "title": "CostMonth",
+        "type": "object"
+      },
+      "CostSettings": {
+        "properties": {
+          "allowances": {
+            "items": {
+              "$ref": "#/components/schemas/AllowanceRow"
+            },
+            "title": "Allowances",
+            "type": "array"
+          },
+          "bills": {
+            "items": {
+              "$ref": "#/components/schemas/BillRow"
+            },
+            "title": "Bills",
+            "type": "array"
+          },
+          "fixed": {
+            "items": {
+              "$ref": "#/components/schemas/FixedRow"
+            },
+            "title": "Fixed",
+            "type": "array"
+          },
+          "prices": {
+            "items": {
+              "$ref": "#/components/schemas/PriceRow"
+            },
+            "title": "Prices",
+            "type": "array"
+          },
+          "rates": {
+            "items": {
+              "$ref": "#/components/schemas/RateRow"
+            },
+            "title": "Rates",
+            "type": "array"
+          },
+          "units": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Units",
+            "type": "object"
+          }
+        },
+        "required": [
+          "prices",
+          "rates",
+          "allowances",
+          "fixed",
+          "bills",
+          "units"
+        ],
+        "title": "CostSettings",
+        "type": "object"
+      },
+      "CostSlice": {
+        "properties": {
+          "calls": {
+            "default": 0,
+            "title": "Calls",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "rupees": {
+            "title": "Rupees",
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "rupees"
+        ],
+        "title": "CostSlice",
+        "type": "object"
+      },
       "Day": {
         "properties": {
           "appointments": {
@@ -1286,6 +1959,159 @@
         "title": "FaqIn",
         "type": "object"
       },
+      "FixedIn": {
+        "properties": {
+          "amount": {
+            "minimum": 0.0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "currency": {
+            "enum": [
+              "INR",
+              "USD"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "sarvam",
+              "elevenlabs",
+              "openai",
+              "livekit"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "name",
+          "provider",
+          "amount",
+          "currency",
+          "valid_from"
+        ],
+        "title": "FixedIn",
+        "type": "object"
+      },
+      "FixedRow": {
+        "properties": {
+          "amount": {
+            "minimum": 0.0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "currency": {
+            "enum": [
+              "INR",
+              "USD"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "sarvam",
+              "elevenlabs",
+              "openai",
+              "livekit"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "name",
+          "provider",
+          "amount",
+          "currency",
+          "valid_from",
+          "id"
+        ],
+        "title": "FixedRow",
+        "type": "object"
+      },
+      "FixedUse": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "rupees": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rupees"
+          }
+        },
+        "required": [
+          "name",
+          "provider",
+          "rupees"
+        ],
+        "title": "FixedUse",
+        "type": "object"
+      },
       "FreeTimes": {
         "properties": {
           "times": {
@@ -1301,6 +2127,39 @@
           "times"
         ],
         "title": "FreeTimes",
+        "type": "object"
+      },
+      "FreeUse": {
+        "properties": {
+          "allowance": {
+            "title": "Allowance",
+            "type": "number"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "rupees": {
+            "title": "Rupees",
+            "type": "number"
+          },
+          "unit_label": {
+            "title": "Unit Label",
+            "type": "string"
+          },
+          "used": {
+            "title": "Used",
+            "type": "number"
+          }
+        },
+        "required": [
+          "provider",
+          "unit_label",
+          "allowance",
+          "used",
+          "rupees"
+        ],
+        "title": "FreeUse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1489,6 +2348,38 @@
         "title": "MemberIn",
         "type": "object"
       },
+      "MissingPrice": {
+        "properties": {
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "unit_label": {
+            "title": "Unit Label",
+            "type": "string"
+          },
+          "why": {
+            "enum": [
+              "price",
+              "rate"
+            ],
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "why",
+          "provider",
+          "model",
+          "unit_label"
+        ],
+        "title": "MissingPrice",
+        "type": "object"
+      },
       "NameIn": {
         "properties": {
           "name": {
@@ -1597,6 +2488,153 @@
           "sittings"
         ],
         "title": "Pattern",
+        "type": "object"
+      },
+      "PriceIn": {
+        "properties": {
+          "amount": {
+            "minimum": 0.0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "currency": {
+            "enum": [
+              "INR",
+              "USD"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "model": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Model",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Note",
+            "type": "string"
+          },
+          "per": {
+            "exclusiveMinimum": 0.0,
+            "title": "Per",
+            "type": "number"
+          },
+          "provider": {
+            "enum": [
+              "sarvam",
+              "elevenlabs",
+              "openai",
+              "livekit"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "tokens_in",
+              "tokens_cached",
+              "tokens_out",
+              "seconds_heard",
+              "characters",
+              "minutes"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "unit",
+          "amount",
+          "per",
+          "currency",
+          "valid_from"
+        ],
+        "title": "PriceIn",
+        "type": "object"
+      },
+      "PriceRow": {
+        "properties": {
+          "amount": {
+            "minimum": 0.0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "currency": {
+            "enum": [
+              "INR",
+              "USD"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "model": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Model",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Note",
+            "type": "string"
+          },
+          "per": {
+            "exclusiveMinimum": 0.0,
+            "title": "Per",
+            "type": "number"
+          },
+          "provider": {
+            "enum": [
+              "sarvam",
+              "elevenlabs",
+              "openai",
+              "livekit"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "tokens_in",
+              "tokens_cached",
+              "tokens_out",
+              "seconds_heard",
+              "characters",
+              "minutes"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "unit",
+          "amount",
+          "per",
+          "currency",
+          "valid_from",
+          "id"
+        ],
+        "title": "PriceRow",
         "type": "object"
       },
       "Problem": {
@@ -1730,6 +2768,63 @@
           "recent"
         ],
         "title": "Problems",
+        "type": "object"
+      },
+      "RateIn": {
+        "properties": {
+          "inr_per_usd": {
+            "exclusiveMinimum": 0.0,
+            "title": "Inr Per Usd",
+            "type": "number"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Note",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          }
+        },
+        "required": [
+          "valid_from",
+          "inr_per_usd"
+        ],
+        "title": "RateIn",
+        "type": "object"
+      },
+      "RateRow": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "inr_per_usd": {
+            "exclusiveMinimum": 0.0,
+            "title": "Inr Per Usd",
+            "type": "number"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Note",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          }
+        },
+        "required": [
+          "valid_from",
+          "inr_per_usd",
+          "id"
+        ],
+        "title": "RateRow",
         "type": "object"
       },
       "Sitting": {
@@ -2744,6 +3839,700 @@
           }
         },
         "summary": "Set Active"
+      }
+    },
+    "/api/admin/cost-settings": {
+      "get": {
+        "operationId": "settings_api_admin_cost_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Settings"
+      }
+    },
+    "/api/admin/cost-settings/allowances": {
+      "post": {
+        "operationId": "add_allowances_api_admin_cost_settings_allowances_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllowanceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllowanceRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Allowances"
+      }
+    },
+    "/api/admin/cost-settings/allowances/{row_id}": {
+      "delete": {
+        "operationId": "remove_allowances_api_admin_cost_settings_allowances__row_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Remove Allowances Api Admin Cost Settings Allowances  Row Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Allowances"
+      },
+      "put": {
+        "operationId": "change_allowances_api_admin_cost_settings_allowances__row_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllowanceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllowanceRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Allowances"
+      }
+    },
+    "/api/admin/cost-settings/bills": {
+      "post": {
+        "operationId": "add_bills_api_admin_cost_settings_bills_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Bills"
+      }
+    },
+    "/api/admin/cost-settings/bills/{row_id}": {
+      "delete": {
+        "operationId": "remove_bills_api_admin_cost_settings_bills__row_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Remove Bills Api Admin Cost Settings Bills  Row Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Bills"
+      },
+      "put": {
+        "operationId": "change_bills_api_admin_cost_settings_bills__row_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Bills"
+      }
+    },
+    "/api/admin/cost-settings/fixed": {
+      "post": {
+        "operationId": "add_fixed_api_admin_cost_settings_fixed_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FixedIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FixedRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Fixed"
+      }
+    },
+    "/api/admin/cost-settings/fixed/{row_id}": {
+      "delete": {
+        "operationId": "remove_fixed_api_admin_cost_settings_fixed__row_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Remove Fixed Api Admin Cost Settings Fixed  Row Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Fixed"
+      },
+      "put": {
+        "operationId": "change_fixed_api_admin_cost_settings_fixed__row_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FixedIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FixedRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Fixed"
+      }
+    },
+    "/api/admin/cost-settings/prices": {
+      "post": {
+        "operationId": "add_prices_api_admin_cost_settings_prices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PriceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Prices"
+      }
+    },
+    "/api/admin/cost-settings/prices/{row_id}": {
+      "delete": {
+        "operationId": "remove_prices_api_admin_cost_settings_prices__row_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Remove Prices Api Admin Cost Settings Prices  Row Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Prices"
+      },
+      "put": {
+        "operationId": "change_prices_api_admin_cost_settings_prices__row_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PriceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Prices"
+      }
+    },
+    "/api/admin/cost-settings/rates": {
+      "post": {
+        "operationId": "add_rates_api_admin_cost_settings_rates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Rates"
+      }
+    },
+    "/api/admin/cost-settings/rates/{row_id}": {
+      "delete": {
+        "operationId": "remove_rates_api_admin_cost_settings_rates__row_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Remove Rates Api Admin Cost Settings Rates  Row Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Rates"
+      },
+      "put": {
+        "operationId": "change_rates_api_admin_cost_settings_rates__row_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Rates"
+      }
+    },
+    "/api/admin/costs": {
+      "get": {
+        "operationId": "month_api_admin_costs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostMonth"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Month"
       }
     },
     "/api/admin/errors": {

@@ -113,6 +113,215 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/cost-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Settings */
+        get: operations["settings_api_admin_cost_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/cost-settings/allowances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Allowances */
+        post: operations["add_allowances_api_admin_cost_settings_allowances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/cost-settings/allowances/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Allowances */
+        put: operations["change_allowances_api_admin_cost_settings_allowances__row_id__put"];
+        post?: never;
+        /** Remove Allowances */
+        delete: operations["remove_allowances_api_admin_cost_settings_allowances__row_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/cost-settings/bills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Bills */
+        post: operations["add_bills_api_admin_cost_settings_bills_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/cost-settings/bills/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Bills */
+        put: operations["change_bills_api_admin_cost_settings_bills__row_id__put"];
+        post?: never;
+        /** Remove Bills */
+        delete: operations["remove_bills_api_admin_cost_settings_bills__row_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/cost-settings/fixed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Fixed */
+        post: operations["add_fixed_api_admin_cost_settings_fixed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/cost-settings/fixed/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Fixed */
+        put: operations["change_fixed_api_admin_cost_settings_fixed__row_id__put"];
+        post?: never;
+        /** Remove Fixed */
+        delete: operations["remove_fixed_api_admin_cost_settings_fixed__row_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/cost-settings/prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Prices */
+        post: operations["add_prices_api_admin_cost_settings_prices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/cost-settings/prices/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Prices */
+        put: operations["change_prices_api_admin_cost_settings_prices__row_id__put"];
+        post?: never;
+        /** Remove Prices */
+        delete: operations["remove_prices_api_admin_cost_settings_prices__row_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/cost-settings/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Rates */
+        post: operations["add_rates_api_admin_cost_settings_rates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/cost-settings/rates/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Rates */
+        put: operations["change_rates_api_admin_cost_settings_rates__row_id__put"];
+        post?: never;
+        /** Remove Rates */
+        delete: operations["remove_rates_api_admin_cost_settings_rates__row_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Month */
+        get: operations["month_api_admin_costs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/errors": {
         parameters: {
             query?: never;
@@ -827,6 +1036,58 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** AllowanceIn */
+        AllowanceIn: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            /** Quantity */
+            quantity: number;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "tokens_in" | "tokens_cached" | "tokens_out" | "seconds_heard" | "characters" | "minutes";
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+        };
+        /** AllowanceRow */
+        AllowanceRow: {
+            /** Id */
+            id: number;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            /** Quantity */
+            quantity: number;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "tokens_in" | "tokens_cached" | "tokens_out" | "seconds_heard" | "characters" | "minutes";
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+        };
         /** Appointment */
         Appointment: {
             /** Doctor Id */
@@ -902,6 +1163,65 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** BillCheck */
+        BillCheck: {
+            /** Currency */
+            currency: string;
+            /** Note */
+            note: string;
+            /** Ours */
+            ours: number | null;
+            /** Provider */
+            provider: string;
+            /** Theirs */
+            theirs: number;
+        };
+        /** BillIn */
+        BillIn: {
+            /** Amount */
+            amount: number;
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "INR" | "USD";
+            /** Month */
+            month: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+        };
+        /** BillRow */
+        BillRow: {
+            /** Amount */
+            amount: number;
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "INR" | "USD";
+            /** Id */
+            id: number;
+            /** Month */
+            month: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+        };
         /** CallChange */
         CallChange: {
             /**
@@ -911,6 +1231,37 @@ export interface components {
             action: "booked" | "moved" | "cancelled";
             /** Id */
             id: number;
+        };
+        /** CallCost */
+        CallCost: {
+            /** Call Id */
+            call_id: number | null;
+            /** Clinic Id */
+            clinic_id: number | null;
+            /** Clinic Name */
+            clinic_name: string;
+            /** Complete */
+            complete: boolean;
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "en" | "hi" | "";
+            /** Lines */
+            lines: components["schemas"]["CostLine"][];
+            /** Parts */
+            parts: {
+                [key: string]: number;
+            };
+            /** Rupees */
+            rupees: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Test */
+            test: boolean;
         };
         /** CallSummary */
         CallSummary: {
@@ -964,6 +1315,7 @@ export interface components {
             clinic_id: number;
             /** Clinic Name */
             clinic_name: string;
+            cost?: components["schemas"]["CallCost"] | null;
             /** Duration S */
             duration_s: number | null;
             /** End Reason */
@@ -1162,6 +1514,122 @@ export interface components {
             /** Staff */
             staff: boolean;
         };
+        /** CostDay */
+        CostDay: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Rupees */
+            rupees: number;
+        };
+        /**
+         * CostLine
+         * @description One vendor's part of a call (or of another cost), priced.
+         */
+        CostLine: {
+            /**
+             * Missing
+             * @enum {string}
+             */
+            missing: "" | "price" | "rate";
+            /** Model */
+            model: string;
+            /**
+             * Part
+             * @enum {string}
+             */
+            part: "listening" | "thinking" | "speaking" | "call_line" | "other";
+            /** Price */
+            price: string;
+            /** Provider */
+            provider: string;
+            /** Quantity */
+            quantity: number;
+            /** Rupees */
+            rupees: number | null;
+            /** Unit */
+            unit: string;
+            /** Unit Label */
+            unit_label: string;
+        };
+        /** CostMonth */
+        CostMonth: {
+            /** Bills */
+            bills: components["schemas"]["BillCheck"][];
+            /** By Clinic */
+            by_clinic: components["schemas"]["CostSlice"][];
+            /** By Day */
+            by_day: components["schemas"]["CostDay"][];
+            /** By Language */
+            by_language: components["schemas"]["CostSlice"][];
+            /** By Part */
+            by_part: components["schemas"]["CostSlice"][];
+            /** By Vendor */
+            by_vendor: components["schemas"]["CostSlice"][];
+            /** Calls */
+            calls: number;
+            /** Fixed */
+            fixed: components["schemas"]["FixedUse"][];
+            /** Fixed Rupees */
+            fixed_rupees: number;
+            /** Free */
+            free: components["schemas"]["FreeUse"][];
+            /** Free Rupees */
+            free_rupees: number;
+            /** Missing */
+            missing: components["schemas"]["MissingPrice"][];
+            /** Month */
+            month: string;
+            /** Months */
+            months: string[];
+            /** Other Rupees */
+            other_rupees: number;
+            /** Per Call Rupees */
+            per_call_rupees: number | null;
+            /** Test Calls */
+            test_calls: number;
+            /** To Pay Rupees */
+            to_pay_rupees: number;
+            /** Top Calls */
+            top_calls: components["schemas"]["CallCost"][];
+            /** Tracked Since */
+            tracked_since: string | null;
+            /** Usage Rupees */
+            usage_rupees: number;
+        };
+        /** CostSettings */
+        CostSettings: {
+            /** Allowances */
+            allowances: components["schemas"]["AllowanceRow"][];
+            /** Bills */
+            bills: components["schemas"]["BillRow"][];
+            /** Fixed */
+            fixed: components["schemas"]["FixedRow"][];
+            /** Prices */
+            prices: components["schemas"]["PriceRow"][];
+            /** Rates */
+            rates: components["schemas"]["RateRow"][];
+            /** Units */
+            units: {
+                [key: string]: string;
+            };
+        };
+        /** CostSlice */
+        CostSlice: {
+            /**
+             * Calls
+             * @default 0
+             */
+            calls: number;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Rupees */
+            rupees: number;
+        };
         /** Day */
         Day: {
             /** Appointments */
@@ -1282,10 +1750,82 @@ export interface components {
             /** Question */
             question: string;
         };
+        /** FixedIn */
+        FixedIn: {
+            /** Amount */
+            amount: number;
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "INR" | "USD";
+            /** Name */
+            name: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+            /** Valid To */
+            valid_to?: string | null;
+        };
+        /** FixedRow */
+        FixedRow: {
+            /** Amount */
+            amount: number;
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "INR" | "USD";
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+            /** Valid To */
+            valid_to?: string | null;
+        };
+        /** FixedUse */
+        FixedUse: {
+            /** Name */
+            name: string;
+            /** Provider */
+            provider: string;
+            /** Rupees */
+            rupees: number | null;
+        };
         /** FreeTimes */
         FreeTimes: {
             /** Times */
             times: string[];
+        };
+        /** FreeUse */
+        FreeUse: {
+            /** Allowance */
+            allowance: number;
+            /** Provider */
+            provider: string;
+            /** Rupees */
+            rupees: number;
+            /** Unit Label */
+            unit_label: string;
+            /** Used */
+            used: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1356,6 +1896,20 @@ export interface components {
             /** Email */
             email: string;
         };
+        /** MissingPrice */
+        MissingPrice: {
+            /** Model */
+            model: string;
+            /** Provider */
+            provider: string;
+            /** Unit Label */
+            unit_label: string;
+            /**
+             * Why
+             * @enum {string}
+             */
+            why: "price" | "rate";
+        };
         /** NameIn */
         NameIn: {
             /** Name */
@@ -1407,6 +1961,82 @@ export interface components {
             /** Sittings */
             sittings: components["schemas"]["Sitting"][];
         };
+        /** PriceIn */
+        PriceIn: {
+            /** Amount */
+            amount: number;
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "INR" | "USD";
+            /**
+             * Model
+             * @default
+             */
+            model: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Per */
+            per: number;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "tokens_in" | "tokens_cached" | "tokens_out" | "seconds_heard" | "characters" | "minutes";
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+        };
+        /** PriceRow */
+        PriceRow: {
+            /** Amount */
+            amount: number;
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "INR" | "USD";
+            /** Id */
+            id: number;
+            /**
+             * Model
+             * @default
+             */
+            model: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Per */
+            per: number;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "tokens_in" | "tokens_cached" | "tokens_out" | "seconds_heard" | "characters" | "minutes";
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+        };
         /** Problem */
         Problem: {
             /** Action */
@@ -1451,6 +2081,38 @@ export interface components {
             open: components["schemas"]["Problem"][];
             /** Recent */
             recent: components["schemas"]["Problem"][];
+        };
+        /** RateIn */
+        RateIn: {
+            /** Inr Per Usd */
+            inr_per_usd: number;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+        };
+        /** RateRow */
+        RateRow: {
+            /** Id */
+            id: number;
+            /** Inr Per Usd */
+            inr_per_usd: number;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
         };
         /** Sitting */
         Sitting: {
@@ -1933,6 +2595,562 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminClinic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    settings_api_admin_cost_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostSettings"];
+                };
+            };
+        };
+    };
+    add_allowances_api_admin_cost_settings_allowances_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllowanceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllowanceRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_allowances_api_admin_cost_settings_allowances__row_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllowanceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllowanceRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_allowances_api_admin_cost_settings_allowances__row_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_bills_api_admin_cost_settings_bills_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_bills_api_admin_cost_settings_bills__row_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_bills_api_admin_cost_settings_bills__row_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_fixed_api_admin_cost_settings_fixed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FixedIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FixedRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_fixed_api_admin_cost_settings_fixed__row_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FixedIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FixedRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_fixed_api_admin_cost_settings_fixed__row_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_prices_api_admin_cost_settings_prices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_prices_api_admin_cost_settings_prices__row_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_prices_api_admin_cost_settings_prices__row_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_rates_api_admin_cost_settings_rates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_rates_api_admin_cost_settings_rates__row_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_rates_api_admin_cost_settings_rates__row_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    month_api_admin_costs_get: {
+        parameters: {
+            query?: {
+                month?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostMonth"];
                 };
             };
             /** @description Validation Error */
