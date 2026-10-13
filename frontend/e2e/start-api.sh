@@ -41,7 +41,14 @@ with sessions_for(load_settings().database_url)() as s:
         if finished:
             repo.finish_call(s, c.id, ended_at=started + timedelta(seconds=84), end_reason="agent_ended", outcome=outcome,
                              turn_count=sum(i["role"] == "caller" for i in items), error_count=sum(e["kind"] == "error" for e in events),
-                             appointments=list(changes), events=events, transcript=items, purge_after=started + timedelta(days=30))
+                             appointments=list(changes), events=events, transcript=items, purge_after=started + timedelta(days=30),
+                             usage=[  # what each call used, for the Costs page
+                                 {"part": "listening", "provider": "sarvam", "model": "saaras:v3", "unit": "seconds_heard", "quantity": 41.0},
+                                 {"part": "thinking", "provider": "sarvam", "model": "sarvam-105b-conversations", "unit": "tokens_in", "quantity": 9200.0},
+                                 {"part": "thinking", "provider": "sarvam", "model": "sarvam-105b-conversations", "unit": "tokens_out", "quantity": 380.0},
+                                 {"part": "speaking", "provider": "sarvam", "model": "bulbul:v3", "unit": "characters", "quantity": 610.0},
+                                 {"part": "call_line", "provider": "livekit", "model": "agent_session", "unit": "minutes", "quantity": 1.4},
+                             ])
     call(timedelta(minutes=50), "booked", [
         ev(900, "stt", 310), ev(900, "eou", 620), ev(1400, "llm", 780), ev(1500, "tts", 240), ev(1500, "reply", 1650),
         ev(9000, "tool", 42, "check_booking"), ev(15000, "tool", 37, "book_appointment"),

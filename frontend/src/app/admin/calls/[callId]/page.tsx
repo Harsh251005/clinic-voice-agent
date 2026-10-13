@@ -18,6 +18,7 @@ import { CallResult } from "@/components/admin/bits";
 import { offset, Transcript } from "@/components/calls/transcript";
 import { adminKeys, duration, END_REASONS, ms, STAGES, useCallTrace, when } from "@/lib/admin";
 import { languageName } from "@/lib/calls";
+import { PARTS, quantity, rupees, VENDORS } from "@/lib/costs";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
@@ -73,9 +74,47 @@ function Body({ t }: { t: Schemas["CallTrace"] }) {
         </dl>
       </header>
 
+      <CostPanel cost={t.cost ?? null} />
       <Timeline events={t.events} />
       <TranscriptPanel t={t} />
     </>
+  );
+}
+
+/** What this call cost, part by part, from its exact usage. */
+function CostPanel({ cost }: { cost: Schemas["CallCost"] | null }) {
+  return (
+    <section aria-labelledby="cost" className="rounded-xl border bg-card">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b px-5 py-3.5">
+        <h2 id="cost" className="font-semibold">What this call cost</h2>
+        {cost && (
+          <p className="text-lg font-semibold tabular-nums">
+            {rupees(cost.rupees)}
+            {!cost.complete && <span className="ml-2 text-xs font-normal text-destructive">incomplete: a price is missing</span>}
+          </p>
+        )}
+      </div>
+      {!cost ? (
+        <p className="px-5 py-4 text-sm text-muted-foreground">Not recorded: this call is from before costs were tracked.</p>
+      ) : (
+        <ul className="divide-y text-sm">
+          {cost.lines.map((l, i) => (
+            <li key={i} className="grid grid-cols-[1fr_auto] gap-x-4 px-5 py-2.5">
+              <span>
+                <span className="font-medium">{PARTS[l.part] ?? l.part}</span>
+                <span className="text-muted-foreground"> · {quantity(l.quantity)} {l.unit_label} · {VENDORS[l.provider] ?? l.provider} {l.model}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {l.missing === "price" ? <span className="text-destructive">No price for this yet: add it in Costs, Prices.</span>
+                    : l.missing === "rate" ? <span className="text-destructive">No dollar rate for this day: add one in Costs, Prices.</span>
+                    : `at ${l.price}`}
+                </span>
+              </span>
+              <span className="text-right tabular-nums">{rupees(l.rupees)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
