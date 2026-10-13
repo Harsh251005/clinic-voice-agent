@@ -51,8 +51,7 @@ def test_openai_llm(env):
     env.setenv("OPENAI_API_KEY", "sk-test")
     m = build_llm(load_settings(), "openai")
     assert isinstance(m, llm.LLM)
-    assert m.model == "gpt-6-luna"
-    assert m._opts.reasoning_effort == "none"  # a reasoning model: tools need it off
+    assert m.model == "gpt-4.1-mini"
 
 
 def test_openai_model_override(env):

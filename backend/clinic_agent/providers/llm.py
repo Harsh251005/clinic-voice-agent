@@ -22,12 +22,13 @@ def _sarvam(cfg: Settings) -> llm.LLM:
 
 
 def _openai(cfg: Settings) -> llm.LLM:
-    # gpt-6-luna is a reasoning model. Reasoning models (gpt-5 and later,
-    # o*) get reasoning_effort "none" explicitly: Chat Completions refuses
+    # gpt-4.1-mini (the default: fastest capable model measured 2026-10-12,
+    # ~1.0 s first token vs gpt-6-luna's 1.6 s) does not reason. Reasoning
+    # models (gpt-5 and later, o*) get reasoning_effort "none" explicitly: Chat Completions refuses
     # tools with reasoning on (400 on every turn, checked with gpt-6-luna),
     # the plugin only sets it for model names it already knows, and no
     # reasoning step keeps the first token fast enough for a phone call.
-    model = cfg.openai_llm_model or "gpt-6-luna"
+    model = cfg.openai_llm_model or "gpt-4.1-mini"
     options = {"reasoning_effort": "none"} if _reasons(model) else {}
     return openai.LLM(
         model=model,
