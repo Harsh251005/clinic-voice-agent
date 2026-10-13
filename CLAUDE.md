@@ -222,8 +222,9 @@ with `Session` / `Sessions` from `store/db.py`.
   Both plugins default to mp3; PCM avoids a decode per chunk.
 - **`SARVAM_TTS_SPEAKER` must be a `bulbul:v3` voice** (default `suhani`); the
   plugin rejects v2 names such as `anushka`. ElevenLabs' is `ELEVENLABS_TTS_VOICE`, a voice ID.
-- **OpenAI default is `gpt-6-luna`** (Harsh's pick), a reasoning model. The
-  builder forces `reasoning_effort="none"` for gpt-5-or-later and `o*` models:
+- **OpenAI default is `gpt-4.1-mini`** (Harsh, 2026-10-13: fastest capable
+  model, ~1.0 s first token vs `gpt-6-luna` 1.6 s). For any reasoning model
+  set in `OPENAI_LLM_MODEL`, the builder forces `reasoning_effort="none"` for gpt-5-or-later and `o*` models:
   Chat Completions rejects tools otherwise (400 every turn), the plugin only
   sets it for model names it knows, and no reasoning step keeps replies fast.
 - **`SARVAM_STT_LANGUAGE=unknown`** auto-detects per utterance (the Hindi

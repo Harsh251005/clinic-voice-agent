@@ -82,7 +82,7 @@ Ravi's voice → 👂 EARS (STT) → text → 🧠 BRAIN (LLM) → text → 👄
 | Part | Job | Hindi line | English line |
 |---|---|---|---|
 | 👂 **STT** (speech to text) | Turns voice into written words | Sarvam `saaras:v3` | ElevenLabs `scribe_v2` |
-| 🧠 **LLM** (the language model) | Decides what to say and what to do | Sarvam `sarvam-105b-conversations` | OpenAI `gpt-6-luna` |
+| 🧠 **LLM** (the language model) | Decides what to say and what to do | Sarvam `sarvam-105b-conversations` | OpenAI `gpt-4.1-mini` |
 | 👄 **TTS** (text to speech) | Turns written words into a voice | Sarvam `bulbul:v3`, voice "suhani" | ElevenLabs `eleven_v3_conversational` |
 
 **Why two vendor sets?** Each is a language line. The caller picks English or
@@ -117,9 +117,11 @@ test (`test_boundaries.py`) enforces this.
 - **The ElevenLabs ear is pinned to Hindi.** Its auto-detect guessed the wrong
   language (even Chinese) on live calls and the robot heard nothing. Pinned to
   Hindi, it still understands English and Hinglish.
-- **gpt-6-luna is a "thinking" model, and thinking is switched off**
-  (`reasoning_effort="none"`). With thinking on, OpenAI rejects tool use (an
-  error on every turn), and it would also be too slow for a phone call.
+- **gpt-4.1-mini, the fastest capable model we measured** (about 1 second to
+  the first word). If a "thinking" model such as gpt-6-luna is set instead,
+  thinking is switched off (`reasoning_effort="none"`): with thinking on,
+  OpenAI rejects tool use (an error on every turn), and it would also be too
+  slow for a phone call.
 
 ---
 
