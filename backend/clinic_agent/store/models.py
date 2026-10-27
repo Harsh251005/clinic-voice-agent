@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, time
 
-from sqlalchemy import JSON, ForeignKey, Index, MetaData, String, UniqueConstraint, text
+from sqlalchemy import JSON, ForeignKey, Index, LargeBinary, MetaData, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -414,3 +414,58 @@ class VendorBill(Base):
     amount: Mapped[float]  # in `currency`
     currency: Mapped[str] = mapped_column(String(3))
     note: Mapped[str] = mapped_column(String(300), default="")
+
+
+# ---------- fixed phrases and their recordings ----------
+
+PHRASE_KINDS = ("greeting", "filler", "goodbye_fallback", "goodbye_time_limit")
+
+
+class Phrase(Base):
+    """A line the receptionist says word for word, never written by the model:
+    the greeting, the "one moment" fillers, the goodbyes. Text is edited by
+    the admin only. The greeting is one template per language (`{clinic}` is
+    the clinic's spoken name); a clinic may have its own greeting, a row with
+    its `clinic_id`. Every other kind is the same for all clinics."""
+
+    __tablename__ = "phrases"
+    __table_args__ = (
+        # One row per phrase: a global one (no clinic) or a clinic's own. NULLs
+        # are never equal in a unique index, hence one index for each.
+        Index(
+            "uq_phrase_global", "kind", "language", "slot", unique=True,
+            sqlite_where=text("clinic_id IS NULL"), postgresql_where=text("clinic_id IS NULL"),
+        ),
+        Index(
+            "uq_phrase_clinic", "clinic_id", "kind", "language", "slot", unique=True,
+            sqlite_where=text("clinic_id IS NOT NULL"), postgresql_where=text("clinic_id IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(20))  # one of PHRASE_KINDS
+    language: Mapped[str] = mapped_column(String(2))  # hi | en | mr
+    slot: Mapped[int] = mapped_column(default=0)  # fillers 1-3; 0 for the rest
+    clinic_id: Mapped[int | None] = mapped_column(ForeignKey("clinics.id", ondelete="CASCADE"), default=None)
+    text: Mapped[str] = mapped_column(Text)
+
+
+class VoiceClip(Base):
+    """One recording of a phrase in one voice. `key` is a hash of the voice and
+    the exact text (clinic_agent/voice_clips.py), so a changed voice or text
+    never plays an old take, and going back to an old voice finds its clips.
+    Raw 16-bit mono PCM, about 48 kB a second; no caller's audio, ever."""
+
+    __tablename__ = "voice_clips"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(64), unique=True)
+    vendor: Mapped[str] = mapped_column(String(30))
+    model: Mapped[str] = mapped_column(String(100))
+    voice: Mapped[str] = mapped_column(String(100))
+    language_code: Mapped[str] = mapped_column(String(10))
+    sample_rate: Mapped[int]
+    text: Mapped[str] = mapped_column(Text)
+    pcm: Mapped[bytes] = mapped_column(LargeBinary)
+    duration_s: Mapped[float]
+    recorded_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC

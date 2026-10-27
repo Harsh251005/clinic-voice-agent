@@ -13,7 +13,7 @@ from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, defer, selectinload
 
 from clinic_agent.clock import clock12
 from clinic_agent.store import migrations
@@ -32,12 +32,16 @@ from clinic_agent.store.models import (
     FixedCost,
     Incident,
     Patient,
+    Phrase,
+    PHRASE_KINDS,
     Price,
     TimeOff,
     TranscriptAccess,
     Usage,
     VendorBill,
+    VoiceClip,
     WorkerHeartbeat,
+    utc_now,
 )
 
 
@@ -1066,3 +1070,101 @@ def _get(s: Session, model, row_id: int):
     if row is None:
         raise NotFound(f"no {model.__name__} with id {row_id}")
     return row
+
+
+# ---------- fixed phrases and their recordings ----------
+
+MAX_PHRASE_CHARS = 500
+
+
+def _phrase_text(text: str) -> str:
+    text = text.strip()
+    if not text:
+        raise ValueError("A phrase can't be empty.")
+    if len(text) > MAX_PHRASE_CHARS:
+        raise ValueError(f"A phrase can be at most {MAX_PHRASE_CHARS} characters; this one has {len(text)}.")
+    return text
+
+
+def list_phrases(s: Session) -> list[Phrase]:
+    """Every phrase, global ones and clinics' own: greeting, fillers, goodbyes."""
+    order = {kind: i for i, kind in enumerate(PHRASE_KINDS)}
+    rows = s.scalars(select(Phrase)).all()
+    return sorted(rows, key=lambda p: (order[p.kind], p.language, p.clinic_id or 0, p.slot))
+
+
+def phrases_for_call(s: Session, clinic_id: int, language: str) -> list[Phrase]:
+    """What this clinic's receptionist says in `language`: the global phrases,
+    with the clinic's own greeting (if it has one) in place of the global one."""
+    rows = s.scalars(
+        select(Phrase).where(Phrase.language == language, or_(Phrase.clinic_id.is_(None), Phrase.clinic_id == clinic_id))
+    ).all()
+    own = {(p.kind, p.slot) for p in rows if p.clinic_id is not None}
+    return [p for p in rows if p.clinic_id is not None or (p.kind, p.slot) not in own]
+
+
+def set_phrase_text(s: Session, phrase_id: int, text: str) -> Phrase:
+    phrase = _get(s, Phrase, phrase_id)
+    phrase.text = _phrase_text(text)
+    s.commit()
+    return phrase
+
+
+def set_greeting_override(s: Session, clinic_id: int, language: str, text: str) -> Phrase:
+    """This clinic's own greeting in `language`, replacing the global one."""
+    text = _phrase_text(text)
+    _get(s, Clinic, clinic_id)
+    phrase = s.scalar(select(Phrase).where(
+        Phrase.clinic_id == clinic_id, Phrase.kind == "greeting", Phrase.language == language))
+    if phrase is None:
+        phrase = Phrase(kind="greeting", language=language, slot=0, clinic_id=clinic_id, text=text)
+        s.add(phrase)
+    else:
+        phrase.text = text
+    s.commit()
+    return phrase
+
+
+def clear_greeting_override(s: Session, clinic_id: int, language: str) -> None:
+    """Back to the global greeting for this clinic."""
+    s.execute(delete(Phrase).where(
+        Phrase.clinic_id == clinic_id, Phrase.kind == "greeting", Phrase.language == language))
+    s.commit()
+
+
+def clips_by_key(s: Session, keys: Iterable[str]) -> dict[str, VoiceClip]:
+    """The recordings among `keys`, with their audio."""
+    keys = list(keys)
+    if not keys:
+        return {}
+    return {c.key: c for c in s.scalars(select(VoiceClip).where(VoiceClip.key.in_(keys)))}
+
+
+def list_clips(s: Session) -> list[VoiceClip]:
+    """Every recording without its audio (the admin page's table)."""
+    return list(s.scalars(select(VoiceClip).options(defer(VoiceClip.pcm)).order_by(VoiceClip.recorded_at.desc(), VoiceClip.id)))
+
+
+def save_clip(
+    s: Session, *, key: str, vendor: str, model: str, voice: str, language_code: str,
+    sample_rate: int, text: str, pcm: bytes, duration_s: float,
+) -> VoiceClip:
+    """Store a recording; a new take of the same voice and text replaces the old one."""
+    clip = s.scalar(select(VoiceClip).where(VoiceClip.key == key))
+    if clip is None:
+        clip = VoiceClip(key=key)
+        s.add(clip)
+    clip.vendor, clip.model, clip.voice, clip.language_code = vendor, model, voice, language_code
+    clip.sample_rate, clip.text, clip.pcm, clip.duration_s, clip.recorded_at = sample_rate, text, pcm, duration_s, utc_now()
+    s.commit()
+    return clip
+
+
+def delete_clips(s: Session, keys: Iterable[str]) -> int:
+    """Delete the recordings with these keys; how many there were."""
+    keys = list(keys)
+    if not keys:
+        return 0
+    n = s.execute(delete(VoiceClip).where(VoiceClip.key.in_(keys))).rowcount
+    s.commit()
+    return n
