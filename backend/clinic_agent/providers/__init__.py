@@ -8,6 +8,6 @@ imports a vendor package.
 
 from clinic_agent.providers.llm import build_llm
 from clinic_agent.providers.stt import build_stt
-from clinic_agent.providers.tts import build_tts
+from clinic_agent.providers.tts import build_tts, identity
 
-__all__ = ["build_llm", "build_stt", "build_tts"]
+__all__ = ["build_llm", "build_stt", "build_tts", "identity"]

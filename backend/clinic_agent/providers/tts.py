@@ -36,6 +36,20 @@ def _sarvam(cfg: Settings) -> tts.TTS:
     return voice
 
 
+def identity(voice: tts.TTS) -> dict:
+    """Everything about `voice` that changes how a phrase sounds, read from the
+    built object so the builders stay the one home of the defaults: a recorded
+    clip is only reused while all of it is the same (clinic_agent/voice_clips.py)."""
+    if isinstance(voice, sarvam.TTS):
+        opts = voice._opts
+        return {
+            "vendor": "sarvam", "model": opts.model, "voice": opts.speaker,
+            "language_code": str(opts.target_language_code),
+            "sample_rate": opts.speech_sample_rate, "codec": opts.output_audio_codec,
+        }
+    raise TypeError(f"unknown voice {type(voice).__name__}: add it to providers/tts.py identity")
+
+
 # Sarvam is the only allowed TTS vendor (the Hindi line). Don't add others.
 BUILDERS: dict[str, Callable[[Settings], tts.TTS]] = {
     "sarvam": _sarvam,
