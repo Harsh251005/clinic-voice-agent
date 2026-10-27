@@ -52,13 +52,13 @@ def test_setting_the_override_again_edits_it_instead_of_adding_a_second(db):
 
 def test_two_phrases_can_not_share_a_place(db):
     s, clinic_id = db
-    s.add(Phrase(kind="filler", language="hi", slot=1, text="duplicate"))  # a global one exists
+    s.add(Phrase(kind="filler", language="hi", slot=1, source="dup", text="duplicate"))  # a global one exists
     with pytest.raises(IntegrityError):
         s.commit()
     s.rollback()
-    s.add(Phrase(kind="greeting", language="hi", slot=0, clinic_id=clinic_id, text="mine"))
+    s.add(Phrase(kind="greeting", language="hi", slot=0, clinic_id=clinic_id, source="mine", text="mine"))
     s.commit()
-    s.add(Phrase(kind="greeting", language="hi", slot=0, clinic_id=clinic_id, text="mine again"))
+    s.add(Phrase(kind="greeting", language="hi", slot=0, clinic_id=clinic_id, source="again", text="mine again"))
     with pytest.raises(IntegrityError):
         s.commit()
     s.rollback()
@@ -109,3 +109,13 @@ def test_the_clip_list_leaves_the_audio_out_and_delete_says_how_many(db):
     assert all("pcm" not in c.__dict__ for c in listed)  # deferred: not loaded
     assert repo.delete_clips(s, ["a", "nope"]) == 1 and repo.delete_clips(s, []) == 0
     assert [c.key for c in repo.list_clips(s)] == ["b"]
+
+
+def test_every_hindi_phrase_has_its_english_source_and_the_english_line_has_one_text(db):
+    s, _ = db
+    for p in repo.list_phrases(s):
+        assert p.source.isascii() and p.source.strip()  # staff only ever write English
+        assert (p.text == p.source) == (p.language == "en")
+    first_hindi = next(p for p in repo.list_phrases(s) if p.language == "hi")
+    repo.set_phrase_text(s, first_hindi.id, "नया हिंदी", source="New English")
+    assert (first_hindi.source, first_hindi.text) == ("New English", "नया हिंदी")

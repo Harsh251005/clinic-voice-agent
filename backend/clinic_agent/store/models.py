@@ -447,6 +447,10 @@ class Phrase(Base):
     language: Mapped[str] = mapped_column(String(2))  # hi | en | mr
     slot: Mapped[int] = mapped_column(default=0)  # fillers 1-3; 0 for the rest
     clinic_id: Mapped[int | None] = mapped_column(ForeignKey("clinics.id", ondelete="CASCADE"), default=None)
+    # What staff typed, in English (nobody types Devanagari: Harsh, 2026-10-27).
+    source: Mapped[str] = mapped_column(Text)
+    # What is spoken and recorded: the Hindi made from `source` (staff may fix
+    # it after reading it), or `source` itself on the English line.
     text: Mapped[str] = mapped_column(Text)
 
 

@@ -1103,24 +1103,29 @@ def phrases_for_call(s: Session, clinic_id: int, language: str) -> list[Phrase]:
     return [p for p in rows if p.clinic_id is not None or (p.kind, p.slot) not in own]
 
 
-def set_phrase_text(s: Session, phrase_id: int, text: str) -> Phrase:
+def set_phrase_text(s: Session, phrase_id: int, text: str, source: str | None = None) -> Phrase:
+    """Change what is spoken (the Hindi), and with `source` the English it was
+    made from. The English line's phrases have the same words in both."""
     phrase = _get(s, Phrase, phrase_id)
     phrase.text = _phrase_text(text)
+    if source is not None:
+        phrase.source = _phrase_text(source)
     s.commit()
     return phrase
 
 
-def set_greeting_override(s: Session, clinic_id: int, language: str, text: str) -> Phrase:
+def set_greeting_override(s: Session, clinic_id: int, language: str, text: str, source: str | None = None) -> Phrase:
     """This clinic's own greeting in `language`, replacing the global one."""
     text = _phrase_text(text)
+    source = _phrase_text(source) if source is not None else text
     _get(s, Clinic, clinic_id)
     phrase = s.scalar(select(Phrase).where(
         Phrase.clinic_id == clinic_id, Phrase.kind == "greeting", Phrase.language == language))
     if phrase is None:
-        phrase = Phrase(kind="greeting", language=language, slot=0, clinic_id=clinic_id, text=text)
+        phrase = Phrase(kind="greeting", language=language, slot=0, clinic_id=clinic_id, source=source, text=text)
         s.add(phrase)
     else:
-        phrase.text = text
+        phrase.text, phrase.source = text, source
     s.commit()
     return phrase
 

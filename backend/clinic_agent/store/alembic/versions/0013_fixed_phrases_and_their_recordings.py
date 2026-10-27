@@ -18,21 +18,21 @@ down_revision = '0012'
 branch_labels = None
 depends_on = None
 
-# (kind, language, slot, text). Hindi and English only: Marathi has no phrases
+# (kind, language, slot, English source, spoken text; "" = same as the source). Hindi and English only: Marathi has no phrases
 # while the Sarvam line speaks Hindi only; adding them later is adding rows.
 SEEDS = [
-    ("greeting", "hi", 0, "नमस्ते, {clinic} में आपका स्वागत है। मैं इसकी ऑटोमेटेड असिस्टेंट हूँ, और यह बातचीत क्लिनिक के रिकॉर्ड के लिए टेक्स्ट में सेव हो रही है। बताइए, मैं आपकी कैसे मदद कर सकती हूँ?"),
-    ("greeting", "en", 0, "Hello, welcome to {clinic}. I am its automated assistant, and this conversation is saved as text for the clinic's records. How can I help you?"),
-    ("filler", "hi", 1, "एक सेकंड जी, मैं चेक करके बताती हूँ।"),
-    ("filler", "hi", 2, "ठीक है, एक पल, मैं देख लेती हूँ।"),
-    ("filler", "hi", 3, "जी, बस एक सेकंड।"),
-    ("filler", "en", 1, "One moment, let me check."),
-    ("filler", "en", 2, "Sure, just a second."),
-    ("filler", "en", 3, "Let me look that up for you."),
-    ("goodbye_fallback", "hi", 0, "कॉल करने के लिए धन्यवाद जी। आपका दिन शुभ हो, नमस्ते!"),
-    ("goodbye_fallback", "en", 0, "Thank you for calling. Have a good day, goodbye!"),
-    ("goodbye_time_limit", "hi", 0, "माफ़ कीजिए जी, इस कॉल का समय पूरा हो गया है। आप दोबारा कॉल कर सकते हैं। नमस्ते!"),
-    ("goodbye_time_limit", "en", 0, "I am sorry, this call has reached its time limit. You are welcome to call again. Goodbye!"),
+    ("greeting", "hi", 0, "Hello, welcome to {clinic}. I am its automated assistant, and this conversation is saved as text for the clinic's records. How can I help you?", "नमस्ते, {clinic} में आपका स्वागत है। मैं इसकी ऑटोमेटेड असिस्टेंट हूँ, और यह बातचीत क्लिनिक के रिकॉर्ड के लिए टेक्स्ट में सेव हो रही है। बताइए, मैं आपकी कैसे मदद कर सकती हूँ?"),
+    ("greeting", "en", 0, "Hello, welcome to {clinic}. I am its automated assistant, and this conversation is saved as text for the clinic's records. How can I help you?", ""),
+    ("filler", "hi", 1, "One second, let me check and tell you.", "एक सेकंड जी, मैं चेक करके बताती हूँ।"),
+    ("filler", "hi", 2, "Okay, one moment, let me have a look.", "ठीक है, एक पल, मैं देख लेती हूँ।"),
+    ("filler", "hi", 3, "Yes, just one second.", "जी, बस एक सेकंड।"),
+    ("filler", "en", 1, "One moment, let me check.", ""),
+    ("filler", "en", 2, "Sure, just a second.", ""),
+    ("filler", "en", 3, "Let me look that up for you.", ""),
+    ("goodbye_fallback", "hi", 0, "Thank you for calling. Have a good day, goodbye!", "कॉल करने के लिए धन्यवाद जी। आपका दिन शुभ हो, नमस्ते!"),
+    ("goodbye_fallback", "en", 0, "Thank you for calling. Have a good day, goodbye!", ""),
+    ("goodbye_time_limit", "hi", 0, "I am sorry, this call has reached its time limit. You are welcome to call again. Goodbye!", "माफ़ कीजिए जी, इस कॉल का समय पूरा हो गया है। आप दोबारा कॉल कर सकते हैं। नमस्ते!"),
+    ("goodbye_time_limit", "en", 0, "I am sorry, this call has reached its time limit. You are welcome to call again. Goodbye!", ""),
 ]
 
 
@@ -59,6 +59,7 @@ def upgrade() -> None:
     sa.Column('language', sa.String(length=2), nullable=False),
     sa.Column('slot', sa.Integer(), nullable=False),
     sa.Column('clinic_id', sa.Integer(), nullable=True),
+    sa.Column('source', sa.Text(), nullable=False),
     sa.Column('text', sa.Text(), nullable=False),
     sa.ForeignKeyConstraint(['clinic_id'], ['clinics.id'], name=op.f('fk_phrases_clinic_id_clinics'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_phrases'))
@@ -72,9 +73,9 @@ def upgrade() -> None:
     phrases = sa.table(
         'phrases',
         sa.column('kind', sa.String), sa.column('language', sa.String), sa.column('slot', sa.Integer),
-        sa.column('text', sa.Text),
+        sa.column('source', sa.Text), sa.column('text', sa.Text),
     )
-    op.bulk_insert(phrases, [dict(kind=k, language=lang, slot=slot, text=text) for k, lang, slot, text in SEEDS])
+    op.bulk_insert(phrases, [dict(kind=k, language=lang, slot=slot, source=source, text=text or source) for k, lang, slot, source, text in SEEDS])
 
 
 def downgrade() -> None:
