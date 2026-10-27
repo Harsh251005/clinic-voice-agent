@@ -45,6 +45,7 @@ class Settings:
 
     # --- turn taking ---
     min_endpointing_delay: float
+    number_endpointing_delay: float  # the same, while the caller reads out a number
     interrupt_min_speech: float  # seconds of caller speech that stop the agent
     vad_min_silence: float  # seconds of pause that end an utterance
 
@@ -189,6 +190,7 @@ def load_settings() -> Settings:
         sarvam_tts_sample_rate=int(tts_rate) if tts_rate is not None else None,
         sarvam_tts_codec=_text("SARVAM_TTS_CODEC"),
         min_endpointing_delay=_number("MIN_ENDPOINTING_DELAY", 0.2),
+        number_endpointing_delay=_number("NUMBER_ENDPOINTING_DELAY", 1.5),
         interrupt_min_speech=_number("INTERRUPT_MIN_SPEECH", 0.3),
         vad_min_silence=_number("VAD_MIN_SILENCE", 0.6),
         max_call_minutes=_number("MAX_CALL_MINUTES", 10),

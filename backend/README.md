@@ -755,6 +755,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `API_HOST` / `API_PORT` | `127.0.0.1` / `8080` | Where the call-link server listens. `0.0.0.0` inside a container. |
 | `CLIENT_IP_HEADER` | blank | The header carrying the caller's IP behind a tunnel/proxy (`CF-Connecting-IP`, `X-Forwarded-For`), so rate limits stay per caller. Never trusted unless set. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
+| `NUMBER_ENDPOINTING_DELAY` | `1.5` | The same wait as `MIN_ENDPOINTING_DELAY`, used only from the moment the receptionist asks for a number until the caller's next turn ends: callers read a mobile number in groups with small pauses, and at 0.2 s each group was its own turn. Max 3. Raise if numbers still arrive in pieces; lower if replies after a number feel slow. |
 | `VAD_MIN_SILENCE` | `0.6` | Pause that ends an utterance for the VAD. At LiveKit's 0.25 s a comma pause ended the caller's turn mid-sentence (seen with a batch STT, which sends each VAD-cut utterance alone). Lower for faster replies, raise if it still cuts callers off. |
 | `INTERRUPT_MIN_SPEECH` | `0.3` | Seconds of caller speech that stop the agent mid-reply. Lower if it talks over you, raise if coughs or background noise cut it off. |
 

@@ -31,6 +31,7 @@ from clinic_agent.dispatch import AGENT_NAME, LANGUAGES, BadDispatch, CallFor, c
 from clinic_agent.lines import NAMES, available, line_for
 from clinic_agent.prompts import build_instructions
 from clinic_agent.session import build_session
+from clinic_agent.pauses import wait_for_numbers
 from clinic_agent.store.db import sessions_for
 from clinic_agent.store.migrations import SchemaOutdated
 from clinic_agent.store.repo import NotFound
@@ -124,6 +125,7 @@ async def entrypoint(ctx: JobContext) -> None:
     record.attach(session)
     ctx.add_shutdown_callback(record.finish)
 
+    wait_for_numbers(session, cfg.min_endpointing_delay, cfg.number_endpointing_delay)
     link = ClinicLink(clinic.id, clinic.timezone, sessions, call.language, on_change=record.on_change)
     tools = [*booking_tools(link), end_call_tool(call.language)]
     logger.info("starting session: %s", stack)
