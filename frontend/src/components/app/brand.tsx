@@ -1,21 +1,14 @@
-import { useId } from "react";
 import { PRODUCT_NAME } from "@/lib/product";
 import { cn } from "@/lib/utils";
 
-/** The glyph: a speech bubble with three voice bars cut out of it, the
- *  receptionist that talks. Drawn in currentColor; the bars show the tile
- *  behind. src/app/icon.svg is the same drawing for the browser tab. */
+/** The glyph (Harsh's pick, 2026-11-07): a fine heartbeat line leading into
+ *  bold voice bars, the clinic that answers by voice. Drawn in currentColor.
+ *  src/app/icon.svg is the same drawing for the browser tab. */
 export function BrandGlyph({ className }: { className?: string }) {
-  const cut = useId(); // a mask id per instance: several marks on one page
   return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden>
-      <mask id={cut}>
-        <path fill="white" d="M6 3.5h12A3.5 3.5 0 0 1 21.5 7v7.5A3.5 3.5 0 0 1 18 18h-6.2l-4.6 3.6a.7.7 0 0 1-1.2-.55V18A3.5 3.5 0 0 1 2.5 14.5V7A3.5 3.5 0 0 1 6 3.5z" />
-        <g stroke="black" strokeWidth="2.1" strokeLinecap="round">
-          <path d="M8 9.6v2.3M12 7.6v6.3M16 9v3.5" />
-        </g>
-      </mask>
-      <rect width="24" height="24" fill="currentColor" mask={`url(#${cut})`} />
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M1.8 12h2.9l1.9-4.2 2.8 8.6 2-4.4h1.6" strokeWidth="1.8" />
+      <path d="M16.2 9.3v5.4M19.4 6.3v11.4M22.4 9.8v4.4" strokeWidth="2.7" />
     </svg>
   );
 }
