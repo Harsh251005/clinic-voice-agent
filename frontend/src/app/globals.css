@@ -149,9 +149,15 @@
   --ops-border: oklch(1 0 0 / 10%);
 }
 
-/* The signed-out pages' background glows drift slowly (components/auth). */
+/* The signed-out pages (components/auth): background light drifts slowly;
+   waveform bars swell with --level (0 quiet .. 1 speaking) times --bar. */
 @theme {
   --animate-drift: drift 22s ease-in-out infinite alternate;
+  --animate-wave: wave 1.1s ease-in-out infinite;
+  @keyframes wave {
+    0%, 100% { transform: scaleY(calc(var(--bar) * (0.16 + 0.12 * var(--level)))); }
+    50% { transform: scaleY(calc(var(--bar) * (0.3 + 0.7 * var(--level)))); }
+  }
   @keyframes drift {
     from { transform: translate3d(0, 0, 0) scale(1); }
     to { transform: translate3d(70px, 50px, 0) scale(1.12); }

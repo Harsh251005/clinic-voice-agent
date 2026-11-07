@@ -1,12 +1,11 @@
 "use client";
-// The sign-in page. Access is by invitation only: the admin adds a clinic and
+// The sign-in card. Access is by invitation only: the admin adds a clinic and
 // its staff's Google addresses. Nothing here may suggest signing up alone.
 import { AlertCircle, ShieldCheck } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { BrandMark } from "@/components/app/brand";
 import { PRODUCT_NAME } from "@/lib/product";
 import { AuthFrame } from "./auth-frame";
 import { GoogleButton } from "./google-button";
-import { rise } from "./motion";
 
 // Codes the API puts in ?signin= when Google sign-in goes wrong (api/dashboard/auth.py).
 const PROBLEMS: Record<string, { title: string; body: string }> = {
@@ -21,27 +20,34 @@ export function SignIn({ problem }: { problem?: string | null }) {
   const shown = problem ? PROBLEMS[problem] : undefined;
   return (
     <AuthFrame>
-      <div className={`${rise} [--tw-animation-delay:150ms]`}>
-        <h1 className="text-2xl font-semibold tracking-tight">Sign in to {PRODUCT_NAME}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Use the Google account your clinic added for you.</p>
-      </div>
+      {/* Fixed light colours, not theme tokens: this card looks the same for everyone. */}
+      <div className="relative rounded-2xl bg-white p-8 text-slate-900 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.8)] ring-1 ring-white/20">
+        <div aria-hidden className="absolute inset-x-10 -top-px h-px bg-gradient-to-r from-transparent via-teal-400 to-transparent" />
+        <BrandMark className="size-10 rounded-xl" />
+        <h1 className="mt-6 text-2xl font-semibold tracking-tight">Sign in</h1>
+        <p className="mt-1.5 text-sm text-slate-500">Use the Google account your clinic added for you.</p>
 
-      {shown && (
-        <Alert variant="destructive" className={`${rise} [--tw-animation-delay:200ms] mt-6`}>
-          <AlertCircle />
-          <AlertTitle>{shown.title}</AlertTitle>
-          <AlertDescription>{shown.body}</AlertDescription>
-        </Alert>
-      )}
+        {shown && (
+          <div role="alert" className="mt-6 flex gap-3 rounded-lg bg-red-50 p-3.5 text-sm ring-1 ring-red-200">
+            <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-600" aria-hidden />
+            <div>
+              <p className="font-medium text-red-800">{shown.title}</p>
+              <p className="mt-0.5 text-red-700">{shown.body}</p>
+            </div>
+          </div>
+        )}
 
-      <GoogleButton href="/api/auth/login" className={`${rise} [--tw-animation-delay:300ms] mt-8`} />
+        <GoogleButton href="/api/auth/login" className="mt-7" />
 
-      <div className={`${rise} [--tw-animation-delay:420ms] mt-8 flex gap-3 rounded-lg border bg-card p-4 text-sm`}>
-        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-        <p className="text-muted-foreground">
-          <span className="font-medium text-foreground">Access is by invitation.</span> Can&apos;t get in? Ask whoever
-          manages {PRODUCT_NAME} for your clinic to add your Google address.
-        </p>
+        <div className="my-7 h-px bg-slate-100" />
+
+        <div className="flex gap-3 text-sm">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-teal-700" aria-hidden />
+          <p className="text-slate-500">
+            <span className="font-medium text-slate-800">Access is by invitation.</span> Can&apos;t get in? Ask whoever
+            manages {PRODUCT_NAME} for your clinic to add your Google address.
+          </p>
+        </div>
       </div>
     </AuthFrame>
   );
