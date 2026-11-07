@@ -2,8 +2,6 @@
 // Full-page states shown instead of the dashboard: signed out, no access, errors.
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { AlertCircle, LogIn } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,29 +26,8 @@ export function CenteredCard({ title, description, children }: { title: string; 
   );
 }
 
-const SIGN_IN_PROBLEMS: Record<string, string> = {
-  unverified: "Google hasn't verified that account's email address, so it can't be used here.",
-  failed: "Sign-in didn't complete. Please try again.",
-};
-
-export function SignIn({ problem }: { problem?: string | null }) {
-  return (
-    <CenteredCard title="Sign in" description="Use the Google account your clinic added to the dashboard.">
-      {problem && SIGN_IN_PROBLEMS[problem] && (
-        <Alert variant="destructive">
-          <AlertCircle />
-          <AlertDescription>{SIGN_IN_PROBLEMS[problem]}</AlertDescription>
-        </Alert>
-      )}
-      <Button asChild className="w-full" size="lg">
-        {/* A full navigation, not fetch: the API sends the browser on to Google. */}
-        <a href="/api/auth/login">
-          <LogIn /> Sign in with Google
-        </a>
-      </Button>
-    </CenteredCard>
-  );
-}
+// The sign-in page lives with the other signed-out pages.
+export { SignIn } from "@/components/auth/sign-in";
 
 export async function signOut() {
   await api.POST("/api/auth/logout");
