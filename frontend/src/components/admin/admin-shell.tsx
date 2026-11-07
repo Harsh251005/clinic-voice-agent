@@ -5,14 +5,14 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Building2, IndianRupee, LayoutDashboard, LogOut, PhoneCall, TriangleAlert, FlaskConical } from "lucide-react";
+import { Activity, Building2, IndianRupee, LayoutDashboard, LogOut, PhoneCall, ShieldAlert, TriangleAlert, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAdminProblems, useMe, useSeenProblem } from "@/lib/queries";
 import { ProblemBanner, ProblemBell, useProblemAlerts } from "@/components/problems/problems";
 import { PRODUCT_NAME } from "@/lib/product";
 import { BrandMark } from "@/components/app/brand";
-import { CenteredCard, FullPageLoading, LoadError, SignIn, signOut } from "@/components/app/gates";
+import { CenteredCard, FullPageLoading, LoadError, SignIn, glassQuiet, signOut } from "@/components/app/gates";
 import { ThemeMenu } from "@/components/app/theme-menu";
 
 const PAGES = [
@@ -39,8 +39,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
   if (me.data === null) return <SignIn />;
   if (!me.data.is_admin) {
     return (
-      <CenteredCard title="Admins only" description="This part of the dashboard is for the people who run the service.">
-        <Button asChild variant="outline" className="w-full"><Link href="/">Go to your clinic</Link></Button>
+      <CenteredCard icon={ShieldAlert} title="Admins only" description="This part of the dashboard is for the people who run the service.">
+        <Button asChild variant="outline" className={glassQuiet}><Link href="/">Go to your clinic</Link></Button>
       </CenteredCard>
     );
   }

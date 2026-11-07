@@ -3,7 +3,7 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clinicHome } from "@/components/app/app-shell";
-import { FullPageLoading, LoadError, NoClinic, SignIn } from "@/components/app/gates";
+import { LoadError, NoClinic, SignIn, SplashLoading } from "@/components/app/gates";
 import { lastClinic } from "@/lib/last-clinic";
 import { useMe } from "@/lib/queries";
 
@@ -31,12 +31,12 @@ function Home() {
   if (me.isError) return <LoadError onRetry={() => me.refetch()} />;
   if (me.data === null) return <SignIn problem={problem} />;
   if (me.data && !target) return <NoClinic email={me.data.email} />;
-  return <FullPageLoading />;
+  return <SplashLoading />;
 }
 
 export default function Page() {
   return (
-    <Suspense fallback={<FullPageLoading />}>
+    <Suspense fallback={<SplashLoading />}>
       <Home />
     </Suspense>
   );

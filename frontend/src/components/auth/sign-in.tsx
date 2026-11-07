@@ -5,6 +5,7 @@ import { AlertCircle, ShieldCheck } from "lucide-react";
 import { BrandMark } from "@/components/app/brand";
 import { PRODUCT_NAME } from "@/lib/product";
 import { AuthFrame } from "./auth-frame";
+import { glassCard, glassEdge } from "./glass";
 import { GoogleButton } from "./google-button";
 
 // Codes the API puts in ?signin= when Google sign-in goes wrong (api/dashboard/auth.py).
@@ -19,11 +20,10 @@ const PROBLEMS: Record<string, { title: string; body: string }> = {
 export function SignIn({ problem }: { problem?: string | null }) {
   const shown = problem ? PROBLEMS[problem] : undefined;
   return (
-    <AuthFrame>
-      {/* Frosted glass like the example call beside it, so the two read as one
-          page; fixed colours, not theme tokens: the same for every viewer. */}
-      <div className="relative rounded-2xl bg-gradient-to-b from-white/[0.09] to-white/[0.03] p-8 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.7)] ring-1 ring-white/10 backdrop-blur-xl">
-        <div aria-hidden className="absolute inset-x-10 -top-px h-px bg-gradient-to-r from-transparent via-teal-300/70 to-transparent" />
+    <AuthFrame pitch>
+      {/* Frosted glass like the example call beside it: one page, not a box on top. */}
+      <div className={glassCard}>
+        <div aria-hidden className={glassEdge} />
         <BrandMark className="size-10 rounded-xl" />
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">Sign in</h1>
         <p className="mt-1.5 text-sm text-white/55">Use the Google account your clinic added for you.</p>
