@@ -48,7 +48,8 @@ export function AuthFrame({ children, pitch = false }: { children: ReactNode; pi
         </main>
       )}
 
-      <footer className="mx-auto w-full max-w-6xl px-5 py-6 text-xs text-white/40 sm:px-8">
+      {/* "/" is prerendered at build time: the browser's year may differ, and wins. */}
+      <footer className="mx-auto w-full max-w-6xl px-5 py-6 text-xs text-white/40 sm:px-8" suppressHydrationWarning>
         © {new Date().getFullYear()} {PRODUCT_NAME}
       </footer>
     </div>
