@@ -5,14 +5,15 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Building2, IndianRupee, LayoutDashboard, LogOut, PhoneCall, ShieldAlert, TriangleAlert, FlaskConical } from "lucide-react";
+import { Activity, Building2, IndianRupee, LayoutDashboard, PhoneCall, ShieldAlert, TriangleAlert, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAdminProblems, useMe, useSeenProblem } from "@/lib/queries";
 import { ProblemBanner, ProblemBell, useProblemAlerts } from "@/components/problems/problems";
 import { PRODUCT_NAME } from "@/lib/product";
 import { BrandMark } from "@/components/app/brand";
-import { CenteredCard, FullPageLoading, LoadError, SignIn, glassQuiet, signOut } from "@/components/app/gates";
+import { AccountMenu } from "@/components/app/account-menu";
+import { CenteredCard, FullPageLoading, LoadError, SignIn, glassQuiet } from "@/components/app/gates";
 import { ThemeMenu } from "@/components/app/theme-menu";
 
 const PAGES = [
@@ -90,15 +91,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <FlaskConical className="size-4 shrink-0" aria-hidden /> Test mode: sign-in is off
             </p>
           ) : (
-            <div className="flex items-center justify-between gap-2 border-t border-ops-border px-2 pt-4">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-ops-accent-foreground" title={email}>{email}</p>
-                <p className="text-xs">Admin</p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={signOut} aria-label="Sign out" title="Sign out"
-                className="text-ops-foreground hover:bg-ops-accent hover:text-ops-accent-foreground">
-                <LogOut />
-              </Button>
+            <div className="border-t border-ops-border pt-3">
+              <AccountMenu email={email} role="Admin" tone="ops" />
             </div>
           )}
         </div>
@@ -117,12 +111,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <Link href="/"><LayoutDashboard /></Link>
           </Button>
         )}
-        {login !== "off" && (
-          <Button variant="ghost" size="icon" onClick={signOut} aria-label="Sign out" title="Sign out"
-            className="text-ops-foreground hover:bg-ops-accent hover:text-ops-accent-foreground">
-            <LogOut />
-          </Button>
-        )}
+        {login !== "off" && <AccountMenu email={email} role="Admin" tone="ops" compact />}
       </header>
       <nav aria-label="Admin pages"
         className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">

@@ -442,7 +442,10 @@ ten minutes):
 2. **Google Auth Platform** → **Branding**: app name and a support email.
    **Audience**: *External*. While the app is in *Testing*, only the Google
    accounts listed under **Test users** can sign in (up to 100): add yours and
-   each clinic's. Publishing the app removes that list.
+   each clinic's. Publishing the app removes that list. With only `openid email`
+   it needs no full Google review, but showing the app's name and logo needs
+   brand verification (minutes if automatic, about 2-3 business days if
+   manual), which asks for a verified domain and a privacy policy page.
 3. **Clients** → **Create client** → *Web application*. Under **Authorized
    redirect URIs** add `http://localhost:3000/api/auth/callback` (and later
    `https://<dashboard address>/api/auth/callback`): `DASHBOARD_URL` +

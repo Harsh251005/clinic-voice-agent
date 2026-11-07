@@ -47,7 +47,9 @@ src/app/                         routes
   clinics/[clinicId]/setup
   new-clinic/                    admins only
   admin/                         the operator's admin panel (admins only): health, calls, errors, clinics
-src/components/app/              app pieces: shell, gates (sign-in, no access), brand
+src/components/app/              app pieces: shell, gates (no access, errors), account menu + sign-out dialog, brand
+src/components/auth/             the signed-out look: dark canvas, glass cards, the sign-in card, and the
+                                 looping example call (call-script.ts follows the real booking order)
 src/components/admin/            the admin panel's shell (slate ink + amber, never teal) and shared bits
 src/components/appointments/     the diary: day grid, phone list, week, search, the booking form,
                                  and one menu per booking (visit marks, edit, cancel with Undo)
@@ -68,8 +70,11 @@ src/lib/product.ts               the product name
 - Light, Dark or "Same as this computer" (the default), from the switch
   beside the problems bell, kept per browser (`src/lib/theme.ts`; a script
   in `<head>` sets `<html data-theme>` before the first paint, so no flash).
-  The patient call page always follows the computer. Teal on cool slate, with a teal-ink sidebar; `--success` and
+  The patient call page always follows the computer; the sign-in page and
+  the other full-page messages always use their own dark canvas, no switch. Teal on cool slate, with a teal-ink sidebar; `--success` and
   `--warning` colours always come with an icon and a word.
+- Signing out: the account button at the bottom of the sidebar (the initial
+  in the phone top bar) opens a menu; **Sign out** there asks first.
 - Words staff read are plain clinic words, never setting names: *time per
   patient*, *pause bookings*, *leave & holidays*, *common questions*,
   *receptionist link*. Times are 12-hour (`time12`, `weekText`).
