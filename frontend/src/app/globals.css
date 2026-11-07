@@ -149,6 +149,15 @@
   --ops-border: oklch(1 0 0 / 10%);
 }
 
+/* The signed-out pages' background glows drift slowly (components/auth). */
+@theme {
+  --animate-drift: drift 22s ease-in-out infinite alternate;
+  @keyframes drift {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to { transform: translate3d(70px, 50px, 0) scale(1.12); }
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
