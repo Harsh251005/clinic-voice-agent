@@ -1,6 +1,7 @@
 "use client";
-// Plays the example call step by step, forever: someone speaks (typing dots,
-// loud waveform), their line appears, then the booking, then it starts over.
+// Plays the example call step by step, forever: each line appears as its
+// speaker talks (loud waveform), a short pause, the next line; then the
+// booking, a slow fade, and it starts over.
 // Viewers who ask for less motion get the finished call, still.
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { CALL, type Speaker } from "./call-script";
@@ -8,13 +9,13 @@ import { CALL, type Speaker } from "./call-script";
 type Step = { shown: number; speaking: Speaker | null; booked: boolean; leaving: boolean; ms: number };
 
 const STEPS: Step[] = [
-  { shown: 0, speaking: null, booked: false, leaving: false, ms: 400 },
+  { shown: 0, speaking: null, booked: false, leaving: false, ms: 600 }, // empty, fading back in
   ...CALL.flatMap((line, i): Step[] => [
-    { shown: i, speaking: line.who, booked: false, leaving: false, ms: 650 },
-    { shown: i + 1, speaking: null, booked: false, leaving: false, ms: 700 + line.text.length * 14 },
+    { shown: i + 1, speaking: line.who, booked: false, leaving: false, ms: 500 + line.text.length * 12 },
+    { shown: i + 1, speaking: null, booked: false, leaving: false, ms: 350 },
   ]),
-  { shown: CALL.length, speaking: null, booked: true, leaving: false, ms: 2600 },
-  { shown: CALL.length, speaking: null, booked: true, leaving: true, ms: 500 },
+  { shown: CALL.length, speaking: null, booked: true, leaving: false, ms: 2800 },
+  { shown: CALL.length, speaking: null, booked: true, leaving: true, ms: 1000 }, // the fade (700 ms) + a beat
 ];
 
 const STILL: Step = { shown: CALL.length, speaking: null, booked: true, leaving: false, ms: 0 };

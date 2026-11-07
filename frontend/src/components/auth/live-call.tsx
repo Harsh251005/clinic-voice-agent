@@ -24,21 +24,10 @@ function CallTimer({ cycle, reduced }: { cycle: number; reduced: boolean }) {
   return <span className="font-mono text-xs tabular-nums text-white/50">{`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`}</span>;
 }
 
-function TypingDots({ who }: { who: "agent" | "caller" }) {
-  return (
-    <div className={cn("flex", who === "caller" && "justify-end")}>
-      <span className="flex gap-1 rounded-2xl bg-white/[0.06] px-3.5 py-3">
-        {[0, 150, 300].map((d) => (
-          <span key={d} className="size-1.5 rounded-full bg-white/50 motion-safe:animate-bounce" style={{ animationDelay: `${d}ms` }} />
-        ))}
-      </span>
-    </div>
-  );
-}
-
 export function LiveCall({ className }: { className?: string }) {
   const { shown, speaking, booked, leaving, cycle, reduced } = useCallLoop();
   const lastSpeaker = speaking ?? CALL[Math.max(0, shown - 1)].who;
+  const ending = booked || leaving;
 
   return (
     <div aria-hidden className={cn("relative", className)}>
@@ -63,13 +52,13 @@ export function LiveCall({ className }: { className?: string }) {
         <div className="px-5 pt-5">
           <Waveform level={speaking ? (speaking === "agent" ? 1 : 0.7) : 0.12} tone={lastSpeaker} />
           <p className="mt-2 text-center text-[11px] font-medium tracking-wider text-white/40 uppercase">
-            {speaking === "agent" ? "Receptionist speaking" : speaking === "caller" ? "Patient speaking" : booked ? "Call ending" : "Listening"}
+            {speaking === "agent" ? "Receptionist speaking" : speaking === "caller" ? "Patient speaking" : ending ? "Call ended" : "Listening"}
           </p>
         </div>
 
         <div className={cn(
           // Older lines slide up and fade out under the top edge, like a chat scrolling.
-          "flex h-[17.5rem] flex-col justify-end gap-3 overflow-hidden px-5 pt-4 pb-5 transition-opacity duration-500 [mask-image:linear-gradient(to_bottom,transparent,black_18%)]",
+          "flex h-[17.5rem] flex-col justify-end gap-3 overflow-hidden px-5 pt-4 pb-5 transition-opacity duration-700 ease-in-out [mask-image:linear-gradient(to_bottom,transparent,black_18%)]",
           leaving && "opacity-0",
         )}>
           {CALL.slice(0, shown).map((line, i) => (
@@ -84,8 +73,7 @@ export function LiveCall({ className }: { className?: string }) {
               </p>
             </div>
           ))}
-          {speaking && <div className="shrink-0"><TypingDots who={speaking} /></div>}
-          {booked && (
+                    {booked && (
             <div key={`booked-${cycle}`} className={cn("flex shrink-0 items-center gap-3 rounded-xl bg-emerald-400/10 px-4 py-3 ring-1 ring-emerald-300/25", enter)}>
               <span className="grid size-8 place-items-center rounded-lg bg-emerald-400/20 text-emerald-300">
                 <CalendarCheck className="size-4" />
