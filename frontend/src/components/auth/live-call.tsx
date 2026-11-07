@@ -4,16 +4,13 @@
 // sees what ClinicDesk does before signing in. Decorative: hidden from screen
 // readers, labelled "Example" for everyone else.
 import { useEffect, useState } from "react";
-import { Noto_Sans_Devanagari } from "next/font/google";
 import { CalendarCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BOOKED, CALL } from "./call-script";
 import { useCallLoop } from "./use-call-loop";
 import { Waveform } from "./waveform";
 
-const devanagari = Noto_Sans_Devanagari({ subsets: ["devanagari"], weight: ["400", "500"] });
-
-const enter = "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 animation-duration-500 fill-mode-both";
+const enter = "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 animation-duration-300 fill-mode-both";
 
 function CallTimer({ cycle, reduced }: { cycle: number; reduced: boolean }) {
   const [seconds, setSeconds] = useState(0);
@@ -71,7 +68,6 @@ export function LiveCall({ className }: { className?: string }) {
         </div>
 
         <div className={cn(
-          devanagari.className,
           // Older lines slide up and fade out under the top edge, like a chat scrolling.
           "flex h-[17.5rem] flex-col justify-end gap-3 overflow-hidden px-5 pt-4 pb-5 transition-opacity duration-500 [mask-image:linear-gradient(to_bottom,transparent,black_18%)]",
           leaving && "opacity-0",
@@ -94,7 +90,7 @@ export function LiveCall({ className }: { className?: string }) {
               <span className="grid size-8 place-items-center rounded-lg bg-emerald-400/20 text-emerald-300">
                 <CalendarCheck className="size-4" />
               </span>
-              <div className="font-sans">
+              <div>
                 <p className="text-sm font-medium text-emerald-100">{BOOKED.title}</p>
                 <p className="text-xs text-emerald-200/60">{BOOKED.detail}</p>
               </div>

@@ -8,13 +8,13 @@ import { CALL, type Speaker } from "./call-script";
 type Step = { shown: number; speaking: Speaker | null; booked: boolean; leaving: boolean; ms: number };
 
 const STEPS: Step[] = [
-  { shown: 0, speaking: null, booked: false, leaving: false, ms: 700 },
+  { shown: 0, speaking: null, booked: false, leaving: false, ms: 400 },
   ...CALL.flatMap((line, i): Step[] => [
-    { shown: i, speaking: line.who, booked: false, leaving: false, ms: 1100 },
-    { shown: i + 1, speaking: null, booked: false, leaving: false, ms: 1300 + line.text.length * 22 },
+    { shown: i, speaking: line.who, booked: false, leaving: false, ms: 650 },
+    { shown: i + 1, speaking: null, booked: false, leaving: false, ms: 700 + line.text.length * 14 },
   ]),
-  { shown: CALL.length, speaking: null, booked: true, leaving: false, ms: 3200 },
-  { shown: CALL.length, speaking: null, booked: true, leaving: true, ms: 600 },
+  { shown: CALL.length, speaking: null, booked: true, leaving: false, ms: 2600 },
+  { shown: CALL.length, speaking: null, booked: true, leaving: true, ms: 500 },
 ];
 
 const STILL: Step = { shown: CALL.length, speaking: null, booked: true, leaving: false, ms: 0 };

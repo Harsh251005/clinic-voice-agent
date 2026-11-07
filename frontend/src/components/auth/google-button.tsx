@@ -1,7 +1,7 @@
 "use client";
 // "Continue with Google", drawn to Google's own sign-in button rules (the
-// light version: white fill, grey outline, the four-colour G). It sits on the
-// always-white sign-in card, so it has no dark version.
+// light version: white fill, grey outline, the four-colour G). On the dark
+// sign-in card the white button is the one bright thing: the way in.
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,7 +36,7 @@ export function GoogleButton({ href, className }: { href: string; className?: st
       onClick={(e) => { if (leaving) e.preventDefault(); else setLeaving(true); }}
       className={cn(
         "inline-flex h-11 w-full items-center justify-center gap-3 rounded-lg border px-4 text-sm font-medium shadow-xs transition-colors outline-none",
-        "border-[#747775] bg-white text-[#1F1F1F] hover:bg-[#F8FAFA] active:bg-[#EEF1F1]",
+        "border-white bg-white text-[#1F1F1F] hover:bg-[#F8FAFA] active:bg-[#EEF1F1]",
         "focus-visible:ring-3 focus-visible:ring-teal-500/40",
         "aria-disabled:cursor-progress aria-disabled:opacity-80",
         className,
