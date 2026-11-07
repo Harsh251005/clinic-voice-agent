@@ -7,7 +7,7 @@ import { KeyRound, SearchX, WifiOff, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthFrame } from "@/components/auth/auth-frame";
-import { glassCard, glassEdge, glassPrimary, glassQuiet } from "@/components/auth/glass";
+import { glassCard, glassEdge, glassMark, glassPrimary, glassQuiet } from "@/components/auth/glass";
 import { api } from "@/lib/api/client";
 import { PRODUCT_NAME } from "@/lib/product";
 import { BrandMark } from "./brand";
@@ -95,7 +95,7 @@ export function FullPageLoading() {
 export function SplashLoading() {
   return (
     <div className="grid min-h-screen place-items-center bg-[#041416]" aria-busy aria-label="Loading">
-      <BrandMark className="size-10 rounded-xl motion-safe:animate-pulse" />
+      <BrandMark className={`size-12 rounded-2xl motion-safe:animate-pulse ${glassMark}`} />
     </div>
   );
 }

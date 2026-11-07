@@ -2,7 +2,6 @@
 // The sign-in card. Access is by invitation only: the admin adds a clinic and
 // its staff's Google addresses. Nothing here may suggest signing up alone.
 import { AlertCircle, ShieldCheck } from "lucide-react";
-import { BrandMark } from "@/components/app/brand";
 import { PRODUCT_NAME } from "@/lib/product";
 import { AuthFrame } from "./auth-frame";
 import { glassCard, glassEdge } from "./glass";
@@ -24,8 +23,7 @@ export function SignIn({ problem }: { problem?: string | null }) {
       {/* Frosted glass like the example call beside it: one page, not a box on top. */}
       <div className={glassCard}>
         <div aria-hidden className={glassEdge} />
-        <BrandMark className="size-10 rounded-xl" />
-        <h1 className="mt-6 text-2xl font-semibold tracking-tight">Sign in</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
         <p className="mt-1.5 text-sm text-white/55">Use the Google account your clinic added for you.</p>
 
         {shown && (

@@ -7,6 +7,10 @@ export const glassCard =
 export const glassEdge =
   "pointer-events-none absolute inset-x-10 -top-px h-px bg-gradient-to-r from-transparent via-teal-300/70 to-transparent";
 
+/** The logo tile on the dark canvas: bright teal with a soft glow. */
+export const glassMark =
+  "bg-gradient-to-br from-teal-300 to-teal-600 text-white ring-1 ring-white/25 shadow-[0_0_32px_-6px_rgba(45,212,191,0.7)]";
+
 /** The one bright action on a card. */
 export const glassPrimary =
   "h-11 w-full rounded-lg border-transparent bg-white text-sm font-medium text-slate-900 hover:bg-white/90";

@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { Brand } from "@/components/app/brand";
 import { PRODUCT_NAME } from "@/lib/product";
 import { Backdrop } from "./backdrop";
+import { glassMark } from "./glass";
 import { LiveCall } from "./live-call";
 
 function Pitch() {
@@ -32,7 +33,7 @@ export function AuthFrame({ children, pitch = false }: { children: ReactNode; pi
     <div className="relative isolate flex min-h-screen flex-col overflow-hidden bg-[#041416] text-white">
       <Backdrop />
       <header className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8">
-        <Brand />
+        <Brand size="lg" markClassName={glassMark} className="text-white" />
       </header>
 
       {pitch ? (
