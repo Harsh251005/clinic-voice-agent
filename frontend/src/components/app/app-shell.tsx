@@ -4,7 +4,7 @@
 import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, Gauge, Headset, House, LogOut, Phone, Settings2, FlaskConical, ShieldCheck } from "lucide-react";
+import { CalendarDays, Gauge, Headset, House, Phone, Settings2, FlaskConical, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Schemas } from "@/lib/api/client";
@@ -13,9 +13,10 @@ import { useMe, useProblems, useSeenProblem } from "@/lib/queries";
 import { ProblemBanner, ProblemBell, useProblemAlerts } from "@/components/problems/problems";
 import { rememberClinic } from "@/lib/last-clinic";
 import { PRODUCT_NAME } from "@/lib/product";
+import { AccountMenu } from "./account-menu";
 import { BrandMark } from "./brand";
 import { ThemeMenu } from "./theme-menu";
-import { ClinicNotFound, FullPageLoading, LoadError, NoClinic, SignIn, signOut } from "./gates";
+import { ClinicNotFound, FullPageLoading, LoadError, NoClinic, SignIn } from "./gates";
 
 // `staff`: shows patients, so only the clinic's own members see it. An admin
 // who isn't a member sets the clinic up but never sees its patients.
@@ -57,6 +58,7 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
   const staff = clinic?.staff ?? false;
   const pages = PAGES.filter((p) => staff || !p.staff);
   const blocked = !staff && PAGES.some((p) => p.segment === current && p.staff);
+  const role = is_admin ? "Admin" : "Clinic staff";
 
   const bell = (
     <ProblemBell open={problems.data?.open ?? []} recent={problems.data?.recent ?? []} onSeen={(id) => seen.mutate(id)}
@@ -130,15 +132,8 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
               <FlaskConical className="size-4 shrink-0" aria-hidden /> Test mode: sign-in is off
             </p>
           ) : (
-            <div className="flex items-center justify-between gap-2 border-t border-sidebar-border px-2 pt-4">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-sidebar-accent-foreground" title={email}>{email}</p>
-                <p className="text-xs">{is_admin ? "Admin" : "Clinic staff"}</p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={signOut} aria-label="Sign out" title="Sign out"
-                className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-                <LogOut />
-              </Button>
+            <div className="border-t border-sidebar-border pt-3">
+              <AccountMenu email={email} role={role} tone="clinic" />
             </div>
           )}
         </div>
@@ -156,12 +151,7 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
             <Link href="/admin"><Gauge /></Link>
           </Button>
         )}
-        {login !== "off" && (
-          <Button variant="ghost" size="icon" onClick={signOut} aria-label="Sign out" title="Sign out"
-            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-            <LogOut />
-          </Button>
-        )}
+        {login !== "off" && <AccountMenu email={email} role={role} tone="clinic" compact />}
       </header>
       <nav aria-label="Pages"
         style={{ gridTemplateColumns: `repeat(${pages.length}, minmax(0, 1fr))` }}
