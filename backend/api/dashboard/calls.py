@@ -81,7 +81,7 @@ def test_call(body: schemas.TestCallRequest, request: Request, clinic_id: int = 
         if not clinic.active:
             raise HTTPException(409, "Your receptionist is paused by ClinicDesk support, so it can't take test calls either.")
         if body.language not in offered(s):
-            raise HTTPException(409, f"Calls in {NAMES[body.language]} aren't available right now.")
+            raise HTTPException(409, f"Calls in {NAMES.get(body.language, body.language)} aren't available right now.")
     p = call_pass(request.app.state.cfg, clinic.id, clinic.slug, body.language, test=True)
     logger.info("test call pass for clinic %s, language %s: room %s", clinic.id, body.language, p.room)
     return schemas.TestCallPass(url=p.url, token=p.token, room=p.room)

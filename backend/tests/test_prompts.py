@@ -106,7 +106,6 @@ def test_visit_reason_is_asked_for_in_english():
     from clinic_agent.prompts import RULES
 
     assert "always write it in short, plain English in Roman letters" in " ".join(RULES["hi"].split())
-    assert "in short, plain English" in " ".join(RULES["en"].split())
 
 
 def _rules(language):
@@ -115,12 +114,11 @@ def _rules(language):
     return " ".join(RULES[language].split())
 
 
-@pytest.mark.parametrize("language", ["en", "hi"])
-def test_both_languages_keep_the_same_core_rules(language):
-    # The safety and booking rules are the core: every line has them.
-    rules = _rules(language)
+def test_the_core_rules_are_there():
+    # The safety and booking rules are the core: the line must have them.
+    rules = _rules("hi")
     for rule in [
-        "automated assistant" if language == "en" else "ऑटोमेटेड असिस्टेंट",
+        "ऑटोमेटेड असिस्टेंट",
         "saved as text for the clinic's records",
         "call check_booking", "After a clear yes, call book_appointment", "only after a clear yes",
         "call end_call", "Do not give medical advice", "one-zero-eight", "one-one-two",
@@ -130,18 +128,12 @@ def test_both_languages_keep_the_same_core_rules(language):
         assert rule in rules, rule
 
 
-def test_the_english_line_speaks_only_english_and_points_to_the_hindi_line():
-    rules = _rules("en")
-    assert "Reply only in English" in rules and "call again and choose Hindi" in rules
-    assert "Ignore the bracketed words" in rules  # the tools' Hindi time words
-    # No Hindi for the English voice to read, except the one example of what the tools send.
-    assert set(re.findall(r"[\u0900-\u097F]+", rules)) == {"साढ़े", "पाँच", "बजे"}
-
-
-def test_the_hindi_line_stays_hindi_and_points_to_the_english_line():
+def test_the_hindi_line_stays_hindi_and_promises_no_english_line():
+    # The English line is gone (2026-11-08): never tell a caller to call back for one.
     rules = _rules("hi")
-    assert "the call stays in Hindi to the end" in rules and "call again and choose English" in rules
+    assert "stays in Hindi to the end" in rules and "this receptionist speaks Hindi only" in rules
     assert "never reply in English" in rules
+    assert "choose English" not in rules
 
 
 def test_the_hindi_line_says_names_as_the_clinic_spelt_them(db):
@@ -154,8 +146,6 @@ def test_the_hindi_line_says_names_as_the_clinic_spelt_them(db):
     hindi = build_instructions(clinic, [], NOW, "hi")
     assert "नमस्ते जी, डेमो फ़ैमिली क्लिनिक में आपका स्वागत है" in hindi
     assert f"{clinic.doctors[0].name} (in Hindi: डॉक्टर आशा मेहता)" in hindi
-    english = build_instructions(clinic, [], NOW, "en")
-    assert "in Hindi:" not in english and "Demo Family Clinic" in english
 
 
 def test_the_hindi_line_speaks_everyday_hindi():

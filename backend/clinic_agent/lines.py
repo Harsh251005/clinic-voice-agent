@@ -1,15 +1,13 @@
-"""The two language lines: which vendors answer a call in each language.
+"""The language line: which vendors answer a call.
 
-The caller picks English or Hindi before the call starts (dispatch.Language)
-and keeps it for the whole call: switching lines mid-call would change the
-voice. Each line is its own pipeline, tuned for its language only:
+Hindi is the only line (Harsh, 2026-11-08: Hindi first, made reliable before
+anything else): Sarvam ears, Sarvam voice, and a brain set by HINDI_LLM:
+Sarvam by default, OpenAI to compare the two. The dispatch still names the
+call's language (always "hi"), so a second line later is one more entry.
 
-- English: ElevenLabs ears, OpenAI brain, ElevenLabs voice.
-- Hindi:   Sarvam ears, brain and voice.
-
-A line whose keys are missing is unavailable, not fatal: the worker answers
-on the other line, its check-in says which lines are up, the call page
-offers only those, and the dashboards flag the missing one.
+A line whose keys are missing is unavailable, not a crash: the worker says
+why and exits, its check-in says which lines are up, and the dashboards flag
+the missing one.
 """
 
 from __future__ import annotations
@@ -17,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from clinic_agent.config import ConfigError, Settings
-from clinic_agent.dispatch import Language
+from clinic_agent.dispatch import LANGUAGES, Language
 from clinic_agent.providers import build_llm, build_stt, build_tts
 
 
@@ -29,12 +27,12 @@ class Line:
     tts: str
 
 
-LINES: dict[Language, Line] = {
-    "en": Line("en", stt="elevenlabs", llm="openai", tts="elevenlabs"),
-    "hi": Line("hi", stt="sarvam", llm="sarvam", tts="sarvam"),
-}
+NAMES: dict[Language, str] = {"hi": "Hindi"}
 
-NAMES: dict[Language, str] = {"en": "English", "hi": "Hindi"}
+
+def line_for(cfg: Settings, language: Language) -> Line:
+    """The vendors that answer a call in `language`."""
+    return Line(language, stt="sarvam", llm=cfg.hindi_llm, tts="sarvam")
 
 
 def why_unavailable(cfg: Settings, line: Line, text_only: bool = False) -> str | None:
@@ -53,4 +51,4 @@ def why_unavailable(cfg: Settings, line: Line, text_only: bool = False) -> str |
 
 def available(cfg: Settings, text_only: bool = False) -> dict[Language, str | None]:
     """Each language and why it can't take calls (None: it can)."""
-    return {lang: why_unavailable(cfg, line, text_only) for lang, line in LINES.items()}
+    return {lang: why_unavailable(cfg, line_for(cfg, lang), text_only) for lang in LANGUAGES}

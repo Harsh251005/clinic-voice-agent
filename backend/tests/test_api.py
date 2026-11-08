@@ -71,19 +71,17 @@ def _offered(page: str) -> list[str]:
     return re.findall(r'name="language" value="(\w+)"', page)
 
 
-def test_call_page_offers_both_languages_when_no_worker_has_said(client):
-    # Nobody knows which lines are up: offer both (the call then fails as offline, flagged on its own).
-    assert _offered(client.get("/call/demo-family-clinic").text) == ["en", "hi"]
+def test_call_page_offers_hindi_when_no_worker_has_said(client):
+    # Nobody knows which lines are up: offer it (the call then fails as offline, flagged on its own).
+    assert _offered(client.get("/call/demo-family-clinic").text) == ["hi"]
 
 
 def test_call_page_offers_only_the_lines_the_worker_can_answer(client):
-    _beat(["en"])  # started without a Sarvam key
+    _beat(["en"])  # a worker from before the English line was removed: it can't answer Hindi
     page = client.get("/call/demo-family-clinic").text
-    assert _offered(page) == ["en"]
+    assert _offered(page) == []
     r = client.post("/call/demo-family-clinic/pass", json=HINDI)  # an old tab
     assert r.status_code == 503
-    assert r.json() == {"error": "Calls in Hindi aren't available right now. Please choose another language."}
-    assert client.post("/call/demo-family-clinic/pass", json={"language": "en"}).status_code == 200
 
 
 def test_page_assets_are_fingerprinted_so_an_update_is_never_served_stale(client):
@@ -142,12 +140,12 @@ def test_pass_dispatches_this_clinics_receptionist(client):
 
 
 def test_pass_carries_the_chosen_language(client):
-    token = client.post("/call/demo-family-clinic/pass", json={"language": "en"}).json()["token"]
+    token = client.post("/call/demo-family-clinic/pass", json=HINDI).json()["token"]
     (dispatch,) = _claims(token).room_config.agents
-    assert call_from(dispatch.metadata) == CallFor(1, "en")
+    assert call_from(dispatch.metadata) == CallFor(1, "hi")
 
 
-@pytest.mark.parametrize("body", [None, {}, {"language": ""}, {"language": "ta"}, {"language": "EN"}])
+@pytest.mark.parametrize("body", [None, {}, {"language": ""}, {"language": "ta"}, {"language": "en"}])
 def test_pass_without_a_known_language_is_refused(client, body):
     r = client.post("/call/demo-family-clinic/pass", json=body)
     assert r.status_code == 400

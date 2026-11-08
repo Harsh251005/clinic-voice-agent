@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from livekit.agents import tts
-from livekit.plugins import elevenlabs, sarvam
+from livekit.plugins import sarvam
 
 from clinic_agent.config import Settings, require_key
 from clinic_agent.providers.sentences import MAX_PIECE, SentenceTokenizer
@@ -36,34 +36,14 @@ def _sarvam(cfg: Settings) -> tts.TTS:
     return voice
 
 
-def _elevenlabs(cfg: Settings) -> tts.TTS:
-    # eleven_v3_conversational is ElevenLabs' most expressive model built for
-    # live dialogue; LiveKit streams it over the text-to-dialogue websocket.
-    # Fallback if the plan rejects it: ELEVENLABS_TTS_MODEL=eleven_multilingual_v2
-    # (most natural of the v2 models) or eleven_flash_v2_5 (fastest).
-    # ElevenLabs speaks the English line only. How real it sounds depends as
-    # much on ELEVENLABS_TTS_VOICE: an English voice ID from the Voice
-    # Library (a woman's: the prompt says so). pcm_24000 is raw PCM, for the
-    # same reason as Sarvam's linear16.
-    options = {"language": cfg.elevenlabs_tts_language} if cfg.elevenlabs_tts_language else {}
-    return elevenlabs.TTS(
-        model=cfg.elevenlabs_tts_model or "eleven_v3_conversational",
-        voice_id=cfg.elevenlabs_tts_voice or elevenlabs.DEFAULT_VOICE_ID,
-        encoding=cfg.elevenlabs_tts_codec or "pcm_24000",
-        api_key=require_key(cfg.elevenlabs_api_key, "ELEVENLABS_API_KEY"),
-        **options,
-    )
-
-
-# Allowed vendors are Sarvam (the Hindi line) and ElevenLabs (the English line). Don't add others.
+# Sarvam is the only allowed TTS vendor (the Hindi line). Don't add others.
 BUILDERS: dict[str, Callable[[Settings], tts.TTS]] = {
     "sarvam": _sarvam,
-    "elevenlabs": _elevenlabs,
 }
 
 
 def build_tts(cfg: Settings, vendor: str) -> tts.TTS:
-    """`vendor`'s TTS, as a call's language line names it (clinic_agent/lines.py)."""
+    """`vendor`'s TTS, as the Hindi line names it (clinic_agent/lines.py)."""
     try:
         builder = BUILDERS[vendor]
     except KeyError:

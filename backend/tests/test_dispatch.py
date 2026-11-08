@@ -12,16 +12,16 @@ def test_metadata_round_trip(language):
     assert call_from(metadata_for(7, language)) == CallFor(7, language)
 
 
-def test_both_languages_exist():
-    assert set(LANGUAGES) == {"en", "hi"}
+def test_hindi_is_the_only_language():
+    assert LANGUAGES == ("hi",)
 
 
 def test_metadata_wins_over_the_console_fallback():
-    assert call_from(metadata_for(7, "en"), fallback=CallFor(1, "hi")) == CallFor(7, "en")
+    assert call_from(metadata_for(7, "hi"), fallback=CallFor(1, "hi")) == CallFor(7, "hi")
 
 
 def test_empty_metadata_uses_the_console_fallback():
-    assert call_from("", fallback=CallFor(1, "en")) == CallFor(1, "en")
+    assert call_from("", fallback=CallFor(1, "hi")) == CallFor(1, "hi")
 
 
 def test_empty_metadata_without_fallback_is_refused():
@@ -34,6 +34,7 @@ def test_empty_metadata_without_fallback_is_refused():
     '{"clinic_id": "1", "language": "hi"}', '{"clinic_id": true, "language": "hi"}',
     '{"clinic_id": 1}',  # a pass from before calls had a language
     '{"clinic_id": 1, "language": "ta"}', '{"clinic_id": 1, "language": "HI"}', '{"clinic_id": 1, "language": null}',
+    '{"clinic_id": 1, "language": "en"}',  # a pass from before the English line was removed
 ])
 def test_malformed_metadata_is_refused_even_with_a_fallback(metadata):
     with pytest.raises(BadDispatch):
@@ -130,8 +131,9 @@ def test_the_worker_registers_under_the_name_call_passes_dispatch(monkeypatch):
 
 
 async def test_entrypoint_refuses_a_call_on_a_line_that_is_off(env, tmp_path):
-    # Its key is missing (only a Sarvam key is set): the call page no longer
-    # offers English, so only a page opened earlier can get here.
+    # Its brain's key is missing (HINDI_LLM=openai, only a Sarvam key set):
+    # the worker refuses to start like that, so only a worker started
+    # before .env changed can get here.
     import main
     from clinic_agent.store import migrations
     from clinic_agent.store.db import make_engine, session_factory
@@ -143,7 +145,8 @@ async def test_entrypoint_refuses_a_call_on_a_line_that_is_off(env, tmp_path):
     with session_factory(engine)() as s:
         clinic_id = seed_demo(s)
     env.setenv("DATABASE_URL", url)
+    env.setenv("HINDI_LLM", "openai")
 
-    ctx = _Ctx(metadata_for(clinic_id, "en"))
+    ctx = _Ctx(metadata_for(clinic_id, "hi"))
     await main.entrypoint(ctx)
-    assert ctx.shutdown_reason == "line off: en"
+    assert ctx.shutdown_reason == "line off: hi"

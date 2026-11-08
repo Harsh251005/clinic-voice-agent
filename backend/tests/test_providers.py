@@ -1,6 +1,5 @@
 import pytest
 from livekit.agents import llm, stt, tts
-from livekit.plugins import elevenlabs
 
 from clinic_agent.config import ConfigError, load_settings
 from clinic_agent.providers import build_llm, build_stt, build_tts
@@ -73,50 +72,17 @@ def test_openai_reasoning_is_off_so_tools_work(env, model, effort):
     assert got == effort
 
 
-def test_elevenlabs_tts(env):
-    env.setenv("ELEVENLABS_API_KEY", "el-test")
-    t = build_tts(load_settings(), "elevenlabs")
-    assert isinstance(t, tts.TTS)
-    assert t.model == "eleven_v3_conversational"
-    assert t._opts.voice_id == elevenlabs.DEFAULT_VOICE_ID
-    assert t._opts.encoding == "pcm_24000"
-    assert t.sample_rate == 24000
-
-
-def test_elevenlabs_stt(env):
-    env.setenv("ELEVENLABS_API_KEY", "el-test")
-    s = build_stt(load_settings(), "elevenlabs")
-    assert isinstance(s, stt.STT)
-    # Batch: LiveKit cuts utterances with the session's VAD and sends each one.
-    assert s.model == "scribe_v2"
-    assert not s.capabilities.streaming
-    assert s._opts.language_code == "en"  # the English line; auto-detect breaks on live calls
-
-
-def test_elevenlabs_realtime_stt_commits_on_silence(env):
-    env.setenv("ELEVENLABS_API_KEY", "el-test")
-    env.setenv("ELEVENLABS_STT_MODEL", "scribe_v2_realtime")
-    s = build_stt(load_settings(), "elevenlabs")
-    assert s.capabilities.streaming
-    # Manual commits would wait for a flush a live call never sends.
-    assert s._opts.server_vad == {}  # given, so commit_strategy=vad
-
-
-def test_each_vendor_reads_its_own_voice_setting(env):
-    env.setenv("ELEVENLABS_API_KEY", "el-test")
+def test_the_voice_setting_picks_sarvams_speaker(env):
     env.setenv("SARVAM_TTS_SPEAKER", "shubh")
-    env.setenv("ELEVENLABS_TTS_VOICE", "voice-123")
-    cfg = load_settings()
-    assert build_tts(cfg, "sarvam")._opts.speaker == "shubh"
-    assert build_tts(cfg, "elevenlabs")._opts.voice_id == "voice-123"
+    assert build_tts(load_settings(), "sarvam")._opts.speaker == "shubh"
 
 
 def test_only_the_allowed_vendors_are_registered():
-    # Harsh's rule: speech is Sarvam or ElevenLabs, the LLM Sarvam or OpenAI.
+    # Harsh's rule (2026-11-08): speech is Sarvam only, the LLM Sarvam or OpenAI.
     from clinic_agent.providers import llm as llm_mod, stt as stt_mod, tts as tts_mod
 
-    assert set(stt_mod.BUILDERS) == {"sarvam", "elevenlabs"}
-    assert set(tts_mod.BUILDERS) == {"sarvam", "elevenlabs"}
+    assert set(stt_mod.BUILDERS) == {"sarvam"}
+    assert set(tts_mod.BUILDERS) == {"sarvam"}
     assert set(llm_mod.BUILDERS) == {"sarvam", "openai"}
 
 
@@ -127,8 +93,6 @@ def test_only_the_allowed_vendors_are_registered():
         ("sarvam", "SARVAM_API_KEY", build_stt),
         ("sarvam", "SARVAM_API_KEY", build_tts),
         ("openai", "OPENAI_API_KEY", build_llm),
-        ("elevenlabs", "ELEVENLABS_API_KEY", build_tts),
-        ("elevenlabs", "ELEVENLABS_API_KEY", build_stt),
     ],
 )
 def test_each_vendor_requires_its_own_key(env, vendor, key, build):
@@ -139,7 +103,7 @@ def test_each_vendor_requires_its_own_key(env, vendor, key, build):
 
 @pytest.mark.parametrize(
     ("build", "available"),
-    [(build_stt, "['elevenlabs', 'sarvam']"), (build_llm, "['openai', 'sarvam']"), (build_tts, "['elevenlabs', 'sarvam']")],
+    [(build_stt, "['sarvam']"), (build_llm, "['openai', 'sarvam']"), (build_tts, "['sarvam']")],
 )
 def test_unknown_vendor_lists_available(env, build, available):
     with pytest.raises(ValueError, match=rf"unknown .* vendor 'nope'; available: {__import__('re').escape(available)}"):

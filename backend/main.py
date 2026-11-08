@@ -3,15 +3,13 @@
     uv run python main.py console   talk to it locally (no LiveKit minutes)
     uv run python main.py console --text
                                     type to it: LLM only, no STT/TTS cost
-    uv run python main.py console --language en
-                                    the caller's language: hi (default) or en
     uv run python main.py dev       join LiveKit rooms it is dispatched to (restart it after a code change)
     uv run python main.py start     production worker
 
 One worker answers for every clinic: each call's dispatch names its clinic
-and language (see clinic_agent/dispatch.py). Console has no dispatch, so it
-takes `--clinic <id>` (or uses the only clinic in the database) and
-`--language`.
+and language (see clinic_agent/dispatch.py; Hindi is the only line). Console
+has no dispatch, so it takes `--clinic <id>` (or uses the only clinic in the
+database) and answers in Hindi.
 """
 
 from __future__ import annotations
@@ -29,8 +27,8 @@ from clinic_agent.call_limit import end_after
 from clinic_agent.call_record import CallRecorder, stack_of
 from clinic_agent.config import ConfigError, load_settings
 from clinic_agent.context import clinic_now, load_clinic, local_clinic
-from clinic_agent.dispatch import AGENT_NAME, BadDispatch, CallFor, Language, call_from, language_of
-from clinic_agent.lines import LINES, NAMES, available
+from clinic_agent.dispatch import AGENT_NAME, LANGUAGES, BadDispatch, CallFor, call_from
+from clinic_agent.lines import NAMES, available, line_for
 from clinic_agent.prompts import build_instructions
 from clinic_agent.session import build_session
 from clinic_agent.store.db import sessions_for
@@ -53,8 +51,8 @@ LOCAL_CALL: CallFor | None = None
 
 def _take_flag(argv: list[str], name: str) -> str | None:
     """Remove `--name V` / `--name=V` from argv (LiveKit's CLI rejects
-    unknown flags) and return V. Both flags are console-only: dev and start
-    calls name their clinic and language in the dispatch."""
+    unknown flags) and return V. Console-only: dev and start calls name
+    their clinic in the dispatch."""
     flag = f"--{name}"
     for i, arg in enumerate(argv):
         if arg == flag or arg.startswith(f"{flag}="):
@@ -73,12 +71,10 @@ def _take_clinic_flag(argv: list[str]) -> int | None:
     return None if value is None else int(value)
 
 
-def _take_language_flag(argv: list[str]) -> Language:
-    value = _take_flag(argv, "language")
-    try:
-        return language_of("hi" if value is None else value)
-    except BadDispatch as err:
-        raise ValueError(f"--language: {err}") from None
+def _refuse_language_flag(argv: list[str]) -> None:
+    """`--language` chose English or Hindi; Hindi is the only line now."""
+    if _take_flag(argv, "language") is not None:
+        raise ValueError("--language is gone: every call is in Hindi (the only line)")
 
 
 def make_server() -> AgentServer:
@@ -110,7 +106,7 @@ async def entrypoint(ctx: JobContext) -> None:
         logger.warning("refusing call in room %s: clinic %s is paused", ctx.room.name, clinic.id)
         ctx.shutdown(reason="clinic paused")
         return
-    line = LINES[call.language]
+    line = line_for(cfg, call.language)
     try:
         session = build_session(cfg, line, text_only=TEXT_ONLY)
     except ConfigError as err:
@@ -158,18 +154,16 @@ if __name__ == "__main__":
     # its clinic, since it has no dispatch to name one.
     try:
         requested = _take_clinic_flag(sys.argv)
-        language = _take_language_flag(sys.argv)
+        _refuse_language_flag(sys.argv)
         cfg = load_settings()
         lines_off = {lang: why for lang, why in available(cfg, TEXT_ONLY).items() if why}
-        ready = [lang for lang in LINES if lang not in lines_off]
+        ready = [lang for lang in LANGUAGES if lang not in lines_off]
         if not ready:
             raise ConfigError("no language line can take calls: " + "; ".join(
                 f"{NAMES[lang]}: {why}" for lang, why in lines_off.items()))
-        if CONSOLE and language in lines_off:
-            raise ConfigError(f"the {NAMES[language]} line is off: {lines_off[language]}")
         sessions_for(cfg.database_url)
         if CONSOLE:
-            LOCAL_CALL = CallFor(local_clinic(cfg, requested), language)
+            LOCAL_CALL = CallFor(local_clinic(cfg, requested), "hi")
     except NotFound as err:
         sys.exit(f"configuration error: {err}")
     except (ConfigError, SchemaOutdated, ValueError) as err:

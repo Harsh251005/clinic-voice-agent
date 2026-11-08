@@ -1,11 +1,10 @@
 """Real provider calls. Run deliberately: `uv run pytest -m live`.
 
-Only the English line's vendors - ElevenLabs STT + OpenAI LLM + ElevenLabs
-TTS, with each builder's default model and voice - so tests never spend
-Sarvam credits, and the Hindi line (Sarvam) has no live tests. The
-conversation evals below grade the Hindi rules (most callers' line) on
-OpenAI: they check the rules and tools are followed, not Sarvam's model.
-Only the two keys come from `.env`.
+OpenAI only, as text, with the builder's default model (Harsh, 2026-11-08):
+tests never spend Sarvam credits, so Sarvam's ears, voice and brain have no
+live tests. The conversation evals below grade the Hindi rules on OpenAI
+(the Hindi line's other brain, HINDI_LLM=openai): they check the rules and
+tools are followed, not Sarvam's model. Only OPENAI_API_KEY comes from `.env`.
 
 Behaviour is graded by an LLM judge (gpt-4.1: the agent's own mini model
 failed correct replies and contradicted itself), so these are
@@ -23,17 +22,16 @@ from livekit.agents.utils import http_context
 
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.config import VENDOR_SETTINGS, load_settings
-from clinic_agent.lines import LINES
 from clinic_agent.prompts import build_instructions
 from clinic_agent.store import repo
 from clinic_agent.tools.booking import ClinicLink, booking_tools
 from clinic_agent.tools.call import end_call_tool
-from clinic_agent.providers import build_llm, build_stt, build_tts
+from clinic_agent.providers import build_llm
 
 pytestmark = pytest.mark.live
 NOW = datetime(2026, 9, 21, 15, 30)
 
-ENGLISH = LINES["en"]
+BRAIN = "openai"  # never Sarvam: see above
 JUDGE_MODEL = "gpt-4.1"
 
 
@@ -46,7 +44,7 @@ def builder_defaults(monkeypatch):
 
 
 def _judge():
-    return build_llm(dataclasses.replace(load_settings(), openai_llm_model=JUDGE_MODEL), ENGLISH.llm)
+    return build_llm(dataclasses.replace(load_settings(), openai_llm_model=JUDGE_MODEL), BRAIN)
 
 
 @pytest.fixture
@@ -60,7 +58,7 @@ def agent(db):
 
 @pytest.fixture
 async def session(agent):
-    llm = build_llm(load_settings(), ENGLISH.llm)
+    llm = build_llm(load_settings(), BRAIN)
     async with http_context.open(), AgentSession(llm=llm) as s:
         s.judge = _judge()
         await s.start(agent)
@@ -68,7 +66,7 @@ async def session(agent):
 
 
 async def test_speaks_first(agent):
-    llm = build_llm(load_settings(), ENGLISH.llm)
+    llm = build_llm(load_settings(), BRAIN)
     async with http_context.open(), AgentSession(llm=llm) as s:
         result = await s.start(agent, capture_run=True)
         await (
@@ -145,77 +143,6 @@ async def test_replies_in_callers_language(session):
         result.expect.next_event(type="message")
         .judge(session.judge, intent="replies in Hindi or Hinglish written in Devanagari script, not in Roman letters")
     )
-
-
-async def test_speech_round_trip():
-    """What the English line's TTS says, its STT must understand: proves both
-    halves of the audio path. (The Hindi line is Sarvam: never in live tests.)
-
-    Streams the audio as a call does: through the VAD adapter for a batch
-    model, straight into the stream for a streaming one.
-    """
-    cfg = load_settings()
-    async with http_context.open():
-        tts, stt = build_tts(cfg, ENGLISH.tts), build_stt(cfg, ENGLISH.stt)
-        frames = [a.frame async for a in tts.synthesize("Hello, your appointment is tomorrow at eleven in the morning.")]
-        heard = await _transcribe(stt, frames)
-        await tts.aclose()
-        await stt.aclose()
-    assert "11" in heard or "eleven" in heard.lower(), heard
-
-
-async def _transcribe(stt_, frames) -> str:
-    """Final transcript of `frames`, fed the way a call feeds the STT: in real
-    time, after a few seconds of faint room noise (the caller listening to the
-    greeting), then quiet, with the stream left open. LiveKit never ends or
-    flushes a live STT stream, so a test that does would get transcripts a
-    call never gets. Both bugs this caught passed the old instant, silent,
-    stream-ending version: manual commits, and language auto-detect locking
-    onto the wrong language during the lead-in."""
-    import asyncio
-    import random
-    import struct
-
-    from livekit import rtc
-    from livekit.agents import stt as stt_types
-
-    from clinic_agent.session import build_vad
-
-    rate = frames[0].sample_rate
-    n = rate // 100  # 10 ms frames
-    rng = random.Random(7)
-    quiet = [rtc.AudioFrame(struct.pack(f"<{n}h", *(rng.randint(-100, 100) for _ in range(n))), rate, 1, n)
-             for _ in range(50)]
-    if not stt_.capabilities.streaming:
-        # What LiveKit does in a call: the VAD cuts utterances for a batch STT.
-        # Calling a batch model's stream() directly opens the realtime
-        # websocket, which ElevenLabs refuses (1008).
-        stt_ = stt_types.StreamAdapter(stt=stt_, vad=build_vad(load_settings()))
-    stream = stt_.stream()
-
-    async def feed():
-        for i in range(800):  # 8 s lead-in, about a greeting's length
-            stream.push_frame(quiet[i % 50])
-            await asyncio.sleep(0.01)
-        for f in frames:
-            stream.push_frame(f)
-            await asyncio.sleep(f.samples_per_channel / rate)
-        for i in range(600):  # 6 s of quiet for the end of speech
-            stream.push_frame(quiet[i % 50])
-            await asyncio.sleep(0.01)
-
-    async def first_final():
-        async for ev in stream:
-            if ev.type == stt_types.SpeechEventType.FINAL_TRANSCRIPT and ev.alternatives[0].text.strip():
-                return ev.alternatives[0].text
-        return ""
-
-    feeder = asyncio.create_task(feed())
-    try:
-        return await asyncio.wait_for(first_final(), timeout=30)
-    finally:
-        feeder.cancel()
-        await stream.aclose()
 
 
 # ---------- booking conversation (tools mocked) ----------

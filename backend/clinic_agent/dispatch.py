@@ -16,9 +16,10 @@ from typing import Literal, get_args
 # rooms it is dispatched to, never every room in the project.
 AGENT_NAME = "clinic-receptionist"
 
-# The caller picks one before the call starts. Each is answered by its own
-# speech pipeline, so a call is never in a language it wasn't set up for.
-Language = Literal["en", "hi"]
+# The language a call is answered in, by its own speech pipeline
+# (clinic_agent/lines.py). Hindi is the only one (Harsh, 2026-11-08); the
+# field stays in the dispatch so a second line later is one more entry.
+Language = Literal["hi"]
 LANGUAGES: tuple[Language, ...] = get_args(Language)
 
 

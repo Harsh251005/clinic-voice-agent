@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from livekit.agents import stt
-from livekit.plugins import elevenlabs, sarvam
+from livekit.plugins import sarvam
 
 from clinic_agent.config import Settings, require_key
 
@@ -29,47 +29,14 @@ def _sarvam(cfg: Settings) -> stt.STT:
     )
 
 
-def _elevenlabs(cfg: Settings) -> stt.STT:
-    # scribe_v2 (and scribe_v2_medical) are batch models: LiveKit wraps them
-    # in a StreamAdapter that uses the session's VAD to cut each utterance
-    # and sends it over HTTP, so a batch STT needs the VAD in session.py.
-    # Checked on that path (2026-09-25, one line each): all three models
-    # transcribe; batch finished ~0.9-1.1 s after speech, scribe_v2_realtime
-    # (websocket, waits for ElevenLabs' own silence commit) ~3.1 s.
-    # Only the realtime model can be driven by calling stream() directly;
-    # the others get 1008 there, which is why tests must go through the
-    # adapter the way a call does.
-    #
-    # ElevenLabs answers the English line only, so the language is pinned to
-    # English. Never auto-detect: on a live call the stream starts with the
-    # greeting's silence, detection settled on the wrong language (Cyrillic,
-    # Chinese) and the commit came back empty, so the agent never heard the
-    # caller (seen 2026-09-25 with "unknown").
-    model = cfg.elevenlabs_stt_model or "scribe_v2"
-    # Realtime only: server_vad switches ElevenLabs from manual commits to
-    # committing on silence. Without it, a transcript is only finalised when
-    # the stream is flushed, which LiveKit never does on a live call: the
-    # agent greeted and then never heard a word. Empty = ElevenLabs' own VAD
-    # defaults. Batch models reject the option (the plugin warns).
-    options = {"server_vad": {}} if model == "scribe_v2_realtime" else {}
-    return elevenlabs.STT(
-        model=model,
-        **options,
-        language_code="en",
-        sample_rate=cfg.stt_sample_rate,
-        api_key=require_key(cfg.elevenlabs_api_key, "ELEVENLABS_API_KEY"),
-    )
-
-
-# Allowed vendors are Sarvam (the Hindi line) and ElevenLabs (the English line). Don't add others.
+# Sarvam is the only allowed STT vendor (the Hindi line). Don't add others.
 BUILDERS: dict[str, Callable[[Settings], stt.STT]] = {
     "sarvam": _sarvam,
-    "elevenlabs": _elevenlabs,
 }
 
 
 def build_stt(cfg: Settings, vendor: str) -> stt.STT:
-    """`vendor`'s STT, as a call's language line names it (clinic_agent/lines.py)."""
+    """`vendor`'s STT, as the Hindi line names it (clinic_agent/lines.py)."""
     try:
         builder = BUILDERS[vendor]
     except KeyError:

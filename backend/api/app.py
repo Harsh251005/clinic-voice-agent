@@ -55,7 +55,7 @@ NOT_FOUND = _page("not_found.html")
 PAUSED = _page("paused.html")
 
 # Each language as its own speakers write it, on the call page's switch.
-LANGUAGE_LABELS: dict[Language, str] = {"en": "English", "hi": "हिन्दी"}
+LANGUAGE_LABELS: dict[Language, str] = {"hi": "हिन्दी"}
 
 # A patient rarely needs more than a couple of tries; a clinic rarely gets
 # more than this many browser calls an hour at pilot scale. Tune with real use.

@@ -1,10 +1,10 @@
 import pytest
 
 from clinic_agent.config import load_settings
-from clinic_agent.lines import LINES
+from clinic_agent.lines import Line, line_for
 from clinic_agent.session import build_session
 
-HINDI = LINES["hi"]  # the env fixture sets only a Sarvam key
+HINDI = Line("hi", stt="sarvam", llm="sarvam", tts="sarvam")  # the env fixture sets only a Sarvam key
 
 
 async def test_turn_detection_trusts_stt(env):
@@ -32,14 +32,15 @@ async def test_vad_waits_out_a_comma_pause(env):
     assert build_session(load_settings(), HINDI).vad._opts.min_silence_duration == 0.7
 
 
-@pytest.mark.parametrize(("language", "vendors"), [
-    ("en", ["elevenlabs", "openai", "elevenlabs"]),
-    ("hi", ["sarvam", "sarvam", "sarvam"]),
+@pytest.mark.parametrize(("brain", "vendors"), [
+    ("sarvam", ["sarvam", "sarvam", "sarvam"]),
+    ("openai", ["sarvam", "openai", "sarvam"]),
 ])
-async def test_each_language_gets_its_own_vendors(env, language, vendors):
+async def test_the_hindi_line_is_sarvam_with_the_brain_hindi_llm_names(env, brain, vendors):
     env.setenv("OPENAI_API_KEY", "sk-test")
-    env.setenv("ELEVENLABS_API_KEY", "el-test")
-    session = build_session(load_settings(), LINES[language])
+    env.setenv("HINDI_LLM", brain)
+    cfg = load_settings()
+    session = build_session(cfg, line_for(cfg, "hi"))
     # livekit.plugins.<vendor>...: which vendor's plugin built each part
     built = [type(p).__module__.split(".")[2] for p in (session.stt, session.llm, session.tts)]
     assert built == vendors
@@ -48,6 +49,8 @@ async def test_each_language_gets_its_own_vendors(env, language, vendors):
 async def test_text_only_session_builds_no_speech_providers(env):
     env.setenv("OPENAI_API_KEY", "sk-test")
     env.delenv("SARVAM_API_KEY")  # not needed: no STT or TTS is built
-    session = build_session(load_settings(), LINES["en"], text_only=True)
+    env.setenv("HINDI_LLM", "openai")
+    cfg = load_settings()
+    session = build_session(cfg, line_for(cfg, "hi"), text_only=True)
     assert session.stt is None and session.tts is None and session.vad is None
     assert session.options.turn_handling["turn_detection"] == "manual"

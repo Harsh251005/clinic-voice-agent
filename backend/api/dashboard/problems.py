@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Request
 from api.dashboard import convert, schemas
 from api.dashboard.access import Viewer, admin, open_clinic, staff_errors
 from clinic_agent import costs, incidents
-from clinic_agent.lines import LINES, NAMES
+from clinic_agent.lines import NAMES
 from clinic_agent.store import repo
 from clinic_agent.store.models import utc_now
 
@@ -79,10 +79,8 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
             return (f"Receptionist offline: no worker connected to LiveKit ({since}).",
                     "Start or restart the worker: uv run python main.py start", None)
         case "language_off":
-            line = LINES.get(inc.subject)
             name = NAMES.get(inc.subject, inc.subject)
-            vendors = " + ".join(dict.fromkeys((line.stt, line.llm, line.tts))) if line else "its vendors"
-            return (f"The {name} line is off: the worker started without a key for {vendors}. Callers aren't offered {name}.",
+            return (f"The {name} line is off: the worker started without a key it needs. Callers aren't offered {name}.",
                     "Set the missing API key in backend/.env and restart the worker; its log names the key.", None)
         case "vendor_errors":
             return (f"{inc.subject} is failing: {inc.detail}.",

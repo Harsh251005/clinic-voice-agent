@@ -11,11 +11,13 @@ from livekit.agents.metrics import LLMModelUsage, STTModelUsage, TTSModelUsage
 from clinic_agent import costs, incidents
 from clinic_agent.call_record import CallRecorder
 from clinic_agent.config import load_settings
-from clinic_agent.lines import LINES
+from clinic_agent.lines import Line
 from clinic_agent.store import repo
 from clinic_agent.store.db import sessions_for
 from clinic_agent.store.models import Usage, utc_now
 from tests.test_dashboard_api import client_as, world  # noqa: F401 - the fixture
+
+HINDI = Line("hi", stt="sarvam", llm="sarvam", tts="sarvam")
 
 ADMIN = "harsh@example.com"
 DAY = datetime(2026, 10, 12, 9)
@@ -89,7 +91,7 @@ def _session(model_usage):
 
 
 def test_a_call_records_each_vendors_exact_usage_and_its_minutes():
-    record = CallRecorder(None, 1, "room-1", "stack", "hi", line=LINES["hi"])
+    record = CallRecorder(None, 1, "room-1", "stack", "hi", line=HINDI)
     record.session = _session([
         LLMModelUsage(provider="Sarvam", model="", input_tokens=5000, input_cached_tokens=3000, output_tokens=400),
         STTModelUsage(provider="Sarvam", model="saaras:v3", audio_duration=42.5),
@@ -108,7 +110,7 @@ def test_a_call_records_each_vendors_exact_usage_and_its_minutes():
 
 
 def test_the_console_spends_no_livekit_minutes_and_a_broken_count_loses_only_itself():
-    record = CallRecorder(None, 1, repo.CONSOLE_ROOM, "stack", "en", line=LINES["en"])
+    record = CallRecorder(None, 1, repo.CONSOLE_ROOM, "stack", "hi", line=Line("hi", stt="sarvam", llm="openai", tts="sarvam"))
     record.session = SimpleNamespace(usage=None)  # reading it fails
     assert record.usage(record.started_at + timedelta(minutes=2)) == []
 

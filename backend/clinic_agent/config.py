@@ -18,20 +18,21 @@ class ConfigError(RuntimeError):
 
 @dataclass(frozen=True)
 class Settings:
-    # --- credentials: a missing one leaves its language line unavailable
-    # (clinic_agent/lines.py) rather than stopping the worker ---
+    # --- credentials: a missing one leaves the Hindi line unavailable
+    # (clinic_agent/lines.py) rather than stopping the worker with a traceback ---
     sarvam_api_key: str
     openai_api_key: str
-    elevenlabs_api_key: str
 
-    # --- per-vendor settings. Which vendors a call uses is its language line
-    # (clinic_agent/lines.py), never a setting. None = the builder's default ---
-    stt_sample_rate: int  # the audio fed to whichever STT runs
+    # --- the Hindi line's brain: "sarvam" (the default) or "openai", to
+    # compare the two (Harsh, 2026-11-08). Ears and voice are always Sarvam ---
+    hindi_llm: str
+
+    # --- per-vendor settings. None = the builder's default ---
+    stt_sample_rate: int  # the audio fed to the STT
 
     sarvam_stt_model: str | None
     sarvam_stt_language: str | None
     sarvam_stt_mode: str
-    elevenlabs_stt_model: str | None
 
     sarvam_llm_model: str | None
     openai_llm_model: str | None
@@ -41,10 +42,6 @@ class Settings:
     sarvam_tts_language: str | None
     sarvam_tts_sample_rate: int | None
     sarvam_tts_codec: str | None
-    elevenlabs_tts_model: str | None
-    elevenlabs_tts_voice: str | None
-    elevenlabs_tts_language: str | None
-    elevenlabs_tts_codec: str | None
 
     # --- turn taking ---
     min_endpointing_delay: float
@@ -82,7 +79,7 @@ class Settings:
 
 def require_key(value: str, name: str) -> str:
     """Called by a provider builder for the key it needs. Missing, it makes
-    that builder's language line unavailable (lines.why_unavailable)."""
+    the Hindi line unavailable (lines.why_unavailable)."""
     if not value:
         raise ConfigError(
             f"{name} is not set. Copy .env.example to .env and fill it in."
@@ -115,37 +112,36 @@ def _choice(name: str, allowed: tuple[str, ...]) -> str:
 # Each vendor's own model and voice settings, read in load_settings().
 VENDOR_SETTINGS = (
     "SARVAM_STT_MODEL", "SARVAM_STT_LANGUAGE", "SARVAM_STT_MODE",
-    "ELEVENLABS_STT_MODEL",
     "SARVAM_LLM_MODEL", "OPENAI_LLM_MODEL",
     "SARVAM_TTS_MODEL", "SARVAM_TTS_SPEAKER", "SARVAM_TTS_LANGUAGE",
     "SARVAM_TTS_SAMPLE_RATE", "SARVAM_TTS_CODEC",
-    "ELEVENLABS_TTS_MODEL", "ELEVENLABS_TTS_VOICE", "ELEVENLABS_TTS_LANGUAGE",
-    "ELEVENLABS_TTS_CODEC",
 )
 
 # Settings that used to be shared by every vendor. Each vendor now has its
 # own, so an old .env would be silently ignored: refuse it instead.
 _SPLIT_PER_VENDOR = {
-    "STT_MODEL": "SARVAM_STT_MODEL / ELEVENLABS_STT_MODEL",
-    "STT_LANGUAGE": "SARVAM_STT_LANGUAGE / ELEVENLABS_STT_LANGUAGE",
+    "STT_MODEL": "SARVAM_STT_MODEL",
+    "STT_LANGUAGE": "SARVAM_STT_LANGUAGE",
     "STT_MODE": "SARVAM_STT_MODE",
     "LLM_MODEL": "SARVAM_LLM_MODEL / OPENAI_LLM_MODEL",
-    "TTS_MODEL": "SARVAM_TTS_MODEL / ELEVENLABS_TTS_MODEL",
-    "TTS_SPEAKER": "SARVAM_TTS_SPEAKER / ELEVENLABS_TTS_VOICE",
-    "TTS_LANGUAGE": "SARVAM_TTS_LANGUAGE / ELEVENLABS_TTS_LANGUAGE",
+    "TTS_MODEL": "SARVAM_TTS_MODEL",
+    "TTS_SPEAKER": "SARVAM_TTS_SPEAKER",
+    "TTS_LANGUAGE": "SARVAM_TTS_LANGUAGE",
     "TTS_SAMPLE_RATE": "SARVAM_TTS_SAMPLE_RATE",
-    "TTS_CODEC": "SARVAM_TTS_CODEC / ELEVENLABS_TTS_CODEC",
+    "TTS_CODEC": "SARVAM_TTS_CODEC",
 }
 
 
-# Settings that chose the vendors. The caller's language does that now
-# (clinic_agent/lines.py), so a value left in .env would be silently ignored.
-_LINE_PICKS = "the call's language picks the vendors (English: ElevenLabs + OpenAI; Hindi: Sarvam)"
+# Settings that no longer do anything, so a value left in .env would be
+# silently ignored: refuse it instead.
+_LINE_PICKS = "calls run on the Hindi line: Sarvam ears and voice, its brain set by HINDI_LLM"
+_GONE = "the English line and its vendor were removed on 2026-11-08"
 RETIRED = {
     "STT_PROVIDER": _LINE_PICKS,
     "LLM_PROVIDER": _LINE_PICKS,
     "TTS_PROVIDER": _LINE_PICKS,
-    "ELEVENLABS_STT_LANGUAGE": "ElevenLabs answers the English line, so it always listens for English",
+    **{f"ELEVENLABS_{name}": _GONE for name in (
+        "API_KEY", "STT_MODEL", "STT_LANGUAGE", "TTS_MODEL", "TTS_VOICE", "TTS_LANGUAGE", "TTS_CODEC")},
 }
 
 
@@ -169,10 +165,9 @@ def load_settings() -> Settings:
 
     Each vendor has its own model and voice settings. Left blank they stay
     None, and that vendor's builder fills in its own default. API keys are
-    checked by the builder that needs them; main.py tries every language line
-    at startup, so a missing key makes its line unavailable (flagged on the
-    dashboards, not offered on the call page) instead of a caller hearing
-    silence.
+    checked by the builder that needs them; main.py tries the Hindi line at
+    startup, so a missing key is a one-line error (and, for the API, a line
+    flagged off on the dashboards) instead of a caller hearing silence.
     """
     load_dotenv()
     _refuse_old_settings()
@@ -181,12 +176,11 @@ def load_settings() -> Settings:
     return Settings(
         sarvam_api_key=_text("SARVAM_API_KEY", ""),
         openai_api_key=_text("OPENAI_API_KEY", ""),
-        elevenlabs_api_key=_text("ELEVENLABS_API_KEY", ""),
+        hindi_llm=_choice("HINDI_LLM", ("sarvam", "openai")),
         stt_sample_rate=int(_number("STT_SAMPLE_RATE", 16000)),
         sarvam_stt_model=_text("SARVAM_STT_MODEL"),
         sarvam_stt_language=_text("SARVAM_STT_LANGUAGE"),
         sarvam_stt_mode=_text("SARVAM_STT_MODE", "transcribe"),
-        elevenlabs_stt_model=_text("ELEVENLABS_STT_MODEL"),
         sarvam_llm_model=_text("SARVAM_LLM_MODEL"),
         openai_llm_model=_text("OPENAI_LLM_MODEL"),
         sarvam_tts_model=_text("SARVAM_TTS_MODEL"),
@@ -194,10 +188,6 @@ def load_settings() -> Settings:
         sarvam_tts_language=_text("SARVAM_TTS_LANGUAGE"),
         sarvam_tts_sample_rate=int(tts_rate) if tts_rate is not None else None,
         sarvam_tts_codec=_text("SARVAM_TTS_CODEC"),
-        elevenlabs_tts_model=_text("ELEVENLABS_TTS_MODEL"),
-        elevenlabs_tts_voice=_text("ELEVENLABS_TTS_VOICE"),
-        elevenlabs_tts_language=_text("ELEVENLABS_TTS_LANGUAGE"),
-        elevenlabs_tts_codec=_text("ELEVENLABS_TTS_CODEC"),
         min_endpointing_delay=_number("MIN_ENDPOINTING_DELAY", 0.2),
         interrupt_min_speech=_number("INTERRUPT_MIN_SPEECH", 0.3),
         vad_min_silence=_number("VAD_MIN_SILENCE", 0.6),
