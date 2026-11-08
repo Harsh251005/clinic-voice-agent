@@ -67,6 +67,27 @@ export function useCostRow<K extends CostKind>(kind: K) {
   return { save, remove };
 }
 
+/** A language model's three token prices, saved or removed as one (the API
+ *  does each in a single step, so a model is never left half-priced). */
+export function useModelPrices() {
+  const qc = useQueryClient();
+  const done = (message: string) => {
+    toast.success(message);
+    qc.invalidateQueries({ queryKey: ["admin"] });
+  };
+  const save = useMutation({
+    mutationFn: (body: Schemas["ModelPricesIn"]) => unwrap(api.POST("/api/admin/cost-settings/model-prices", { body })),
+    onSuccess: (_d, body) => done(body.replace?.length ? "Saved." : "Added."),
+    onError: (e) => toast.error(e.message),
+  });
+  const remove = useMutation({
+    mutationFn: (ids: number[]) => unwrap(api.DELETE("/api/admin/cost-settings/model-prices", { params: { query: { ids } } })),
+    onSuccess: () => done("Removed."),
+    onError: (e) => toast.error(e.message),
+  });
+  return { save, remove };
+}
+
 // ---------- words ----------
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -101,6 +122,10 @@ export function perText(per: number, unit: string, units: Record<string, string>
 export const VENDORS: Record<string, string> = {
   sarvam: "Sarvam", elevenlabs: "ElevenLabs", openai: "OpenAI", livekit: "LiveKit",
 };
+
+/** Vendors the Prices page lists and offers (Harsh, 2026-11-08: Hindi first,
+ *  ElevenLabs out). Its old prices stay saved, so past calls keep their cost. */
+export const PRICED_VENDORS: Record<string, string> = { sarvam: "Sarvam", openai: "OpenAI", livekit: "LiveKit" };
 
 export const PARTS: Record<string, string> = {
   listening: "Listening",

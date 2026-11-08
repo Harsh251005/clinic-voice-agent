@@ -623,6 +623,21 @@ class PriceRow(PriceIn):
     id: int
 
 
+class ModelPricesIn(BaseModel):
+    """A language model's three token prices, per million tokens, saved as one.
+    `replace`: the price rows this takes the place of (a correction); empty
+    adds them (a new price from a date)."""
+    provider: Provider
+    model: str = Field(default="", max_length=100)
+    currency: Currency
+    valid_from: date
+    note: str = Field(default="", max_length=300)
+    tokens_in: float = Field(ge=0)
+    tokens_cached: float = Field(ge=0)
+    tokens_out: float = Field(ge=0)
+    replace: list[int] = Field(default_factory=list, max_length=10)
+
+
 class RateIn(BaseModel):
     valid_from: date
     inr_per_usd: float = Field(gt=0)

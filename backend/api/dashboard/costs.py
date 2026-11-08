@@ -13,7 +13,9 @@ counts, never words.
 from collections import defaultdict
 from datetime import date
 
-from fastapi import APIRouter, Depends, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
 from api.dashboard import convert, schemas
@@ -215,3 +217,26 @@ def _routes(kind: str, body_type: type[BaseModel], row_type: type[BaseModel]) ->
 
 for _kind, (_body, _out) in ROWS.items():
     _routes(_kind, _body, _out)
+
+
+# ---------- a language model's token prices, as one ----------
+
+PER_MILLION = 1_000_000
+
+
+@router.post("/cost-settings/model-prices", response_model=list[schemas.PriceRow])
+def save_model_prices(body: schemas.ModelPricesIn, request: Request):
+    """Input, cached and output prices of one model, saved (or corrected) together."""
+    common = {"provider": body.provider, "model": body.model.strip(), "currency": body.currency,
+              "valid_from": body.valid_from, "note": body.note, "per": PER_MILLION}
+    add = [common | {"unit": unit, "amount": getattr(body, unit)} for unit in repo.TOKEN_UNITS]
+    with staff_errors(), request.app.state.sessions() as s:
+        return [_row("prices", r) for r in repo.replace_model_prices(s, body.replace, add)]
+
+
+@router.delete("/cost-settings/model-prices")
+def remove_model_prices(request: Request, ids: Annotated[list[int], Query(max_length=10)]) -> dict:
+    """Remove one model's token prices together."""
+    with staff_errors(), request.app.state.sessions() as s:
+        repo.replace_model_prices(s, ids, [])
+    return {"ok": True}
