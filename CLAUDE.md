@@ -6,20 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Hindi/Hinglish voice receptionist for Indian clinics. All code lives in
 `backend/`: a LiveKit Agents worker. **Allowed vendors only:** STT and TTS
-are `sarvam` or `elevenlabs`, the LLM `sarvam` or `openai` — never add others
-(`test_only_the_allowed_vendors_are_registered` enforces it). **Two language
-lines** (Harsh, 2026-10-12; `clinic_agent/lines.py`): the caller picks
-English or Hindi on the call page before the call and keeps it to the end
-(no mid-call switch: it would change the voice). **English** = ElevenLabs STT
-+ OpenAI + ElevenLabs TTS, English only; **Hindi** = Sarvam × 3, Hindi only.
-Neither is "testing" or "production": both are real. A line whose key is
-missing is off, not fatal (worker warns, check-in leaves it out, call page
-hides it, `language_off` problem on both dashboards). The `*_PROVIDER` lines
-are gone and refused at startup. Every vendor keeps its own model/voice
-settings (`SARVAM_TTS_SPEAKER`, `ELEVENLABS_TTS_VOICE`, …). Live tests use
-only the English line's vendors (never Sarvam).
+are `sarvam`, the LLM `sarvam` or `openai` — never add others
+(`test_only_the_allowed_vendors_are_registered` enforces it). **One language
+line, Hindi** (Harsh, 2026-11-08: Hindi first, reliable and production-ready
+before anything else; `clinic_agent/lines.py`): Sarvam STT + TTS, and the
+LLM set by `HINDI_LLM` (`sarvam` default, `openai` to compare). The English
+line and its vendor were removed; leftover `ELEVENLABS_*` and `*_PROVIDER`
+lines in `.env` are refused at startup, never silently ignored. The dispatch
+still names the language (always `hi`) so a second line later is one entry.
+A missing key stops the worker with a one-line error. Every vendor keeps its
+own model/voice settings (`SARVAM_TTS_SPEAKER`, `OPENAI_LLM_MODEL`, …). Live
+tests use OpenAI only, as text (never Sarvam).
 
-Current state (2026-10-12): Stages 2, 3 and 5 built, Stage 4 in progress; language lines + call-page switch built (plan `per-clinic-agent-and-language-lines.md`).
+Current state (2026-11-08): Stages 2, 3 and 5 built, Stage 4 in progress; one Hindi line (the English line and ElevenLabs removed, their data deleted by migration 0013; `docs/decisions.md` #13).
 Built: clinic database (Postgres + Alembic), free-slot rules, booking +
 cancel/reschedule tools with code-enforced confirmation, end-call tool,
 `console --text`, one worker for all clinics (dispatch), browser call links
@@ -49,7 +48,6 @@ uv run python -m clinic_agent.store.migrations  # schema up to date (after every
 uv run python main.py console    # talk over the local mic — spends no LiveKit minutes
 uv run python main.py console --text  # typed, LLM-only: no STT/TTS built or billed
 uv run python main.py console --clinic 2  # pick a clinic when there are several
-uv run python main.py console --language en  # caller's language: hi (default) or en
 uv run python main.py dev        # join rooms it is dispatched to (LiveKit 1.8 dropped reload: restart after edits)
 uv run python main.py start      # production worker
 uv run python -m api             # call-link server: /call/<slug> page + join passes
@@ -62,12 +60,12 @@ every push. Keep it green; it calls no vendor.
 
 Prefer `console` for testing. `dev`/`start` need the three `LIVEKIT_*` values
 and spend from LiveKit Cloud's free tier (1,000 agent-session minutes/month).
-All modes spend credits on the selected providers (ElevenLabs has a free
-monthly quota; Sarvam and OpenAI are paid per use).
+All voice modes spend Sarvam credits (paid per use); OpenAI is paid per use
+too.
 
 ```bash
 uv run pytest                    # offline tests: config, providers, session, boot
-uv run pytest -m live            # OpenAI + ElevenLabs for real (never Sarvam); spends credits
+uv run pytest -m live            # OpenAI for real, as text (never Sarvam); spends credits
 ```
 
 No linter or formatter is configured.
@@ -80,20 +78,20 @@ The pipeline is split so each concern lives in exactly one module:
   (a `ConfigError`, unknown provider, missing key, old schema or, in console,
   a missing clinic exits with a one-line message, not a traceback). **One
   worker serves every clinic:** it registers as `dispatch.AGENT_NAME`
-  (explicit dispatch) and each job reads its clinic **and language** (`en` |
+  (explicit dispatch) and each job reads its clinic **and language** (only
   `hi`) from the dispatch metadata (`dispatch.call_from`); no clinic, an
   unknown one or no known language → job refused, never guessed. Console has
-  no dispatch: `--clinic N` (or the only clinic) and `--language en|hi`
-  (default `hi`), both console-only and stripped from argv before LiveKit's CLI. Each job loads
+  no dispatch: `--clinic N` (or the only clinic), console-only and stripped
+  from argv before LiveKit's CLI; the old `--language` is refused. Each job loads
   the clinic (`context.load_clinic`, off the event loop), builds instructions,
   builds a session and starts `ClinicAgent` in the room, then starts
   `call_limit.end_after` (`MAX_CALL_MINUTES`), cancelled on job shutdown.
   The prompt's opening rule makes the agent say it is an automated assistant.
 - `api/` — FastAPI call-link server (browser calls until telephony).
-  `/call/<slug>` page; `POST /call/<slug>/pass` (body `{"language": "en"|"hi"}`,
-  required: 400 otherwise, never a default) signs a LiveKit token for a
+  `/call/<slug>` page (no language choice: every call is Hindi); `POST
+  /call/<slug>/pass` (no body; an old tab's is ignored) signs a LiveKit token for a
   fresh room whose `RoomConfiguration` dispatches `AGENT_NAME` with
-  `dispatch.metadata_for(clinic_id, language)`: mic-only, 2 participants, 5-min TTL.
+  `dispatch.metadata_for(clinic_id, "hi")`: mic-only, 2 participants, 5-min TTL.
   In-memory rate limits (per IP, per clinic); `CLIENT_IP_HEADER` names the
   trusted proxy header (last entry used). Strict CSP; livekit-client pinned
   with SRI. Reads data only via `repo`; fails fast on missing LiveKit
@@ -118,8 +116,9 @@ The pipeline is split so each concern lives in exactly one module:
 - `clinic_agent/config.py` — the **only** place that reads `os.environ`.
   Frozen `Settings` dataclass; a new setting means a field, a line in
   `load_settings()`, and an entry in `.env.example`.
-- `clinic_agent/lines.py` — the two language lines (which vendor per part
-  for `en` / `hi`) and `available(cfg)`: which lines have their keys.
+- `clinic_agent/lines.py` — the Hindi line (`line_for(cfg, language)`:
+  which vendor per part, the LLM from `HINDI_LLM`) and `available(cfg)`:
+  whether it has its keys.
 - `clinic_agent/session.py` — the **only** place STT + LLM + TTS are combined
   into an `AgentSession`, from the call's line. `text_only=True` (from `console --text`, detected in
   `main.py` as `TEXT_ONLY`) builds an LLM-only session with manual turns; boot
@@ -203,9 +202,10 @@ The pipeline is split so each concern lives in exactly one module:
   mapping a name to a builder returning LiveKit's base `STT`/`LLM`/`TTS` class.
   Builders own their vendor's defaults (model/voice settings are `None` in
   `Settings` when blank) and call `require_key(...)` for their own API key.
-  `build_x(cfg, vendor)`. `main.py` tries both lines at boot: a missing key
-  turns its line off (warning + `language_off` problem); with neither line
-  it exits with a one-line error.
+  `build_x(cfg, vendor)`. `main.py` tries the line at boot: a missing key
+  exits with a one-line error (the check still loops over `LANGUAGES`, so a
+  second line would only switch itself off). No worker checked in for the
+  line = a critical `language_off` problem.
 
 **Invariant: only `providers/` imports a vendor package.** Everything else
 works against LiveKit's base classes. Adding a vendor = a builder in the
@@ -220,36 +220,30 @@ with `Session` / `Sessions` from `store/db.py`.
 - **Turn detection is `"stt"`**, set explicitly in `session.py` (omitting it
   falls back to LiveKit's own turn-detector model).
 - **Local Silero VAD, interruption mode `"vad"`** (Harsh, 2026-09-25), set
-  explicitly in `session.py`. The VAD handles barge-in, and for a batch STT
-  (ElevenLabs `scribe_v2`, the default) it also cuts each utterance; a
-  streaming STT (Sarvam) ends turns itself. The explicit mode keeps `console`/`dev` from using LiveKit Cloud's
+  explicitly in `session.py`. The VAD handles barge-in; Sarvam's streaming
+  STT ends turns itself. The explicit mode keeps `console`/`dev` from using LiveKit Cloud's
   adaptive model, so local tests match `start`. `INTERRUPT_MIN_SPEECH` tunes it.
 - **Keep `backend/README.md` current** with every behaviour, command or setup
   change, in the same commit.
-- **Raw PCM TTS output** (`linear16` for Sarvam, `pcm_24000` for ElevenLabs).
-  Both plugins default to mp3; PCM avoids a decode per chunk.
+- **Raw PCM TTS output** (`linear16`). The plugin defaults to mp3; PCM
+  avoids a decode per chunk.
 - **`SARVAM_TTS_SPEAKER` must be a `bulbul:v3` voice** (default `suhani`); the
-  plugin rejects v2 names such as `anushka`. ElevenLabs' is `ELEVENLABS_TTS_VOICE`, a voice ID.
+  plugin rejects v2 names such as `anushka`.
 - **OpenAI default is `gpt-4.1-mini`** (Harsh, 2026-10-13: fastest capable
   model, ~1.0 s first token vs `gpt-6-luna` 1.6 s). For any reasoning model
   set in `OPENAI_LLM_MODEL`, the builder forces `reasoning_effort="none"` for gpt-5-or-later and `o*` models:
   Chat Completions rejects tools otherwise (400 every turn), the plugin only
   sets it for model names it knows, and no reasoning step keeps replies fast.
-- **`SARVAM_STT_LANGUAGE=unknown`** auto-detects per utterance (the Hindi
-  line hears the English words callers mix in). ElevenLabs (the English
-  line) is pinned to `en`: its auto-detect breaks live calls.
-  Its default `scribe_v2` is batch (VAD-cut utterances over HTTP); only
-  `scribe_v2_realtime` streams, and it must keep `server_vad={}` (manual
-  commits never fire on a call). Test STT the way a call feeds it: real
-  time, lead-in noise, stream open, and a batch model through LiveKit's
-  `StreamAdapter` (its bare `stream()` hits the realtime websocket: 1008).
-- **Instructions are one set per line** (`prompts.RULES["en" | "hi"]`, same
-  core rules). The fillers and fallback goodbye follow the call's line, not
-  the caller's last words.
+- **`SARVAM_STT_LANGUAGE=unknown`** auto-detects per utterance (the line
+  hears the English words callers mix in). Test STT the way a call feeds
+  it: real time, lead-in noise, stream open, and a batch model through
+  LiveKit's `StreamAdapter`.
+- **Instructions are one set per line** (`prompts.RULES["hi"]`). The fillers
+  and fallback goodbye follow the call's line, not the caller's last words.
+  A caller asking for English is told kindly the receptionist speaks Hindi
+  only: never promise an English line.
 - **Hindi replies are written in Devanagari** (prompt rule). The TTS pronounces
   by script; romanised Hindi ("aap kaise hain") is read with English spelling
   rules. Don't switch the prompt or `SARVAM_STT_MODE` to romanised output.
-- **ElevenLabs default model is `eleven_v3_conversational`**, chosen for realism
-  over latency.
 - `SARVAM_LLM_MODEL` defaults to `sarvam-105b-conversations`; fall back to
   `sarvam-105b` if the plan lacks it.

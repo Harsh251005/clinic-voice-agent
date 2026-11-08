@@ -143,3 +143,77 @@ def test_foreign_keys_are_back_on_after_an_upgrade(tmp_path):
     for _ in range(3):
         with engine.connect() as conn:
             assert conn.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
+
+
+def test_elevenlabs_and_the_english_line_leave_no_trace(tmp_path):
+    # 0013 (Harsh, 2026-11-08): Hindi only. Calls that ran on ElevenLabs go,
+    # with everything tied to them; Hindi calls and their costs stay.
+    from datetime import date
+
+    from alembic import command
+    from sqlalchemy import func, select
+
+    from clinic_agent.store import models as m
+
+    engine = make_engine(f"sqlite:///{tmp_path}/old.db")
+    with engine.begin() as conn:
+        command.upgrade(migrations._config(conn), "0012")  # 0013 changes no schema: today's models fit
+    now = utc_now()
+    with session_factory(engine)() as s:
+        clinic = m.Clinic(name="Cure", slug="cure")
+        s.add(clinic)
+        s.flush()
+        doctor = m.Doctor(clinic_id=clinic.id, name="Dr. A")
+        patient = m.Patient(clinic_id=clinic.id, name="Harsh", phone="9876503112")
+        s.add_all([doctor, patient])
+        s.flush()
+
+        def appt(hour):
+            a = m.Appointment(clinic_id=clinic.id, doctor_id=doctor.id, patient_id=patient.id,
+                              starts_at=datetime(2026, 10, 13, hour), ends_at=datetime(2026, 10, 13, hour, 30))
+            s.add(a)
+            s.flush()
+            return a.id
+
+        english_booked, moved_later, hindi_booked = appt(10), appt(11), appt(12)
+
+        def call(language, stack, booked=()):
+            c = m.Call(clinic_id=clinic.id, room="r", started_at=now, language=language, stack=stack,
+                       appointments=[{"id": i, "action": a} for i, a in booked])
+            s.add(c)
+            s.flush()
+            s.add_all([m.CallEvent(call_id=c.id, t_ms=0, kind="error", name=stack.split(" ")[0], ok=False),
+                       m.CallTranscript(call_id=c.id, items=[], purge_after=now)])
+            s.add(m.Usage(at=now, clinic_id=clinic.id, call_id=c.id, language=language, source="call",
+                          part="thinking", provider="openai", model="gpt-4.1-mini", unit="tokens_in", quantity=1))
+            return c.id
+
+        call("en", "elevenlabs/scribe_v2_medical · openai/gpt-4.1-mini",
+             [(english_booked, "booked"), (moved_later, "booked")])
+        call("", "elevenlabs/scribe_v2 · openai/gpt-6-luna")  # before calls had a language
+        hindi = call("hi", "sarvam/saaras:v3 · sarvam/sarvam-105b · sarvam/bulbul:v3",
+                     [(moved_later, "moved"), (hindi_booked, "booked")])
+        s.add_all([
+            m.Usage(at=now, language="en", source="call", part="speaking", provider="elevenlabs",
+                    model="eleven_v3", unit="characters", quantity=9),  # its call already deleted
+            m.FixedCost(name="Starter", provider="elevenlabs", amount=5, currency="USD", valid_from=date(2026, 10, 1)),
+            m.Incident(key="a", kind="vendor_errors", subject="ElevenLabs/eleven_v3", severity="warning",
+                       opened_at=now, last_seen_at=now),
+            m.Incident(key="b", kind="language_off", subject="en", severity="warning", opened_at=now, last_seen_at=now),
+            m.Incident(key="c", kind="language_off", subject="hi", severity="critical", opened_at=now, last_seen_at=now),
+            m.WorkerHeartbeat(worker="AW_1", host="h", languages="en,hi", started_at=now, last_seen=now),
+        ])
+        s.commit()
+
+    migrations.upgrade(engine)
+
+    with session_factory(engine)() as s:
+        assert s.scalars(select(m.Call.id)).all() == [hindi]
+        for model in (m.CallEvent, m.CallTranscript, m.Usage):
+            assert s.scalars(select(model.call_id)).all() == [hindi]
+        assert s.scalars(select(m.Appointment.id).order_by(m.Appointment.id)).all() == [moved_later, hindi_booked]
+        for model in (m.Price, m.Allowance, m.FixedCost, m.VendorBill, m.Usage):
+            assert s.scalar(select(func.count()).where(model.provider == "elevenlabs")) == 0
+        assert s.scalar(select(func.count()).select_from(m.Price)) == 18  # the other seeded prices stay
+        assert s.scalars(select(m.Incident.subject)).all() == ["hi"]
+        assert s.scalar(select(m.WorkerHeartbeat.languages)) == "hi"

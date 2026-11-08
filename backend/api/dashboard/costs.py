@@ -33,8 +33,8 @@ PART_LABELS = {
     "call_line": "Call line (LiveKit)",
     "other": "Other (Hindi name suggestions)",
 }
-VENDOR_LABELS = {"sarvam": "Sarvam", "elevenlabs": "ElevenLabs", "openai": "OpenAI", "livekit": "LiveKit"}
-LANGUAGE_LABELS = {"en": "English", "hi": "Hindi", "": "Other costs"}
+VENDOR_LABELS = {"sarvam": "Sarvam", "openai": "OpenAI", "livekit": "LiveKit"}
+LANGUAGE_LABELS = {"hi": "Hindi", "": "Other costs"}
 TOP_CALLS = 100
 
 

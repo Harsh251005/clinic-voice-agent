@@ -644,7 +644,8 @@ export interface paths {
         put?: never;
         /**
          * Test Call
-         * @description A pass for staff to call their own receptionist, exactly as a patient would.
+         * @description A pass for staff to call their own receptionist, exactly as a patient
+         *     would: in Hindi, the only line.
          */
         post: operations["test_call_api_clinics__clinic_id__calls_test_post"];
         delete?: never;
@@ -1071,7 +1072,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            provider: "sarvam" | "openai" | "livekit";
             /** Quantity */
             quantity: number;
             /**
@@ -1098,7 +1099,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            provider: "sarvam" | "openai" | "livekit";
             /** Quantity */
             quantity: number;
             /**
@@ -1220,7 +1221,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            provider: "sarvam" | "openai" | "livekit";
         };
         /** BillRow */
         BillRow: {
@@ -1244,7 +1245,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            provider: "sarvam" | "openai" | "livekit";
         };
         /** CallChange */
         CallChange: {
@@ -1270,7 +1271,7 @@ export interface components {
              * Language
              * @enum {string}
              */
-            language: "en" | "hi" | "";
+            language: "hi" | "";
             /** Lines */
             lines: components["schemas"]["CostLine"][];
             /** Parts */
@@ -1307,7 +1308,7 @@ export interface components {
              * Language
              * @enum {string}
              */
-            language: "en" | "hi" | "";
+            language: "hi" | "";
             /** Outcome */
             outcome: string;
             /** Stack */
@@ -1354,7 +1355,7 @@ export interface components {
              * Language
              * @enum {string}
              */
-            language: "en" | "hi" | "";
+            language: "hi" | "";
             /** Outcome */
             outcome: string;
             /** Stack */
@@ -1436,7 +1437,7 @@ export interface components {
              * Language
              * @enum {string}
              */
-            language: "en" | "hi" | "";
+            language: "hi" | "";
             /** Outcome */
             outcome: string;
             /**
@@ -1486,7 +1487,7 @@ export interface components {
              * Language
              * @enum {string}
              */
-            language: "en" | "hi" | "";
+            language: "hi" | "";
             /** Outcome */
             outcome: string;
             /**
@@ -1789,7 +1790,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            provider: "sarvam" | "openai" | "livekit";
             /**
              * Valid From
              * Format: date
@@ -1815,7 +1816,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            provider: "sarvam" | "openai" | "livekit";
             /**
              * Valid From
              * Format: date
@@ -1960,7 +1961,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            provider: "sarvam" | "openai" | "livekit";
             /** Replace */
             replace?: number[];
             /** Tokens Cached */
@@ -2051,7 +2052,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            provider: "sarvam" | "openai" | "livekit";
             /**
              * Unit
              * @enum {string}
@@ -2090,7 +2091,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            provider: "sarvam" | "openai" | "livekit";
             /**
              * Unit
              * @enum {string}
@@ -2270,14 +2271,6 @@ export interface components {
             token: string;
             /** Url */
             url: string;
-        };
-        /** TestCallRequest */
-        TestCallRequest: {
-            /**
-             * Language
-             * @enum {string}
-             */
-            language: "en" | "hi";
         };
         /**
          * TestCalls
@@ -3874,11 +3867,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TestCallRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

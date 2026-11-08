@@ -426,7 +426,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "itsdangerous" },
-    { name = "livekit-agents", extra = ["elevenlabs", "openai", "sarvam"] },
+    { name = "livekit-agents", extra = ["openai", "sarvam"] },
     { name = "psycopg", extra = ["binary"] },
     { name = "python-dotenv" },
     { name = "sqlalchemy" },
@@ -447,7 +447,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.141.1" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "itsdangerous", specifier = ">=2.2.0" },
-    { name = "livekit-agents", extras = ["sarvam", "openai", "elevenlabs"], specifier = ">=1.8.2" },
+    { name = "livekit-agents", extras = ["sarvam", "openai"], specifier = ">=1.8.2" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.6" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "sqlalchemy", specifier = ">=2.0" },
@@ -954,9 +954,6 @@ wheels = [
 codecs = [
     { name = "numpy" },
 ]
-elevenlabs = [
-    { name = "livekit-plugins-elevenlabs" },
-]
 images = [
     { name = "pillow" },
 ]
@@ -1020,18 +1017,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/82/2e/7b4ec0de0e5f1ef4c2f441a3047dda950c11d819fb1804e0a13c6ef68317/livekit_local_inference-0.2.7-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f122e205899c5393ef4a710beedfece7a166649afa5ccbdc3cca61f2df113efa", size = 34835765, upload-time = "2026-08-18T09:47:08.974Z" },
     { url = "https://files.pythonhosted.org/packages/01/c9/5cee5031e9ac2b545f6a68d2442bb02a3a6564f298d91f321448c1b59944/livekit_local_inference-0.2.7-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7a97bc2932b73f72c5246cb8350cf2cd7d21fc6237053fc7c1ac645352ed0f3f", size = 34876770, upload-time = "2026-08-18T09:47:11.379Z" },
     { url = "https://files.pythonhosted.org/packages/7f/72/c2c956d1797bd944449fd90945ceea5dded222a54b2df8c967c77440298f/livekit_local_inference-0.2.7-cp314-cp314-win_amd64.whl", hash = "sha256:168c2f2dd55ee6dd94fd7caae0ff73e4875e25aa418df819905fd339de1de4cd", size = 34882427, upload-time = "2026-08-18T09:47:13.983Z" },
-]
-
-[[package]]
-name = "livekit-plugins-elevenlabs"
-version = "1.8.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "livekit-agents", extra = ["codecs"] },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8b/d4/47f4687634e1220c893b8cb08888e21532f04f644cc51812dfbb9ffe0571/livekit_plugins_elevenlabs-1.8.3.tar.gz", hash = "sha256:abb747f1127b29cc1624c3c4d2448c715d83957460e3a2729376ebb2f17912b1", size = 23872, upload-time = "2026-09-23T19:04:52.264Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/08/fd966a30d2bac815091509b6bb60bcaec33ae6a555e519a94f87d8baca6e/livekit_plugins_elevenlabs-1.8.3-py3-none-any.whl", hash = "sha256:e3b58c206e843449d093cbfb1f3f32b1c04b8f36960eef84d8ae8b8baaccb20a", size = 25653, upload-time = "2026-09-23T19:04:50.964Z" },
 ]
 
 [[package]]

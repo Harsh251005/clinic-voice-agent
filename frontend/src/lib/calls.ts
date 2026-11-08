@@ -20,9 +20,9 @@ export function changeText(c: Change): string {
   return `${VERBS[c.action]} ${c.patient_name} with ${c.doctor_name}`;
 }
 
-const LANGUAGES: Record<string, string> = { en: "English", hi: "Hindi" };
+const LANGUAGES: Record<string, string> = { hi: "Hindi" };
 
-/** The language the caller chose ("en" → "English"); null for calls from before there was a choice. */
+/** The call's language ("hi" → "Hindi"); null for calls from before it was recorded. */
 export function languageName(code: string): string | null {
   return LANGUAGES[code] ?? null;
 }

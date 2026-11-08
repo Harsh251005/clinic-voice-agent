@@ -21,7 +21,6 @@ from clinic_agent.dispatch import Language
 # In the call's language: each line's voice speaks only its own.
 FILLERS: dict[Language, list[str]] = {
     "hi": ["एक सेकंड जी, मैं चेक करके बताती हूँ।", "ठीक है, एक पल, मैं देख लेती हूँ।", "जी, बस एक सेकंड।"],
-    "en": ["One moment, let me check.", "Sure, just a second.", "Let me look that up for you."],
 }
 _turn = count()
 

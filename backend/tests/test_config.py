@@ -9,13 +9,13 @@ def test_defaults(env):
     cfg = load_settings()
     assert cfg.min_endpointing_delay == 0.2
     # Model and voice defaults belong to each provider's builder.
-    assert (cfg.sarvam_stt_model, cfg.elevenlabs_stt_model) == (None, None)
+    assert (cfg.sarvam_stt_model, cfg.sarvam_tts_speaker) == (None, None)
     assert (cfg.sarvam_llm_model, cfg.openai_llm_model) == (None, None)
-    assert (cfg.sarvam_tts_speaker, cfg.elevenlabs_tts_voice) == (None, None)
+    assert cfg.hindi_llm == "sarvam"  # Sarvam's brain unless HINDI_LLM says openai
 
 
 def test_keys_are_not_checked_by_config(env):
-    # A missing key turns off its language line (lines.py), so loading never
+    # A missing key turns off the Hindi line (lines.py), so loading never
     # fails for one; the builder that needs it does.
     env.delenv("SARVAM_API_KEY")
     assert load_settings().sarvam_api_key == ""
@@ -31,10 +31,10 @@ def test_env_overrides_default(env):
 
 def test_blank_value_falls_back_to_default(env):
     env.setenv("SARVAM_STT_MODEL", "")
-    env.setenv("ELEVENLABS_TTS_VOICE", "  ")
+    env.setenv("SARVAM_TTS_SPEAKER", "  ")
     cfg = load_settings()
     assert cfg.sarvam_stt_model is None
-    assert cfg.elevenlabs_tts_voice is None
+    assert cfg.sarvam_tts_speaker is None
 
 
 def test_non_numeric_number_is_a_config_error(env):
@@ -49,29 +49,20 @@ def test_settings_are_immutable(env):
         cfg.openai_llm_model = "other"
 
 
-def test_each_vendor_keeps_its_own_settings(env):
-    # Both lines' vendors run at once, each with its own values in .env;
-    # neither overwrites the other.
-    env.setenv("SARVAM_TTS_SPEAKER", "suhani")
-    env.setenv("ELEVENLABS_TTS_VOICE", "voice-123")
-    cfg = load_settings()
-    assert (cfg.sarvam_tts_speaker, cfg.elevenlabs_tts_voice) == ("suhani", "voice-123")
-
-
 def test_old_shared_setting_is_refused_with_its_new_names(env):
     # Silently ignoring it would change the voice or model with no warning.
     env.setenv("TTS_SPEAKER", "suhani")
-    with pytest.raises(ConfigError, match="TTS_SPEAKER -> SARVAM_TTS_SPEAKER / ELEVENLABS_TTS_VOICE"):
+    with pytest.raises(ConfigError, match="TTS_SPEAKER -> SARVAM_TTS_SPEAKER"):
         load_settings()
     env.setenv("TTS_SPEAKER", "")
     load_settings()  # blank is harmless
 
 
-@pytest.mark.parametrize("name", ["STT_PROVIDER", "LLM_PROVIDER", "TTS_PROVIDER", "ELEVENLABS_STT_LANGUAGE"])
+@pytest.mark.parametrize("name", ["STT_PROVIDER", "LLM_PROVIDER", "TTS_PROVIDER"])
 def test_a_setting_the_language_lines_replaced_is_refused(env, name):
-    # The caller's language picks the vendors now: a leftover would look
-    # like it chose them while doing nothing.
-    env.setenv(name, "elevenlabs")
+    # The Hindi line picks the vendors now: a leftover would look like it
+    # chose them while doing nothing.
+    env.setenv(name, "sarvam")
     with pytest.raises(ConfigError, match=f"remove from .env: {name}"):
         load_settings()
     env.setenv(name, "")
@@ -83,8 +74,22 @@ def test_retired_settings_are_named_once_per_reason(env):
         env.setenv(name, "x")
     with pytest.raises(ConfigError) as err:
         load_settings()
-    assert str(err.value).count("the call's language picks the vendors") == 1
+    assert str(err.value).count("calls run on the Hindi line") == 1
     assert "STT_PROVIDER, LLM_PROVIDER, TTS_PROVIDER" in str(err.value)
+
+
+def test_a_leftover_line_of_the_removed_vendor_is_refused(env):
+    # Harsh (2026-11-08): the English line's vendor is gone. A key left in
+    # .env would look like it still did something, so it is named to remove.
+    env.setenv("ELEVENLABS_API_KEY", "old-key")
+    env.setenv("ELEVENLABS_TTS_VOICE", "voice-123")
+    with pytest.raises(ConfigError) as err:
+        load_settings()
+    assert str(err.value) == ("remove from .env: ELEVENLABS_API_KEY, ELEVENLABS_TTS_VOICE "
+                              "(the English line and its vendor were removed on 2026-11-08)")
+    env.setenv("ELEVENLABS_API_KEY", "")
+    env.setenv("ELEVENLABS_TTS_VOICE", "")
+    load_settings()  # blank lines are harmless
 
 
 def test_dashboard_login_defaults_to_google_and_rejects_typos(env):

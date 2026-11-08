@@ -32,10 +32,10 @@ def _doctor(s, clinic_id):
 # ---------- dispatch ----------
 
 def test_a_test_call_says_so_in_its_dispatch():
-    assert call_from(metadata_for(3, "en", test=True)) == CallFor(3, "en", test=True)
-    assert call_from(metadata_for(3, "en")) == CallFor(3, "en", test=False)
+    assert call_from(metadata_for(3, "hi", test=True)) == CallFor(3, "hi", test=True)
+    assert call_from(metadata_for(3, "hi")) == CallFor(3, "hi", test=False)
     with pytest.raises(BadDispatch):
-        call_from('{"clinic_id": 3, "language": "en", "test": "yes"}')
+        call_from('{"clinic_id": 3, "language": "hi", "test": "yes"}')
 
 
 # ---------- erasing ----------
@@ -175,7 +175,7 @@ def _beat():
     from clinic_agent.store.models import utc_now
 
     with sessions_for(load_settings().database_url)() as s:
-        repo.beat(s, "AW_1", "host", ["en", "hi"], utc_now())
+        repo.beat(s, "AW_1", "host", ["hi"], utc_now())
 
 
 def test_staff_get_a_test_pass_that_dispatches_a_test_call(world):  # noqa: F811
@@ -183,12 +183,12 @@ def test_staff_get_a_test_pass_that_dispatches_a_test_call(world):  # noqa: F811
 
     from tests.test_dashboard_api import SECRET
 
-    r = client_as("reception@cure.in").post(f"/api/clinics/{world['cure']}/calls/test", json={"language": "en"})
+    r = client_as("reception@cure.in").post(f"/api/clinics/{world['cure']}/calls/test")
     assert r.status_code == 200
     body = r.json()
     assert body["room"].startswith("test-cure-dental-clinic-")
     (dispatch,) = lk.TokenVerifier("APIkey", SECRET).verify(body["token"]).room_config.agents
-    assert call_from(dispatch.metadata) == CallFor(world["cure"], "en", test=True)
+    assert call_from(dispatch.metadata) == CallFor(world["cure"], "hi", test=True)
 
 
 def test_a_test_pass_is_refused_for_a_line_that_is_off(world):  # noqa: F811
@@ -197,9 +197,10 @@ def test_a_test_pass_is_refused_for_a_line_that_is_off(world):  # noqa: F811
     from clinic_agent.store.models import utc_now
 
     with sessions_for(load_settings().database_url)() as s:
-        repo.beat(s, "AW_1", "host", ["en"], utc_now())
-    r = client_as("reception@cure.in").post(f"/api/clinics/{world['cure']}/calls/test", json={"language": "hi"})
-    assert r.status_code == 409 and r.json()["detail"] == "Calls in Hindi aren't available right now."
+        repo.beat(s, "AW_1", "host", ["en"], utc_now())  # a worker from before Hindi became the only line
+    r = client_as("reception@cure.in").post(f"/api/clinics/{world['cure']}/calls/test")
+    assert r.status_code == 409
+    assert r.json()["detail"] == "Your receptionist can't take calls right now. ClinicDesk support has been told."
 
 
 def test_staff_find_their_test_call_by_room_and_erase_it(world):  # noqa: F811

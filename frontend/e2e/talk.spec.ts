@@ -3,21 +3,22 @@
 import { expect, test } from "@playwright/test";
 import { testCallThatBooked } from "./backend";
 
-test("staff can start a test call in either language, and see why it can't start", async ({ page }) => {
+test("staff start a Hindi test call, and see why it can't start", async ({ page }) => {
   // Answered here: the e2e API has no LiveKit, and this is the API's own refusal.
-  await page.route("**/api/clinics/*/calls/test", (route) =>
-    route.fulfill({ status: 409, json: { detail: "Calls in Hindi aren't available right now." } }));
+  const refusal = "Your receptionist can't take calls right now. ClinicDesk support has been told.";
+  await page.route("**/api/clinics/*/calls/test", (route) => route.fulfill({ status: 409, json: { detail: refusal } }));
   await page.goto("/");
   await page.waitForURL(/\/today$/);
   await page.getByRole("link", { name: "Talk to receptionist" }).first().click();
   await expect(page.getByRole("heading", { name: "Talk to your receptionist" })).toBeVisible();
   await expect(page.getByText("This is a real call.")).toBeVisible();
-  await expect(page.getByRole("radio", { name: "हिन्दी" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByText("The call is in Hindi")).toBeVisible();
+  await expect(page.getByRole("radio")).toHaveCount(0); // nothing to choose
 
   const asked = page.waitForRequest((r) => r.url().endsWith("/calls/test"));
   await page.getByRole("button", { name: "Start test call" }).click();
-  expect((await asked).postDataJSON()).toEqual({ language: "hi" });
-  await expect(page.getByText("Calls in Hindi aren't available right now.")).toBeVisible();
+  expect((await asked).postData()).toBeNull();
+  await expect(page.getByText(refusal)).toBeVisible();
 });
 
 test("a test call is marked, and erasing it undoes its booking", async ({ page }) => {

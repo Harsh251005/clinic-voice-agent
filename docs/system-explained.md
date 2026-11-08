@@ -10,8 +10,8 @@ Written 2026-09-25 against commit `1df353d`; sections 6, 7, 10 and 13 updated
 
 ## 0. The whole thing in one breath
 
-When someone calls a clinic, a **robot receptionist** answers in Hindi, English
-or a mix of both. It answers questions about the clinic and **books, cancels and
+When someone calls a clinic, a **robot receptionist** answers in Hindi,
+including the everyday English words callers mix in (Hinglish). It answers questions about the clinic and **books, cancels and
 moves appointments**. The clinic staff use a **website (the dashboard)** to set
 up their doctors and hours and to see every booking.
 
@@ -79,22 +79,24 @@ The robot is three separate machines joined in a line:
 Ravi's voice → 👂 EARS (STT) → text → 🧠 BRAIN (LLM) → text → 👄 MOUTH (TTS) → voice → Ravi
 ```
 
-| Part | Job | Hindi line | English line |
-|---|---|---|---|
-| 👂 **STT** (speech to text) | Turns voice into written words | Sarvam `saaras:v3` | ElevenLabs `scribe_v2` |
-| 🧠 **LLM** (the language model) | Decides what to say and what to do | Sarvam `sarvam-105b-conversations` | OpenAI `gpt-4.1-mini` |
-| 👄 **TTS** (text to speech) | Turns written words into a voice | Sarvam `bulbul:v3`, voice "suhani" | ElevenLabs `eleven_v3_conversational` |
+| Part | Job | Vendor |
+|---|---|---|
+| 👂 **STT** (speech to text) | Turns voice into written words | Sarvam `saaras:v3` |
+| 🧠 **LLM** (the language model) | Decides what to say and what to do | Sarvam `sarvam-105b-conversations`, or OpenAI `gpt-4.1-mini` |
+| 👄 **TTS** (text to speech) | Turns written words into a voice | Sarvam `bulbul:v3`, voice "suhani" |
 
-**Why two vendor sets?** Each is a language line. The caller picks English or
-Hindi on the call page before calling, and the whole call stays in that
-language (switching mid-call would change the voice). **English** calls use
-ElevenLabs ears and voice with OpenAI's brain; **Hindi** calls use Sarvam for
-all three, since it's built for Indian languages. If one line's key is
-missing, that language is switched off: the other still takes calls, and
-both dashboards say so.
+**One line: Hindi.** Every call is in Hindi; there is nothing to choose on
+the call page. Sarvam does all three parts, since it's built for Indian
+languages. The brain is set by `HINDI_LLM` in `.env`: `sarvam` (the default)
+or `openai`, so the two can be compared on the same calls (restart to
+switch). If Sarvam's key is missing, the line is off and both dashboards
+show it as a critical problem. A caller asking for English is told kindly
+that the receptionist speaks Hindi only. (Until 2026-11-08 there was also an
+English line on ElevenLabs; it was removed to make Hindi production-ready
+first. See `decisions.md`.)
 
-**The rule:** only Sarvam, ElevenLabs and OpenAI are allowed, and a test fails
-if anyone adds another vendor.
+**The rule:** only Sarvam and OpenAI are allowed, and a test fails if anyone
+adds another vendor.
 
 **Why keep the parts separate?** Each vendor lives in its own small file
 (`providers/stt.py`, `llm.py`, `tts.py`), which is the only place its code is
@@ -114,10 +116,7 @@ test (`test_boundaries.py`) enforces this.
   mid-sentence changes tone halfway. LiveKit's built-in cutter didn't know the
   Hindi full stop "।", so this project has its own. It cuts at । ? ! . first,
   then commas, then spaces, with pieces of 20 to 220 characters.
-- **The ElevenLabs ear is pinned to Hindi.** Its auto-detect guessed the wrong
-  language (even Chinese) on live calls and the robot heard nothing. Pinned to
-  Hindi, it still understands English and Hinglish.
-- **gpt-4.1-mini, the fastest capable model we measured** (about 1 second to
+- **With `HINDI_LLM=openai`: gpt-4.1-mini, the fastest capable model we measured** (about 1 second to
   the first word). If a "thinking" model such as gpt-6-luna is set instead,
   thinking is switched off (`reasoning_effort="none"`): with thinking on,
   OpenAI rejects tool use (an error on every turn), and it would also be too
@@ -133,9 +132,10 @@ Humans take turns without thinking about it. The robot needs rules:
   only asks one question: *is someone speaking right now?* It runs on your own
   machine, so it costs nothing per call.
 - **Knowing when the caller has finished** (`turn_detection="stt"`): the ear
-  decides when the caller is done. With ElevenLabs batch, the VAD waits for
-  **0.6 s of silence** (`VAD_MIN_SILENCE`) before sending the sentence off. At
-  0.25 s, a pause at a comma after "नमस्ते," cut the caller off mid-sentence.
+  decides when the caller is done: Sarvam's ear streams and ends the turn
+  itself. The VAD's **0.6 s of silence** (`VAD_MIN_SILENCE`) would matter
+  only for a batch ear, which needs the VAD to cut each sentence: at 0.25 s,
+  a pause at a comma after "नमस्ते," cut the caller off mid-sentence.
 - **Interrupting** (`interruption mode "vad"`): if the caller talks for
   **0.3 s** (`INTERRUPT_MIN_SPEECH`) while the robot is speaking, the robot
   stops, like a polite person. A shorter setting would let a cough cut it off.
@@ -153,8 +153,8 @@ halves.
 **Half 1: fixed rules (`RULES`), the same for every clinic.**
 
 - Say you're an automated assistant.
-- Reply in the caller's language, in one or two sentences, warm and a little
-  informal.
+- Reply in Hindi, written in Devanagari, in one or two sentences, warm and a
+  little informal.
 - **You are a woman**, so use feminine Hindi about yourself ("बताती हूँ", not
   "बताता हूँ"). Address the caller with a neutral "आप", say "ji", and never
   "sir" or "madam".
@@ -382,15 +382,14 @@ The goal behind all of these: keep the cost of changing something low.
 
 ## 12. How it's tested and run
 
-- **312 offline tests (free):** settings, vendors, booking rules, slot maths,
+- **515 offline tests (free):** settings, vendors, booking rules, slot maths,
   Hindi time words, sentence cutting, safety nets, database (optionally on real
   Postgres too), migrations, dashboard security attacks, the call-link server,
   and the code-boundary rules.
-- **21 live tests (cost money, run only with `-m live`):** real OpenAI and
-  ElevenLabs, **never Sarvam**. An AI grader checks things like: does it speak
+- **19 live tests (cost money, run only with `-m live`):** real OpenAI, as
+  text, **never Sarvam**. An AI grader checks things like: does it speak
   first, does it read back before booking, is it feminine in Hindi, does it
-  reply in the caller's language, does it hang up only when the caller is done.
-  The last full run passed 20 of 21, and about 1 in 10 is flaky.
+  reply in Devanagari, does it hang up only when the caller is done.
 - **Dashboard end-to-end tests:** Playwright drives a real Chrome against a
   fresh database.
 - **By ear:** real calls tested by hand.
@@ -442,8 +441,6 @@ The goal behind all of these: keep the cost of changing something low.
 | Ear, brain and mouth as separate parts (not one speech-to-speech model) | Pick the best Hindi vendor for each part, swap them, and see the text at every step | More delay than an all-in-one voice model |
 | Sarvam in production | Built for Indian languages, Indian vendor | Costs money, and it's the least tested stack here |
 | Thinking switched off on the LLM | Fast replies, and tools work | A less careful brain, hence all the safety nets in code |
-| ElevenLabs `eleven_v3_conversational` | Most human-sounding | Slower than its flash models |
-| Batch ear (`scribe_v2`) cut by the VAD | About 1 s after speech ends, vs about 3 s for the realtime model (one measurement) | Needs a tuned pause length, or it cuts people off |
 | Local Silero VAD everywhere | Tests sound like production, and it's free | Not as smart as LiveKit's paid adaptive model |
 | All free times sent to the brain | It can answer "anything later?" honestly | A longer reply for the brain to read |
 | Double booking stopped by the database | Holds even if two calls race each other | Needs a special partial index (handled in migrations) |

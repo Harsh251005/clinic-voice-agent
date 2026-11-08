@@ -303,7 +303,7 @@ class CallSummary(BaseModel):
     status: Literal["live", "ended", "dropped"]
     end_reason: str
     outcome: str
-    language: Literal["en", "hi", ""]  # the line the caller chose; "" before there were two
+    language: Literal["hi", ""]  # the call's line; "" for calls from before it was recorded
     test: bool  # staff calling from the dashboard, not a patient
     stack: str
     turn_count: int
@@ -366,13 +366,9 @@ class ClinicCall(BaseModel):
     duration_s: int | None
     status: Literal["live", "ended", "dropped"]
     outcome: str
-    language: Literal["en", "hi", ""]  # the language the caller chose; "" before there was a choice
+    language: Literal["hi", ""]  # the call's line; "" for calls from before it was recorded
     test: bool  # staff's own test call from the dashboard: erasable, left out of the counts
     changes: list[ClinicCallChange]
-
-
-class TestCallRequest(BaseModel):
-    language: Literal["en", "hi"]
 
 
 class TestCalls(BaseModel):
@@ -510,7 +506,7 @@ class Problems(BaseModel):
 
 # ---------- costs (admin) ----------
 
-Provider = Literal["sarvam", "elevenlabs", "openai", "livekit"]
+Provider = Literal["sarvam", "openai", "livekit"]
 Unit = Literal["tokens_in", "tokens_cached", "tokens_out", "seconds_heard", "characters", "minutes"]
 Currency = Literal["INR", "USD"]
 Part = Literal["listening", "thinking", "speaking", "call_line", "other"]
@@ -535,7 +531,7 @@ class CallCost(BaseModel):
     clinic_id: int | None
     clinic_name: str
     started_at: datetime
-    language: Literal["en", "hi", ""]
+    language: Literal["hi", ""]
     test: bool
     rupees: float  # what could be priced
     complete: bool  # every part had a price
