@@ -55,11 +55,11 @@ def test_no_worker_ever_is_offline_and_a_beat_brings_it_back(db):
 
 def test_a_line_left_out_of_the_check_in_is_flagged_until_it_is_back(db):
     s, _ = db
-    repo.beat(s, "AW_test", "host", ["en"], NOW)  # started without a Sarvam key
+    repo.beat(s, "AW_test", "host", [], NOW)  # a worker that can't answer Hindi (an old one)
     sync(s)
     (inc,) = [i for i in repo.open_incidents(s) if i.kind == "language_off"]
-    assert (inc.subject, inc.severity, inc.clinic_id) == ("hi", "warning", None)
-    repo.beat(s, "AW_test", "host", ["en", "hi"], NOW + timedelta(seconds=30))
+    assert (inc.subject, inc.severity, inc.clinic_id) == ("hi", "critical", None)  # the only line: no calls
+    repo.beat(s, "AW_test", "host", ["hi"], NOW + timedelta(seconds=30))
     sync(s, NOW + timedelta(seconds=30))
     assert "language_off" not in open_kinds(s)
 
@@ -212,9 +212,9 @@ def test_a_line_off_reads_plainly_for_the_clinic_and_technically_for_the_operato
         repo.beat(s, "AW_test", "host", [], NOW)
         sync(s)
     clinic = [p["title"] for p in client_as("reception@cure.in").get(f"/api/clinics/{world['cure']}/problems").json()["open"]]
-    assert clinic == ["Patients can't call your receptionist in Hindi right now."]
+    assert clinic == ["Patients can't call your receptionist right now."]
     admin = [p["title"] for p in client_as("harsh@example.com", admin=True).get("/api/admin/problems").json()["open"]]
-    assert "The Hindi line is off: the worker started without a key it needs. Callers aren't offered Hindi." in admin
+    assert "The Hindi line is off: the worker started without a key it needs, so it takes no calls." in admin
 
 
 def test_the_clinic_marks_its_own_problem_seen_but_not_a_system_one(world):  # noqa: F811

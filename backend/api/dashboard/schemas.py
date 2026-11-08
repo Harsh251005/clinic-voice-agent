@@ -371,10 +371,6 @@ class ClinicCall(BaseModel):
     changes: list[ClinicCallChange]
 
 
-class TestCallRequest(BaseModel):
-    language: Literal["en", "hi"]
-
-
 class TestCalls(BaseModel):
     """The clinic's own test calls still on record (Talk to receptionist)."""
     count: int  # all of them

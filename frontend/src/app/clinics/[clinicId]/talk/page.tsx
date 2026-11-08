@@ -1,6 +1,6 @@
 "use client";
-// Staff call their own receptionist, exactly as a patient would: same
-// languages, same voices, same tools. It is a real call (it books for real),
+// Staff call their own receptionist, exactly as a patient would: in Hindi,
+// same voice, same tools. It is a real call (it books for real),
 // so when it ends the page shows what it did, and while any test call is on
 // record the page offers to erase them all, with everything they did.
 import { useEffect, useRef, useState } from "react";
@@ -20,21 +20,14 @@ import { CallResult } from "@/components/admin/bits";
 import { api, ApiError, unwrap, type Schemas } from "@/lib/api/client";
 import { changeText, visitTime, type ClinicCall } from "@/lib/calls";
 import { keys, testCallInRoom, useEraseAllTestCalls, useTestCalls } from "@/lib/queries";
-import { cn } from "@/lib/utils";
 
-type Language = Schemas["TestCallRequest"]["language"];
 type State = "idle" | "connecting" | "waiting" | "live" | "ended" | "error";
 
-const LANGUAGES: { value: Language; label: string; lang: string }[] = [
-  { value: "en", label: "English", lang: "en" },
-  { value: "hi", label: "हिन्दी", lang: "hi" },
-];
 const NO_ANSWER_MS = 20_000; // the receptionist normally joins within a few seconds
 const FIND_TRIES = 15; // the record is written as the call closes: look for it for a few seconds
 
 export default function TalkPage() {
   const clinicId = Number(useParams<{ clinicId: string }>().clinicId);
-  const [language, setLanguage] = useState<Language>("hi");
   const [state, setState] = useState<State>("idle");
   const [message, setMessage] = useState("");
   const [seconds, setSeconds] = useState(0);
@@ -82,7 +75,7 @@ export default function TalkPage() {
     let pass: Schemas["TestCallPass"];
     try {
       pass = await unwrap(api.POST("/api/clinics/{clinic_id}/calls/test", {
-        params: { path: { clinic_id: clinicId } }, body: { language },
+        params: { path: { clinic_id: clinicId } },
       }));
     } catch (err) {
       setState("error");
@@ -146,19 +139,9 @@ export default function TalkPage() {
       </Alert>
 
       <section className="mx-auto max-w-md rounded-2xl border bg-card p-6 text-center shadow-sm">
-        <fieldset disabled={inCall} className="mb-6">
-          <legend className="mb-2 w-full text-sm text-muted-foreground">Language of the call</legend>
-          <div className="grid grid-cols-2 gap-2" role="radiogroup">
-            {LANGUAGES.map((l) => (
-              <button key={l.value} type="button" role="radio" aria-checked={language === l.value} lang={l.lang}
-                onClick={() => setLanguage(l.value)}
-                className={cn("rounded-xl border px-3 py-2.5 font-semibold transition-colors disabled:opacity-50",
-                  language === l.value ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
-                {l.label}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <p className="mb-6 text-sm text-muted-foreground">
+          The call is in Hindi <span lang="hi">· हिन्दी में बात करें</span>
+        </p>
 
         {inCall ? (
           <Button size="lg" variant="destructive" className="w-full" onClick={hangUp} disabled={state === "connecting"}>

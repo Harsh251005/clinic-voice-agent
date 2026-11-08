@@ -44,9 +44,8 @@ def clinic_words(inc: repo.Incident, clinic_id: int) -> tuple[str, str, str | No
             return ("Your receptionist is offline. Patients calling now can't reach it.",
                     "ClinicDesk support sees this too. Until it's back, patients can still ring the clinic's own phone.", None)
         case "language_off":
-            name = NAMES.get(inc.subject, inc.subject)
-            return (f"Patients can't call your receptionist in {name} right now.",
-                    "ClinicDesk support sees this too. Until it's back, the call page offers only the other language.", None)
+            return ("Patients can't call your receptionist right now.",
+                    "ClinicDesk support sees this too.", None)
         case "calls_failing":
             return ("Several calls to your receptionist failed in the last hour.",
                     "Open Calls to see who called, and ring them back.", f"{base}/calls")
@@ -80,7 +79,7 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
                     "Start or restart the worker: uv run python main.py start", None)
         case "language_off":
             name = NAMES.get(inc.subject, inc.subject)
-            return (f"The {name} line is off: the worker started without a key it needs. Callers aren't offered {name}.",
+            return (f"The {name} line is off: the worker started without a key it needs, so it takes no calls.",
                     "Set the missing API key in backend/.env and restart the worker; its log names the key.", None)
         case "vendor_errors":
             return (f"{inc.subject} is failing: {inc.detail}.",

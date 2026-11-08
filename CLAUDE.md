@@ -88,10 +88,10 @@ The pipeline is split so each concern lives in exactly one module:
   `call_limit.end_after` (`MAX_CALL_MINUTES`), cancelled on job shutdown.
   The prompt's opening rule makes the agent say it is an automated assistant.
 - `api/` — FastAPI call-link server (browser calls until telephony).
-  `/call/<slug>` page; `POST /call/<slug>/pass` (body `{"language": "hi"}`,
-  required: 400 otherwise, never a default) signs a LiveKit token for a
+  `/call/<slug>` page (no language choice: every call is Hindi); `POST
+  /call/<slug>/pass` (no body; an old tab's is ignored) signs a LiveKit token for a
   fresh room whose `RoomConfiguration` dispatches `AGENT_NAME` with
-  `dispatch.metadata_for(clinic_id, language)`: mic-only, 2 participants, 5-min TTL.
+  `dispatch.metadata_for(clinic_id, "hi")`: mic-only, 2 participants, 5-min TTL.
   In-memory rate limits (per IP, per clinic); `CLIENT_IP_HEADER` names the
   trusted proxy header (last entry used). Strict CSP; livekit-client pinned
   with SRI. Reads data only via `repo`; fails fast on missing LiveKit

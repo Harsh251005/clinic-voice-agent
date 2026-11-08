@@ -13,7 +13,7 @@ from pathlib import Path
 from string import Template
 from urllib.parse import urlparse
 
-from fastapi import Body, FastAPI, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -23,8 +23,7 @@ from api.limits import RateLimiter
 from api.passes import call_pass, offered
 from clinic_agent import incidents
 from clinic_agent.config import ConfigError, Settings, load_settings, require_key
-from clinic_agent.dispatch import BadDispatch, Language, language_of
-from clinic_agent.lines import NAMES
+from clinic_agent.dispatch import Language
 from clinic_agent.store import repo
 from clinic_agent.store.db import Sessions, sessions_for
 from clinic_agent.store.models import utc_now
@@ -38,8 +37,8 @@ HERE = Path(__file__).parent
 def _asset(name: str) -> str:
     """/static/<name>?v=<content hash>: a changed file gets a new URL, so a
     returning patient's browser never pairs a new page with an old cached
-    script or stylesheet (seen 2026-10-12: the new language switch rendered
-    with last week's CSS)."""
+    script or stylesheet (seen 2026-10-12: a new page part rendered with
+    last week's CSS)."""
     digest = hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12]
     return f"/static/{name}?v={digest}"
 
@@ -54,8 +53,8 @@ PAGE = _page("call.html")
 NOT_FOUND = _page("not_found.html")
 PAUSED = _page("paused.html")
 
-# Each language as its own speakers write it, on the call page's switch.
-LANGUAGE_LABELS: dict[Language, str] = {"hi": "हिन्दी"}
+# Every call is in Hindi, the only line (2026-11-08): the page offers no choice.
+LANGUAGE: Language = "hi"
 
 # A patient rarely needs more than a couple of tries; a clinic rarely gets
 # more than this many browser calls an hour at pilot scale. Tune with real use.
@@ -171,27 +170,22 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
             return HTMLResponse(PAUSED.substitute(name=e(clinic.name), phone=_call_the_clinic(clinic)), status_code=503)
         return PAGE.substitute(
             name=e(clinic.name), address=e(clinic.address), slug=e(clinic.slug), phone=_call_the_clinic(clinic),
-            languages=_language_choices(_offered()),
         )
 
     @app.post("/call/{slug}/pass")
-    def join_pass(slug: str, request: Request, language: str = Body("", embed=True)):
+    def join_pass(slug: str, request: Request):
+        # Any body is ignored: a tab opened before the English line was removed
+        # still sends {"language": ...}, and its caller still gets a Hindi call.
         try:
             clinic = clinic_for(slug)
         except repo.NotFound:
             return JSONResponse({"error": "This call link doesn't exist."}, status_code=404)
         if not clinic.active:
             return JSONResponse({"error": "This clinic isn't taking calls here right now."}, status_code=503)
-        try:
-            chosen = language_of(language)
-        except BadDispatch:
-            # Never default: each language is its own pipeline, and a caller
-            # put through in the wrong one can't follow the call.
-            return JSONResponse({"error": "Choose English or Hindi for the call."}, status_code=400)
-        if chosen not in _offered():
-            # The page offered it before the line went off (an old tab).
+        if LANGUAGE not in _offered():
+            # The worker that's up can't answer it (its key is missing).
             return JSONResponse(
-                {"error": f"Calls in {NAMES[chosen]} aren't available right now. Please choose another language."},
+                {"error": "The receptionist can't take calls right now. Please try again later."},
                 status_code=503,
             )
         ip = _client_ip(request, cfg.client_ip_header)
@@ -201,8 +195,8 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
                 {"error": "Too many calls just now. Please wait a few minutes and try again."},
                 status_code=429,
             )
-        p = call_pass(cfg, clinic.id, clinic.slug, chosen)
-        logger.info("call pass for clinic %s (%s), language %s: room %s", clinic.id, clinic.slug, chosen, p.room)
+        p = call_pass(cfg, clinic.id, clinic.slug, LANGUAGE)
+        logger.info("call pass for clinic %s (%s): room %s", clinic.id, clinic.slug, p.room)
         return {"url": p.url, "token": p.token}
 
     @app.post("/call/{slug}/report", status_code=204)
@@ -229,16 +223,6 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
         return None
 
     return app
-
-
-def _language_choices(languages: list[Language]) -> str:
-    """The call page's switch: one radio per language a caller may choose.
-    The page script picks the caller's last choice, else Hindi."""
-    return "\n    ".join(
-        f'<label class="lang"><input type="radio" name="language" value="{lang}">'
-        f'<span lang="{lang}">{LANGUAGE_LABELS[lang]}</span></label>'
-        for lang in languages
-    )
 
 
 def _call_the_clinic(clinic) -> str:

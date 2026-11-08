@@ -37,7 +37,7 @@ class Kind:
 
 KINDS = {
     "worker_offline": Kind("critical", clinic_sees=True),
-    "language_off": Kind("warning", clinic_sees=True),
+    "language_off": Kind("critical", clinic_sees=True),  # the only line: no calls at all
     "vendor_errors": Kind("warning", clinic_sees=False),
     "calls_failing": Kind("warning", clinic_sees=True),
     "patients_cant_connect": Kind("warning", clinic_sees=True, quiet_minutes=120),

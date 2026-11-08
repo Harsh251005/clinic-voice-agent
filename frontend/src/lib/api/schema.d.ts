@@ -644,7 +644,8 @@ export interface paths {
         put?: never;
         /**
          * Test Call
-         * @description A pass for staff to call their own receptionist, exactly as a patient would.
+         * @description A pass for staff to call their own receptionist, exactly as a patient
+         *     would: in Hindi, the only line.
          */
         post: operations["test_call_api_clinics__clinic_id__calls_test_post"];
         delete?: never;
@@ -2271,14 +2272,6 @@ export interface components {
             /** Url */
             url: string;
         };
-        /** TestCallRequest */
-        TestCallRequest: {
-            /**
-             * Language
-             * @enum {string}
-             */
-            language: "en" | "hi";
-        };
         /**
          * TestCalls
          * @description The clinic's own test calls still on record (Talk to receptionist).
@@ -3874,11 +3867,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TestCallRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

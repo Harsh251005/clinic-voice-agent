@@ -114,21 +114,19 @@ per clinic, shown on the dashboard's **Receptionist link** tab:
 uv run python -m api     # serves /call/<link name> on API_HOST:API_PORT (default 127.0.0.1:8080)
 ```
 
-1. The patient opens the link. The page shows the clinic and a call button.
+1. The patient opens the link. The page shows the clinic, "Call in Hindi"
+   and a call button: there is no language to choose.
 2. Tapping it asks the server for a **join pass**. The server looks the
    clinic up by its link name and signs a short-lived LiveKit token for a new
    private room (`call-<link name>-<random>`). The token lets the caller
    publish only a microphone, allows 2 participants (caller + receptionist),
    and dispatches `clinic-receptionist` with `{"clinic_id": N, "language":
-   "hi"}`. The request must name the language (`{"language": "en"}` or
-   `"hi"`); anything else gets a 400, never a default, and a language no
-   live worker can answer gets a 503. The page shows an English | हिन्दी
-   switch above the call button (only the languages the worker's check-in
-   lists; both if no worker has checked in), starting on the caller's last
-   choice on that device, else Hindi, and locked during a call. The page's
+   "hi"}`. The request needs no body (one from an old tab is ignored: its
+   caller still gets a Hindi call); if the live worker can't answer Hindi
+   it gets a 503. The page's
    CSS and script URLs carry a content hash, so a returning patient never
    gets a cached old copy after an update. The signature is made with
-   `LIVEKIT_API_SECRET`, so a caller can't change the clinic or language.
+   `LIVEKIT_API_SECRET`, so a caller can't change the clinic.
 3. The browser joins with the pass, and LiveKit sends the receptionist in for
    that clinic. If it hasn't joined within 20 s, the page says so.
 
@@ -200,10 +198,9 @@ in `repo.py`.
 
 ### Test calls (staff calling their own receptionist)
 
-Staff call their own receptionist from the dashboard, in English or Hindi,
-exactly as a patient would: `POST /api/clinics/{id}/calls/test`
-(`{"language": "en" | "hi"}`, staff only, only a language a live worker
-offers) returns a LiveKit pass for a `test-<link name>-…` room whose
+Staff call their own receptionist from the dashboard, in Hindi, exactly as
+a patient would: `POST /api/clinics/{id}/calls/test` (no body, staff only;
+409 if the live worker can't answer Hindi) returns a LiveKit pass for a `test-<link name>-…` room whose
 dispatch is marked `"test": true`. **It is a real call**: it books, moves
 and cancels for real, and is recorded like any other. It is marked as a
 test (`calls.test`, rev 0010) and kept out of the clinic's call counts and
@@ -298,6 +295,7 @@ for the clinic, technical detail for the operator.
 | Problem | Opens when | Clinic sees | Closes when |
 |---|---|---|---|
 | Receptionist offline (urgent) | no worker has checked in for 90 s | yes | a worker checks in |
+| Hindi line off (urgent) | the live worker can't answer Hindi (a key missing): no calls at all | yes | it checks in able to |
 | A vendor failing | 3+ errors from one vendor in 15 minutes | no | it drops below that |
 | Calls failing | 2+ failed or dropped patient calls in an hour | yes | an hour without |
 | Patients couldn't get through | the call page reports it (by reason) | yes | 2 hours without a report |

@@ -3070,23 +3070,6 @@
         "title": "TestCallPass",
         "type": "object"
       },
-      "TestCallRequest": {
-        "properties": {
-          "language": {
-            "enum": [
-              "en",
-              "hi"
-            ],
-            "title": "Language",
-            "type": "string"
-          }
-        },
-        "required": [
-          "language"
-        ],
-        "title": "TestCallRequest",
-        "type": "object"
-      },
       "TestCalls": {
         "description": "The clinic's own test calls still on record (Talk to receptionist).",
         "properties": {
@@ -5513,7 +5496,7 @@
     },
     "/api/clinics/{clinic_id}/calls/test": {
       "post": {
-        "description": "A pass for staff to call their own receptionist, exactly as a patient would.",
+        "description": "A pass for staff to call their own receptionist, exactly as a patient\nwould: in Hindi, the only line.",
         "operationId": "test_call_api_clinics__clinic_id__calls_test_post",
         "parameters": [
           {
@@ -5526,16 +5509,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TestCallRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {

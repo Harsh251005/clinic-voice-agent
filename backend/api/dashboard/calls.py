@@ -22,7 +22,6 @@ from api.dashboard.admin import dropped_before
 from api.passes import call_pass, offered
 from clinic_agent import booking
 from clinic_agent.context import clinic_now
-from clinic_agent.lines import NAMES
 from clinic_agent.store import repo
 from clinic_agent.store.models import utc_now
 
@@ -74,16 +73,17 @@ def today(request: Request, clinic_id: int = Depends(clinic_staff)):
 
 
 @router.post("/test", response_model=schemas.TestCallPass)
-def test_call(body: schemas.TestCallRequest, request: Request, clinic_id: int = Depends(clinic_staff)):
-    """A pass for staff to call their own receptionist, exactly as a patient would."""
+def test_call(request: Request, clinic_id: int = Depends(clinic_staff)):
+    """A pass for staff to call their own receptionist, exactly as a patient
+    would: in Hindi, the only line."""
     with request.app.state.sessions() as s:
         clinic = repo.get_clinic(s, clinic_id)
         if not clinic.active:
             raise HTTPException(409, "Your receptionist is paused by ClinicDesk support, so it can't take test calls either.")
-        if body.language not in offered(s):
-            raise HTTPException(409, f"Calls in {NAMES.get(body.language, body.language)} aren't available right now.")
-    p = call_pass(request.app.state.cfg, clinic.id, clinic.slug, body.language, test=True)
-    logger.info("test call pass for clinic %s, language %s: room %s", clinic.id, body.language, p.room)
+        if "hi" not in offered(s):
+            raise HTTPException(409, "Your receptionist can't take calls right now. ClinicDesk support has been told.")
+    p = call_pass(request.app.state.cfg, clinic.id, clinic.slug, "hi", test=True)
+    logger.info("test call pass for clinic %s: room %s", clinic.id, p.room)
     return schemas.TestCallPass(url=p.url, token=p.token, room=p.room)
 
 

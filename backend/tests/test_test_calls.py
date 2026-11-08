@@ -183,7 +183,7 @@ def test_staff_get_a_test_pass_that_dispatches_a_test_call(world):  # noqa: F811
 
     from tests.test_dashboard_api import SECRET
 
-    r = client_as("reception@cure.in").post(f"/api/clinics/{world['cure']}/calls/test", json={"language": "hi"})
+    r = client_as("reception@cure.in").post(f"/api/clinics/{world['cure']}/calls/test")
     assert r.status_code == 200
     body = r.json()
     assert body["room"].startswith("test-cure-dental-clinic-")
@@ -198,8 +198,9 @@ def test_a_test_pass_is_refused_for_a_line_that_is_off(world):  # noqa: F811
 
     with sessions_for(load_settings().database_url)() as s:
         repo.beat(s, "AW_1", "host", ["en"], utc_now())  # a worker from before Hindi became the only line
-    r = client_as("reception@cure.in").post(f"/api/clinics/{world['cure']}/calls/test", json={"language": "hi"})
-    assert r.status_code == 409 and r.json()["detail"] == "Calls in Hindi aren't available right now."
+    r = client_as("reception@cure.in").post(f"/api/clinics/{world['cure']}/calls/test")
+    assert r.status_code == 409
+    assert r.json()["detail"] == "Your receptionist can't take calls right now. ClinicDesk support has been told."
 
 
 def test_staff_find_their_test_call_by_room_and_erase_it(world):  # noqa: F811

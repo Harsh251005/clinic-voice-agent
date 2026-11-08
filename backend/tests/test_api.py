@@ -2,7 +2,6 @@
 
 import base64
 import json
-import re
 
 import jwt
 import pytest
@@ -67,21 +66,18 @@ def _beat(languages):
         repo.beat(s, "AW_1", "host", languages, utc_now())
 
 
-def _offered(page: str) -> list[str]:
-    return re.findall(r'name="language" value="(\w+)"', page)
-
-
-def test_call_page_offers_hindi_when_no_worker_has_said(client):
-    # Nobody knows which lines are up: offer it (the call then fails as offline, flagged on its own).
-    assert _offered(client.get("/call/demo-family-clinic").text) == ["hi"]
-
-
-def test_call_page_offers_only_the_lines_the_worker_can_answer(client):
-    _beat(["en"])  # a worker from before the English line was removed: it can't answer Hindi
+def test_call_page_offers_no_language_choice(client):
+    # Every call is in Hindi (2026-11-08): the page says so and asks nothing.
     page = client.get("/call/demo-family-clinic").text
-    assert _offered(page) == []
-    r = client.post("/call/demo-family-clinic/pass", json=HINDI)  # an old tab
+    assert 'name="language"' not in page
+    assert "Call in Hindi" in page and "English" not in page.replace("English words are fine", "")
+
+
+def test_no_pass_when_the_worker_cant_answer_hindi(client):
+    _beat(["en"])  # a worker from before the English line was removed
+    r = client.post("/call/demo-family-clinic/pass")
     assert r.status_code == 503
+    assert r.json() == {"error": "The receptionist can't take calls right now. Please try again later."}
 
 
 def test_page_assets_are_fingerprinted_so_an_update_is_never_served_stale(client):
@@ -145,11 +141,11 @@ def test_pass_carries_the_chosen_language(client):
     assert call_from(dispatch.metadata) == CallFor(1, "hi")
 
 
-@pytest.mark.parametrize("body", [None, {}, {"language": ""}, {"language": "ta"}, {"language": "en"}])
-def test_pass_without_a_known_language_is_refused(client, body):
-    r = client.post("/call/demo-family-clinic/pass", json=body)
-    assert r.status_code == 400
-    assert r.json() == {"error": "Choose English or Hindi for the call."}
+@pytest.mark.parametrize("body", [None, {}, {"language": "en"}, {"language": "ta"}])
+def test_every_pass_is_for_a_hindi_call_whatever_an_old_tab_sends(client, body):
+    token = client.post("/call/demo-family-clinic/pass", json=body).json()["token"]
+    (dispatch,) = _claims(token).room_config.agents
+    assert call_from(dispatch.metadata).language == "hi"
 
 
 def test_pass_allows_one_private_voice_call(client):
