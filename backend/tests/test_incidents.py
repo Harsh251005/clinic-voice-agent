@@ -27,7 +27,7 @@ def open_kinds(s, clinic_id=None):
 
 def healthy(s, now=NOW):
     """A worker checking in, so only the problem under test is open."""
-    repo.beat(s, "AW_test", "host", ["en", "hi"], now)
+    repo.beat(s, "AW_test", "host", ["hi"], now)
 
 
 def call(s, clinic_id, started, *, ended=True, outcome="booked", end_reason="caller_left", room="call-demo-x", errors=()):
@@ -292,5 +292,5 @@ def test_worker_status_for_the_call_page(client):  # noqa: F811
 
     assert client.get("/healthz/worker").json() == {"online": False, "last_seen": None}
     with _sessions()() as s:
-        repo.beat(s, "AW_1", "host", ["en", "hi"], utc_now())
+        repo.beat(s, "AW_1", "host", ["hi"], utc_now())
     assert client.get("/healthz/worker").json()["online"] is True

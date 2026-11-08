@@ -272,7 +272,7 @@ class WorkerHeartbeat(Base):
     host: Mapped[str] = mapped_column(String(200), default="")
     started_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
     last_seen: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
-    # The language lines it can answer, e.g. "en,hi" (a line without its keys is left out).
+    # The language lines it can answer, e.g. "hi" (a line without its keys is left out).
     languages: Mapped[str] = mapped_column(String(20), default="", server_default="")
 
 

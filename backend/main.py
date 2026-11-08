@@ -146,9 +146,9 @@ async def entrypoint(ctx: JobContext) -> None:
 if __name__ == "__main__":
     # Fail before the worker starts rather than on the first call, and report
     # it as a one-line setup error instead of a traceback. Trying each
-    # language line's providers here finds a missing key: that line is off
-    # (said here, flagged on the dashboards through the check-in), the other
-    # still answers; with neither, nothing can, so it exits. The session
+    # language line's providers here finds a missing key: that line is off.
+    # Hindi is the only line, so a missing key leaves nothing to answer calls
+    # and it exits (with a second line, the other would still answer). The session
     # itself needs a running event loop, so it is left to the entrypoint.
     # Opening the database here catches an old schema; console also resolves
     # its clinic, since it has no dispatch to name one.

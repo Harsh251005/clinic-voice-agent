@@ -5,7 +5,7 @@ import path from "node:path";
 
 const BACKEND = path.resolve(__dirname, "../../backend");
 
-/** A worker checking in (both language lines up), as clinic_agent/heartbeat.py does; `ageSeconds`
+/** A worker checking in (the Hindi line up), as clinic_agent/heartbeat.py does; `ageSeconds`
  *  back-dates it (an old beat = a worker that stopped). */
 export function heartbeat(ageSeconds = 0) {
   execFileSync("uv", ["run", "python", "-c", [

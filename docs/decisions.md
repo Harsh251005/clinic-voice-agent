@@ -188,3 +188,26 @@ Speech-to-text, the model and the voice are each chosen by one line in
 - Reasoning models get `reasoning_effort="none"` automatically.
   gpt-6-luna otherwise refused tools with a 400 on every turn.
 [`4bfc563`](https://github.com/Harsh251005/clinic-voice-agent/commit/4bfc563) · [`e9399ad`](https://github.com/Harsh251005/clinic-voice-agent/commit/e9399ad)
+
+## 13. Two half-finished lines → one Hindi line, finished first
+
+Two language lines (English on ElevenLabs + OpenAI, Hindi on Sarvam) meant
+two of everything to tune, test and pay for, while the callers this is for
+speak Hindi. On 2026-11-08 the English line was removed so Hindi could be
+made reliable and production-ready first.
+- **One line, still a line.** Calls keep their `language` (always `hi`) and
+  the dispatch still names it, so a second line later is one entry in
+  `lines.py`, not a rebuild.
+- **The brain stays comparable.** `HINDI_LLM=sarvam|openai` picks the
+  model for the Hindi line, so Sarvam's model can be judged against OpenAI
+  on the same calls.
+- **Leftovers fail loudly.** An `ELEVENLABS_*` line still in `.env` stops
+  the worker with a one-line message instead of being silently ignored.
+- **No trace in the data.** Migration 0013 deletes the vendor's prices,
+  usage and problems and every call that ran on it, matched on the vendor
+  in the call's record as well as its language, because the oldest calls
+  were made before calls had a language. The migrations command backs up
+  the file first; the deletion can't be undone.
+- **Live tests use OpenAI only, as text.** Sarvam is tested by ear on
+  real calls.
+[`326b96c`](https://github.com/Harsh251005/clinic-voice-agent/commit/326b96c) · [`943d5bd`](https://github.com/Harsh251005/clinic-voice-agent/commit/943d5bd) · [`c2ff20f`](https://github.com/Harsh251005/clinic-voice-agent/commit/c2ff20f)

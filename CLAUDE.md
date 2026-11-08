@@ -18,7 +18,7 @@ A missing key stops the worker with a one-line error. Every vendor keeps its
 own model/voice settings (`SARVAM_TTS_SPEAKER`, `OPENAI_LLM_MODEL`, …). Live
 tests use OpenAI only, as text (never Sarvam).
 
-Current state (2026-10-12): Stages 2, 3 and 5 built, Stage 4 in progress; language lines + call-page switch built (plan `per-clinic-agent-and-language-lines.md`).
+Current state (2026-11-08): Stages 2, 3 and 5 built, Stage 4 in progress; one Hindi line (the English line and ElevenLabs removed, their data deleted by migration 0013; `docs/decisions.md` #13).
 Built: clinic database (Postgres + Alembic), free-slot rules, booking +
 cancel/reschedule tools with code-enforced confirmation, end-call tool,
 `console --text`, one worker for all clinics (dispatch), browser call links
@@ -202,9 +202,10 @@ The pipeline is split so each concern lives in exactly one module:
   mapping a name to a builder returning LiveKit's base `STT`/`LLM`/`TTS` class.
   Builders own their vendor's defaults (model/voice settings are `None` in
   `Settings` when blank) and call `require_key(...)` for their own API key.
-  `build_x(cfg, vendor)`. `main.py` tries both lines at boot: a missing key
-  turns its line off (warning + `language_off` problem); with neither line
-  it exits with a one-line error.
+  `build_x(cfg, vendor)`. `main.py` tries the line at boot: a missing key
+  exits with a one-line error (the check still loops over `LANGUAGES`, so a
+  second line would only switch itself off). No worker checked in for the
+  line = a critical `language_off` problem.
 
 **Invariant: only `providers/` imports a vendor package.** Everything else
 works against LiveKit's base classes. Adding a vendor = a builder in the
