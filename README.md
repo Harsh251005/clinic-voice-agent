@@ -5,8 +5,8 @@
 ![LiveKit Agents](https://img.shields.io/badge/LiveKit-Agents%201.8-1F2937)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-000000)
 
-Patients pick **Hindi or English** and talk to it; Hindi callers can mix in
-English the way people do. It answers
+Patients talk to it in **Hindi**, mixing in English words the way people
+do. It answers
 from the clinic's own data (doctors, hours, fees, holidays), **books,
 moves and cancels appointments**, and hangs up politely. Clinic staff run
 their day in a dashboard. The operator watches every clinic from an admin
@@ -18,9 +18,8 @@ panel. Every failure is flagged on screen.
 
 ## What it does
 
-- **A real-time voice agent** on LiveKit. Speech-to-text, the language
-  model and the voice are each a vendor you pick with one setting (Sarvam,
-  ElevenLabs, OpenAI).
+- **A real-time Hindi voice agent** on LiveKit. Sarvam hears and speaks;
+  the language model is Sarvam's or, to compare, OpenAI's (one setting).
 - **Books, moves and cancels appointments by voice.** Every change is
   confirmed with the caller first, and the code enforces it, not the
   prompt.
@@ -50,7 +49,7 @@ flowchart LR
 
     subgraph worker["Voice agent worker (Python)"]
         direction LR
-        vad["Silero VAD<br/>turn-taking"] --> stt["STT<br/>Hindi: Sarvam · English: ElevenLabs"] --> llm["LLM<br/>Hindi: Sarvam · English: OpenAI"] --> tts["TTS<br/>Hindi: Sarvam · English: ElevenLabs"]
+        vad["Silero VAD<br/>turn-taking"] --> stt["STT<br/>Sarvam"] --> llm["LLM<br/>Sarvam or OpenAI"] --> tts["TTS<br/>Sarvam"]
         llm <--> tools["Booking tools<br/>rules in plain Python"]
     end
 
@@ -62,10 +61,9 @@ flowchart LR
 ```
 
 - **The call path:** the browser gets a short-lived, signed pass for a
-  fresh room bound to one clinic and one language. LiveKit dispatches the
-  worker with both. Each language is its own pipeline (Hindi: Sarvam for all
-  three; English: ElevenLabs + OpenAI), kept for the whole call so the voice
-  never changes. Each turn goes VAD → STT → LLM (with tools) → TTS.
+  fresh room bound to one clinic. LiveKit dispatches the worker with it.
+  Every call is in Hindi (Sarvam ears and voice). Each turn goes VAD → STT →
+  LLM (with tools) → TTS.
 - **The rules live in plain Python** (`booking.py`), not in the prompt.
   They are tested without any voice or model.
 - **The database guarantees what code can't:** one booking per doctor per
@@ -158,7 +156,7 @@ CI runs the first two on every push, with no vendor calls.
 ## Stack
 
 **Voice:** LiveKit Agents 1.8, Sarvam (saaras STT, sarvam-105b, bulbul
-TTS), ElevenLabs, OpenAI, Silero VAD.
+TTS), OpenAI, Silero VAD.
 **Backend:** Python 3.13, FastAPI, SQLAlchemy 2.1 + Alembic, Postgres
 (SQLite for development), uv.
 **Dashboard:** Next.js 16, React 19, TypeScript, Tailwind, shadcn/ui,

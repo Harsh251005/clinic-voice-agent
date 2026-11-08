@@ -41,7 +41,7 @@ def per_text(per: float, unit: str) -> str:
 
 
 PARTS = ("listening", "thinking", "speaking", "call_line", "other")
-PROVIDERS = ("sarvam", "elevenlabs", "openai", "livekit")
+PROVIDERS = ("sarvam", "openai", "livekit")
 CURRENCIES = ("INR", "USD")
 
 

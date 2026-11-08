@@ -42,7 +42,8 @@ def _reasons(model: str) -> bool:
     return bool(re.match(r"(gpt-([5-9]|\d{2,})|o\d)", model))
 
 
-# Allowed vendors are Sarvam (the Hindi line) and OpenAI (the English line). Don't add others.
+# Allowed vendors are Sarvam (the Hindi line's default brain) and OpenAI (the
+# same line, set by HINDI_LLM=openai to compare). Don't add others.
 BUILDERS: dict[str, Callable[[Settings], llm.LLM]] = {
     "sarvam": _sarvam,
     "openai": _openai,
@@ -50,7 +51,7 @@ BUILDERS: dict[str, Callable[[Settings], llm.LLM]] = {
 
 
 def build_llm(cfg: Settings, vendor: str) -> llm.LLM:
-    """`vendor`'s LLM, as a call's language line names it (clinic_agent/lines.py)."""
+    """`vendor`'s LLM, as the Hindi line names it (clinic_agent/lines.py)."""
     try:
         builder = BUILDERS[vendor]
     except KeyError:

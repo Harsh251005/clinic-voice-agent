@@ -11,11 +11,13 @@ from livekit.agents.metrics import LLMModelUsage, STTModelUsage, TTSModelUsage
 from clinic_agent import costs, incidents
 from clinic_agent.call_record import CallRecorder
 from clinic_agent.config import load_settings
-from clinic_agent.lines import LINES
+from clinic_agent.lines import Line
 from clinic_agent.store import repo
 from clinic_agent.store.db import sessions_for
 from clinic_agent.store.models import Usage, utc_now
 from tests.test_dashboard_api import client_as, world  # noqa: F401 - the fixture
+
+HINDI = Line("hi", stt="sarvam", llm="sarvam", tts="sarvam")
 
 ADMIN = "harsh@example.com"
 DAY = datetime(2026, 10, 12, 9)
@@ -36,7 +38,7 @@ BOOK = costs.PriceBook(
         _row(provider="openai", model="gpt-4.1-mini", unit="tokens_out", amount=1.60, per=1e6, currency="USD"),
         _row(provider="openai", model="gpt-4.1-mini", unit="tokens_out", amount=2.00, per=1e6, currency="USD",
              valid_from=date(2026, 11, 1)),
-        _row(provider="elevenlabs", model="eleven_v3_conversational", unit="characters", amount=0.08, per=1000, currency="USD"),
+        _row(provider="livekit", model="agent_session", unit="minutes", amount=0.01, per=1, currency="USD"),
     ],
     rates=[_row(inr_per_usd=90.0), _row(inr_per_usd=100.0, valid_from=date(2026, 11, 1))],
 )
@@ -53,7 +55,7 @@ def test_usage_is_priced_at_the_price_and_rate_of_its_own_day():
 
 
 def test_what_cant_be_priced_says_why():
-    assert BOOK.priced(_use("elevenlabs", "scribe_v2_medical", "seconds_heard", 60)).missing == "price"
+    assert BOOK.priced(_use("sarvam", "bulbul:v3", "characters", 60)).missing == "price"
     no_rate = costs.PriceBook(BOOK._prices["openai", "gpt-4.1-mini", "tokens_out"], [])
     assert no_rate.priced(_use("openai", "gpt-4.1-mini", "tokens_out", 10)).missing == "rate"
     before = BOOK.priced(_use("sarvam", "", "seconds_heard", 60, at=datetime(2026, 9, 30)))
@@ -61,17 +63,17 @@ def test_what_cant_be_priced_says_why():
 
 
 def test_a_month_takes_off_the_free_allowance_and_adds_fixed_fees():
-    usage = [_use("elevenlabs", "eleven_v3_conversational", "characters", 15_000)]  # $1.20 = ₹108
+    usage = [_use("livekit", "agent_session", "minutes", 1_500)]  # $15 = ₹1,350
     m = costs.month(
         BOOK, "2026-10", usage,
-        allowances=[_row(provider="elevenlabs", unit="characters", quantity=10_000)],
-        fixed_costs=[_row(name="Starter", provider="elevenlabs", amount=5, currency="USD", valid_to=None)],
+        allowances=[_row(provider="livekit", unit="minutes", quantity=1_000)],
+        fixed_costs=[_row(name="Ship", provider="livekit", amount=5, currency="USD", valid_to=None)],
     )
-    assert m.usage_rupees == pytest.approx(108.0)
-    assert m.free_rupees == pytest.approx(72.0)  # 10,000 of the 15,000 characters
-    assert m.to_pay == pytest.approx(108 - 72 + 450)
-    # The vendor's bill is compared in its own currency: $0.40 of speech + $5 plan.
-    assert costs.ours_for_bill(BOOK, m, "elevenlabs", "USD", "2026-10") == pytest.approx(5.40)
+    assert m.usage_rupees == pytest.approx(1350.0)
+    assert m.free_rupees == pytest.approx(900.0)  # 1,000 of the 1,500 minutes
+    assert m.to_pay == pytest.approx(1350 - 900 + 450)
+    # The vendor's bill is compared in its own currency: $5 of minutes + $5 plan.
+    assert costs.ours_for_bill(BOOK, m, "livekit", "USD", "2026-10") == pytest.approx(10.0)
 
 
 def test_months_have_bounds():
@@ -89,7 +91,7 @@ def _session(model_usage):
 
 
 def test_a_call_records_each_vendors_exact_usage_and_its_minutes():
-    record = CallRecorder(None, 1, "room-1", "stack", "hi", line=LINES["hi"])
+    record = CallRecorder(None, 1, "room-1", "stack", "hi", line=HINDI)
     record.session = _session([
         LLMModelUsage(provider="Sarvam", model="", input_tokens=5000, input_cached_tokens=3000, output_tokens=400),
         STTModelUsage(provider="Sarvam", model="saaras:v3", audio_duration=42.5),
@@ -108,7 +110,7 @@ def test_a_call_records_each_vendors_exact_usage_and_its_minutes():
 
 
 def test_the_console_spends_no_livekit_minutes_and_a_broken_count_loses_only_itself():
-    record = CallRecorder(None, 1, repo.CONSOLE_ROOM, "stack", "en", line=LINES["en"])
+    record = CallRecorder(None, 1, repo.CONSOLE_ROOM, "stack", "hi", line=Line("hi", stt="sarvam", llm="openai", tts="sarvam"))
     record.session = SimpleNamespace(usage=None)  # reading it fails
     assert record.usage(record.started_at + timedelta(minutes=2)) == []
 
@@ -147,6 +149,7 @@ ROUTES = [
     ("GET", "/api/admin/costs"), ("GET", "/api/admin/cost-settings"),
     *((m, f"/api/admin/cost-settings/{kind}{tail}") for kind in ("prices", "rates", "allowances", "fixed", "bills")
       for m, tail in (("POST", ""), ("PUT", "/1"), ("DELETE", "/1"))),
+    ("POST", "/api/admin/cost-settings/model-prices"), ("DELETE", "/api/admin/cost-settings/model-prices?ids=1"),
 ]
 
 
@@ -174,19 +177,19 @@ def test_the_month_and_each_call_in_rupees(world):  # noqa: F811
 
 def test_a_model_without_a_price_is_flagged_until_its_price_is_added(world):  # noqa: F811
     with _sessions()() as s:
-        repo.add_usage(s, world["cure"], utc_now(), "call", "listening",
-                       [{"provider": "elevenlabs", "model": "scribe_v2_medical", "unit": "seconds_heard", "quantity": 60.0}])
+        repo.add_usage(s, world["cure"], utc_now(), "call", "thinking",
+                       [{"provider": "openai", "model": "gpt-4.1", "unit": "tokens_in", "quantity": 600.0}])
         incidents.sync(s, utc_now(), max_call_minutes=5)
         assert [(i.kind, i.subject) for i in repo.open_incidents(s) if i.kind == "price_missing"] == [
-            ("price_missing", "elevenlabs/scribe_v2_medical/seconds_heard")]
+            ("price_missing", "openai/gpt-4.1/tokens_in")]
     c = client_as(ADMIN, admin=True)
     (missing,) = c.get("/api/admin/costs").json()["missing"]
-    assert missing == {"why": "price", "provider": "elevenlabs", "model": "scribe_v2_medical", "unit_label": "seconds heard"}
+    assert missing == {"why": "price", "provider": "openai", "model": "gpt-4.1", "unit_label": "words read (tokens)"}
     problem = next(p for p in c.get("/api/admin/problems").json()["open"] if p["kind"] == "price_missing")
-    assert "scribe_v2_medical has no price" in problem["title"] and problem["link"] == "/admin/costs/prices"
+    assert "gpt-4.1 has no price" in problem["title"] and problem["link"] == "/admin/costs/prices"
     c.post("/api/admin/cost-settings/prices", json={
-        "provider": "elevenlabs", "model": "scribe_v2_medical", "unit": "seconds_heard",
-        "amount": 0.22, "per": 3600, "currency": "USD", "valid_from": "2026-10-01"})
+        "provider": "openai", "model": "gpt-4.1", "unit": "tokens_in",
+        "amount": 2.00, "per": 1_000_000, "currency": "USD", "valid_from": "2026-10-01"})
     with _sessions()() as s:
         incidents.sync(s, utc_now(), max_call_minutes=5)
         assert not [i for i in repo.open_incidents(s) if i.kind == "price_missing"]
@@ -195,12 +198,12 @@ def test_a_model_without_a_price_is_flagged_until_its_price_is_added(world):  # 
 def test_everything_is_edited_in_the_panel(world):  # noqa: F811
     c = client_as(ADMIN, admin=True)
     settings = c.get("/api/admin/cost-settings").json()
-    assert settings["rates"][0]["inr_per_usd"] == 95.0 and len(settings["prices"]) > 20  # the seeded list
+    assert settings["rates"][0]["inr_per_usd"] == 95.0 and len(settings["prices"]) == 18  # the seeded list, ElevenLabs gone
     rate = settings["rates"][0]
     assert c.put(f"/api/admin/cost-settings/rates/{rate['id']}", json=rate | {"inr_per_usd": 88.5}).json()["inr_per_usd"] == 88.5
     clash = c.post("/api/admin/cost-settings/rates", json={"valid_from": rate["valid_from"], "inr_per_usd": 90})
     assert (clash.status_code, clash.json()["detail"]) == (422, "There is already a rate from that date: change that one.")
-    bad = c.post("/api/admin/cost-settings/fixed", json={"name": "Plan", "provider": "elevenlabs", "amount": 5,
+    bad = c.post("/api/admin/cost-settings/fixed", json={"name": "Plan", "provider": "livekit", "amount": 5,
                                                          "currency": "USD", "valid_from": "2026-11-01", "valid_to": "2026-10-01"})
     assert bad.status_code == 422
     assert c.post("/api/admin/cost-settings/prices", json={"provider": "acme", "unit": "minutes", "amount": 1, "per": 1,
@@ -212,6 +215,37 @@ def test_everything_is_edited_in_the_panel(world):  # noqa: F811
     assert (check["theirs"], check["ours"]) == (10, pytest.approx(4.0))
     assert c.delete(f"/api/admin/cost-settings/bills/{bill['id']}").json() == {"ok": True}
     assert c.delete(f"/api/admin/cost-settings/bills/{bill['id']}").status_code == 404
+
+
+def test_a_language_models_token_prices_are_saved_and_corrected_as_one(world):  # noqa: F811
+    c = client_as(ADMIN, admin=True)
+
+    def model_rows(model):
+        return {r["unit"]: r for r in c.get("/api/admin/cost-settings").json()["prices"] if r["model"] == model}
+
+    body = {"provider": "openai", "model": " gpt-test ", "currency": "USD", "valid_from": "2026-11-01",
+            "tokens_in": 0.4, "tokens_cached": 0.1, "tokens_out": 1.6}
+    saved = c.post("/api/admin/cost-settings/model-prices", json=body).json()
+    assert {(r["unit"], r["amount"], r["per"], r["model"]) for r in saved} == {
+        ("tokens_in", 0.4, 1e6, "gpt-test"), ("tokens_cached", 0.1, 1e6, "gpt-test"), ("tokens_out", 1.6, 1e6, "gpt-test")}
+
+    # A correction replaces all three at once.
+    ids = [r["id"] for r in model_rows("gpt-test").values()]
+    c.post("/api/admin/cost-settings/model-prices", json=body | {"tokens_out": 2.0, "replace": ids})
+    assert {u: r["amount"] for u, r in model_rows("gpt-test").items()} == {"tokens_in": 0.4, "tokens_cached": 0.1, "tokens_out": 2.0}
+
+    # Never a speech price through here, and a refusal changes nothing.
+    speech = next(r for r in c.get("/api/admin/cost-settings").json()["prices"] if r["unit"] == "seconds_heard")
+    ids = [r["id"] for r in model_rows("gpt-test").values()]
+    refused = c.post("/api/admin/cost-settings/model-prices", json=body | {"replace": [*ids, speech["id"]]})
+    assert (refused.status_code, refused.json()["detail"]) == (422, "Only a language model's token prices can be changed together.")
+    assert len(model_rows("gpt-test")) == 3
+    assert c.post("/api/admin/cost-settings/model-prices", json=body | {"replace": [999_999]}).status_code == 404
+    assert len(model_rows("gpt-test")) == 3
+
+    query = "&".join(f"ids={i}" for i in ids)
+    assert c.delete(f"/api/admin/cost-settings/model-prices?{query}").json() == {"ok": True}
+    assert model_rows("gpt-test") == {}
 
 
 def test_the_livekit_warning_follows_the_allowance_set_in_the_panel(world):  # noqa: F811

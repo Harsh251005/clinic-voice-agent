@@ -261,7 +261,7 @@ def _safe(handler):
 
 def stack_of(session: AgentSession, line: Line, text_only: bool) -> str:
     """Which vendors and models took the call, e.g.
-    "elevenlabs/scribe_v2 · openai/gpt-4.1-mini · elevenlabs/eleven_v3_conversational"."""
+    "sarvam/saaras:v3 · sarvam/sarvam-105b-conversations · sarvam/bulbul:v3"."""
     if text_only:
         return f"text · {line.llm}/{session.llm.model}"
     return f"{line.stt}/{session.stt.model} · {line.llm}/{session.llm.model} · {line.tts}/{session.tts.model}"

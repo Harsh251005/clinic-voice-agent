@@ -24,7 +24,6 @@ logger = logging.getLogger("clinic-agent")
 # Only if the model sent an empty goodbye: never hang up without one.
 FALLBACK_GOODBYE: dict[Language, str] = {
     "hi": "कॉल करने के लिए धन्यवाद जी। आपका दिन शुभ हो, नमस्ते!",
-    "en": "Thank you for calling. Have a good day, goodbye!",
 }
 
 

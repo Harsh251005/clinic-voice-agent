@@ -73,15 +73,8 @@ async def test_silent_model_gets_a_filler_in_the_calls_language(link):
     assert "free start times" in fake.requests[-1].items[-1].output
 
 
-async def test_an_english_call_gets_an_english_filler(link):
-    english = dataclasses.replace(link, language="en")
-    spoken, _, _ = await call(english, [Reply(calls=[FIND]), Reply("Ten is free.")], "Any time with Dr Asha tomorrow?")
-    (text, _), = spoken
-    assert text in FILLERS["en"]
-
-
 async def test_a_hindi_call_keeps_its_hindi_filler_when_the_caller_speaks_english(link):
-    # Each line's voice speaks only its own language: the call's, not the caller's last words.
+    # The voice speaks only the call's language, not the caller's last words.
     spoken, _, _ = await call(link, [Reply(calls=[FIND]), Reply("दस बजे खाली है।")], "Any time with Dr Asha tomorrow?")
     (text, _), = spoken
     assert text in FILLERS["hi"]
@@ -136,8 +129,7 @@ async def test_end_call_speaks_the_goodbye_then_hangs_up(link):
     assert len(fake.requests) == 1  # no second model round after the tool
 
 
-@pytest.mark.parametrize("language", ["en", "hi"])
-async def test_an_empty_goodbye_still_says_goodbye_in_the_calls_language(link, language):
-    spoken, _, closed = await call(dataclasses.replace(link, language=language), [Reply(calls=[("end_call", {"goodbye": "  "})])], "bye")
-    assert spoken == [(FALLBACK_GOODBYE[language], {"allow_interruptions": False})]
+async def test_an_empty_goodbye_still_says_goodbye_in_hindi(link):
+    spoken, _, closed = await call(link, [Reply(calls=[("end_call", {"goodbye": "  "})])], "bye")
+    assert spoken == [(FALLBACK_GOODBYE["hi"], {"allow_interruptions": False})]
     assert closed
