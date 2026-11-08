@@ -146,8 +146,13 @@ def test_bookings_that_need_a_call(db):
     s, clinic_id = db
     healthy(s)
     asha = repo.get_clinic(s, clinic_id).doctors[0]
-    day = datetime.now().date() + timedelta(days=7)
-    repo.book(s, clinic_id, asha.id, datetime.combine(day, datetime.min.time()).replace(hour=10), "Ravi", "9876543210")
+    # A week or more ahead, at the start of one of her sittings: a fixed "in 7
+    # days" landed on a day she doesn't work whenever today was that weekday,
+    # and the booking itself then needed a call (it failed every Sunday).
+    sitting = asha.hours[0]
+    today = datetime.now().date()
+    day = today + timedelta(days=7 + (sitting.weekday - today.weekday()) % 7)
+    repo.book(s, clinic_id, asha.id, datetime.combine(day, sitting.start), "Ravi", "9876543210")
     sync(s)
     assert "bookings_need_call" not in open_kinds(s, clinic_id)
     repo.add_time_off(s, clinic_id, day, day, doctor_id=asha.id)
