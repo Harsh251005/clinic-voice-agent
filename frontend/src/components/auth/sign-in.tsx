@@ -20,7 +20,7 @@ export function SignIn({ problem }: { problem?: string | null }) {
   const shown = problem ? PROBLEMS[problem] : undefined;
   return (
     <AuthFrame pitch>
-      {/* Frosted glass like the example call beside it: one page, not a box on top. */}
+      {/* Frosted glass like the tiles beside it: one page, not a box on top. */}
       <div className={glassCard}>
         <div aria-hidden className={glassEdge} />
         <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>

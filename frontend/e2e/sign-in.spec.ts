@@ -50,25 +50,27 @@ test("each sign-in problem from the API is explained, unknown ones are not", asy
   await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
 });
 
-test("the example call plays, in the real booking order, and starts over", async ({ page }) => {
-  test.setTimeout(60_000);
+test("the sign-in page says what ClinicDesk does, in four tiles, each once", async ({ page }) => {
   await viewer(page, "signed-out");
   await page.goto("/");
-  const call = page.getByText("Patient call").locator("xpath=ancestor::div[contains(@class,'rounded-2xl')][1]");
-  // Read-back before booking: name, number, then "Sab sahi hai na?", then booked.
-  await expect(call.getByText("Patient ka naam aur das ank ka mobile number")).toBeVisible({ timeout: 20_000 });
-  await expect(call.getByText("Sab sahi hai na?")).toBeVisible({ timeout: 20_000 });
-  await expect(call.getByText("Appointment booked")).toBeVisible({ timeout: 20_000 });
-  await expect(call.getByText("Appointment booked")).toBeHidden({ timeout: 10_000 }); // the loop restarts
-  await expect(call.getByText(/^Namaste ji/)).toBeVisible({ timeout: 5_000 });
+  const tiles = page.getByRole("region", { name: "What ClinicDesk does" }).getByRole("listitem");
+  await expect(tiles).toHaveCount(4);
+  for (const title of ["Books, moves, cancels", "Answers questions", "Keeps your diary", "Every call on record"]) {
+    await expect(page.getByRole("heading", { name: title })).toHaveCount(1);
+  }
+  await expect(page.getByText("Patient call")).toHaveCount(0); // the old example call is gone
+  // The light passes over one tile at a time, in reading order: four different start points.
+  const delays = await tiles.evaluateAll((els) => els.map((el) => getComputedStyle(el).animationDelay));
+  expect(delays).toEqual(["0s", "-7.5s", "-5s", "-2.5s"]);
 });
 
-test("less motion asked for: the finished call, still", async ({ page }) => {
+test("less motion asked for: the tiles stay still", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await viewer(page, "signed-out");
   await page.goto("/");
-  await expect(page.getByText("Appointment booked")).toBeVisible();
-  await expect(page.getByText("Sab sahi hai na?")).toBeVisible();
+  const tile = page.getByRole("region", { name: "What ClinicDesk does" }).getByRole("listitem").first();
+  await expect(tile).toBeVisible();
+  expect(await tile.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
 });
 
 test("the full-page messages use the same signed-out look", async ({ page }) => {

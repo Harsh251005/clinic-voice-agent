@@ -49,7 +49,7 @@ src/app/                         routes
   admin/                         the operator's admin panel (admins only): health, calls, errors, clinics
 src/components/app/              app pieces: shell, gates (no access, errors), account menu + sign-out dialog, brand
 src/components/auth/             the signed-out look: dark canvas, glass cards, the sign-in card, and the
-                                 looping example call (call-script.ts follows the real booking order)
+                                 four tiles saying what ClinicDesk does (offering.tsx: built features only)
 src/components/admin/            the admin panel's shell (slate ink + amber, never teal) and shared bits
 src/components/appointments/     the diary: day grid, phone list, week, search, the booking form,
                                  and one menu per booking (visit marks, edit, cancel with Undo)
