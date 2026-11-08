@@ -274,14 +274,18 @@ Hindi-name suggestions are counted too, as *other costs*.
   vendor, language and clinic, the most expensive calls, and each vendor's
   bill next to ours. Each call's trace page shows its cost part by part.
 - **Prices page** (`/admin/costs/prices`): everything it is worked out from,
-  edited there, never in code. Vendor prices (per model, or blank for any
-  model of that vendor), each **from a date**: a vendor's new price is a new
-  row, so the past keeps its own; fixing a wrong one is editing it, and
-  every call it covers is priced again. Also the dollar-to-rupee rate (set
-  by hand to what your card is charged, dated), free monthly allowances
-  (ElevenLabs characters, LiveKit minutes: the LiveKit-minutes problem uses
+  edited there, never in code. Vendor prices, **one row per model** (or
+  blank for any model of that vendor): a language model's input, cached and
+  output prices (per million tokens) are one row and one form, saved
+  together in one step (`/api/admin/cost-settings/model-prices`), so a model
+  is never half-priced. Each price applies **from a date**: a vendor's new
+  price is a new row, so the past keeps its own; fixing a wrong one is
+  editing it, and every call it covers is priced again. Also the
+  dollar-to-rupee rate (set by hand to what your card is charged, dated),
+  free monthly allowances (LiveKit minutes: the LiveKit-minutes problem uses
   this allowance), monthly fees (plan subscriptions) and each month's real
-  bills.
+  bills. ElevenLabs is not listed or offered (Hindi first, 2026-11-08); its
+  saved prices stay, so past English calls keep their cost.
 - Starts with the official prices as checked on 2026-10-13 (migration
   0012). `scribe_v2_medical` has no published price, so calls using it show
   as incomplete and the *Price missing* problem opens until you add one.

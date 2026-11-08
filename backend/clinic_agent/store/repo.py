@@ -819,6 +819,25 @@ def delete_cost_row(s: Session, kind: str, row_id: int) -> None:
     s.commit()
 
 
+TOKEN_UNITS = ("tokens_in", "tokens_cached", "tokens_out")
+
+
+def replace_model_prices(s: Session, remove: Iterable[int], add: Iterable[dict]) -> list[Price]:
+    """A language model's token prices as one: remove these price rows and add
+    these, all in one commit, so a model never ends up half-priced. Only
+    token prices may be removed this way (a ValueError otherwise)."""
+    for row_id in remove:
+        row = _get(s, Price, row_id)
+        if row.unit not in TOKEN_UNITS:
+            s.rollback()
+            raise ValueError("Only a language model's token prices can be changed together.")
+        s.delete(row)
+    rows = [Price(**fields) for fields in add]
+    s.add_all(rows)
+    s.commit()
+    return rows
+
+
 # ---------- health ----------
 
 CONSOLE_ROOM = "console"  # LiveKit's local console: a developer's test, not a patient's call

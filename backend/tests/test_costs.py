@@ -147,6 +147,7 @@ ROUTES = [
     ("GET", "/api/admin/costs"), ("GET", "/api/admin/cost-settings"),
     *((m, f"/api/admin/cost-settings/{kind}{tail}") for kind in ("prices", "rates", "allowances", "fixed", "bills")
       for m, tail in (("POST", ""), ("PUT", "/1"), ("DELETE", "/1"))),
+    ("POST", "/api/admin/cost-settings/model-prices"), ("DELETE", "/api/admin/cost-settings/model-prices?ids=1"),
 ]
 
 
@@ -212,6 +213,37 @@ def test_everything_is_edited_in_the_panel(world):  # noqa: F811
     assert (check["theirs"], check["ours"]) == (10, pytest.approx(4.0))
     assert c.delete(f"/api/admin/cost-settings/bills/{bill['id']}").json() == {"ok": True}
     assert c.delete(f"/api/admin/cost-settings/bills/{bill['id']}").status_code == 404
+
+
+def test_a_language_models_token_prices_are_saved_and_corrected_as_one(world):  # noqa: F811
+    c = client_as(ADMIN, admin=True)
+
+    def model_rows(model):
+        return {r["unit"]: r for r in c.get("/api/admin/cost-settings").json()["prices"] if r["model"] == model}
+
+    body = {"provider": "openai", "model": " gpt-test ", "currency": "USD", "valid_from": "2026-11-01",
+            "tokens_in": 0.4, "tokens_cached": 0.1, "tokens_out": 1.6}
+    saved = c.post("/api/admin/cost-settings/model-prices", json=body).json()
+    assert {(r["unit"], r["amount"], r["per"], r["model"]) for r in saved} == {
+        ("tokens_in", 0.4, 1e6, "gpt-test"), ("tokens_cached", 0.1, 1e6, "gpt-test"), ("tokens_out", 1.6, 1e6, "gpt-test")}
+
+    # A correction replaces all three at once.
+    ids = [r["id"] for r in model_rows("gpt-test").values()]
+    c.post("/api/admin/cost-settings/model-prices", json=body | {"tokens_out": 2.0, "replace": ids})
+    assert {u: r["amount"] for u, r in model_rows("gpt-test").items()} == {"tokens_in": 0.4, "tokens_cached": 0.1, "tokens_out": 2.0}
+
+    # Never a speech price through here, and a refusal changes nothing.
+    speech = next(r for r in c.get("/api/admin/cost-settings").json()["prices"] if r["unit"] == "seconds_heard")
+    ids = [r["id"] for r in model_rows("gpt-test").values()]
+    refused = c.post("/api/admin/cost-settings/model-prices", json=body | {"replace": [*ids, speech["id"]]})
+    assert (refused.status_code, refused.json()["detail"]) == (422, "Only a language model's token prices can be changed together.")
+    assert len(model_rows("gpt-test")) == 3
+    assert c.post("/api/admin/cost-settings/model-prices", json=body | {"replace": [999_999]}).status_code == 404
+    assert len(model_rows("gpt-test")) == 3
+
+    query = "&".join(f"ids={i}" for i in ids)
+    assert c.delete(f"/api/admin/cost-settings/model-prices?{query}").json() == {"ok": True}
+    assert model_rows("gpt-test") == {}
 
 
 def test_the_livekit_warning_follows_the_allowance_set_in_the_panel(world):  # noqa: F811

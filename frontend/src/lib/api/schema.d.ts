@@ -235,6 +235,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/cost-settings/model-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Model Prices
+         * @description Input, cached and output prices of one model, saved (or corrected) together.
+         */
+        post: operations["save_model_prices_api_admin_cost_settings_model_prices_post"];
+        /**
+         * Remove Model Prices
+         * @description Remove one model's token prices together.
+         */
+        delete: operations["remove_model_prices_api_admin_cost_settings_model_prices_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/cost-settings/prices": {
         parameters: {
             query?: never;
@@ -1910,6 +1934,47 @@ export interface components {
              */
             why: "price" | "rate";
         };
+        /**
+         * ModelPricesIn
+         * @description A language model's three token prices, per million tokens, saved as one.
+         *     `replace`: the price rows this takes the place of (a correction); empty
+         *     adds them (a new price from a date).
+         */
+        ModelPricesIn: {
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "INR" | "USD";
+            /**
+             * Model
+             * @default
+             */
+            model: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "sarvam" | "elevenlabs" | "openai" | "livekit";
+            /** Replace */
+            replace?: number[];
+            /** Tokens Cached */
+            tokens_cached: number;
+            /** Tokens In */
+            tokens_in: number;
+            /** Tokens Out */
+            tokens_out: number;
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+        };
         /** NameIn */
         NameIn: {
             /** Name */
@@ -2905,6 +2970,72 @@ export interface operations {
             path: {
                 row_id: number;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_model_prices_api_admin_cost_settings_model_prices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelPricesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_model_prices_api_admin_cost_settings_model_prices_delete: {
+        parameters: {
+            query: {
+                ids: number[];
+            };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;

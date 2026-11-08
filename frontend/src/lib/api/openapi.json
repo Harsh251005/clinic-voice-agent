@@ -2380,6 +2380,79 @@
         "title": "MissingPrice",
         "type": "object"
       },
+      "ModelPricesIn": {
+        "description": "A language model's three token prices, per million tokens, saved as one.\n`replace`: the price rows this takes the place of (a correction); empty\nadds them (a new price from a date).",
+        "properties": {
+          "currency": {
+            "enum": [
+              "INR",
+              "USD"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "model": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Model",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Note",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "sarvam",
+              "elevenlabs",
+              "openai",
+              "livekit"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "replace": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 10,
+            "title": "Replace",
+            "type": "array"
+          },
+          "tokens_cached": {
+            "minimum": 0.0,
+            "title": "Tokens Cached",
+            "type": "number"
+          },
+          "tokens_in": {
+            "minimum": 0.0,
+            "title": "Tokens In",
+            "type": "number"
+          },
+          "tokens_out": {
+            "minimum": 0.0,
+            "title": "Tokens Out",
+            "type": "number"
+          },
+          "valid_from": {
+            "format": "date",
+            "title": "Valid From",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "currency",
+          "valid_from",
+          "tokens_in",
+          "tokens_cached",
+          "tokens_out"
+        ],
+        "title": "ModelPricesIn",
+        "type": "object"
+      },
       "NameIn": {
         "properties": {
           "name": {
@@ -4235,6 +4308,93 @@
           }
         },
         "summary": "Change Fixed"
+      }
+    },
+    "/api/admin/cost-settings/model-prices": {
+      "delete": {
+        "description": "Remove one model's token prices together.",
+        "operationId": "remove_model_prices_api_admin_cost_settings_model_prices_delete",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ids",
+            "required": true,
+            "schema": {
+              "items": {
+                "type": "integer"
+              },
+              "maxItems": 10,
+              "title": "Ids",
+              "type": "array"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Remove Model Prices Api Admin Cost Settings Model Prices Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Model Prices"
+      },
+      "post": {
+        "description": "Input, cached and output prices of one model, saved (or corrected) together.",
+        "operationId": "save_model_prices_api_admin_cost_settings_model_prices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelPricesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PriceRow"
+                  },
+                  "title": "Response Save Model Prices Api Admin Cost Settings Model Prices Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Model Prices"
       }
     },
     "/api/admin/cost-settings/prices": {
