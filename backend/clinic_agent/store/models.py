@@ -203,7 +203,7 @@ class Call(Base):
     # booked | moved | cancelled | info_only | no_action | failed
     outcome: Mapped[str] = mapped_column(String(20), default="")
     stack: Mapped[str] = mapped_column(String(300), default="")  # provider/model for STT, LLM, TTS: which took each turn
-    # The line the caller chose: "en" | "hi". "" for calls from before there were two.
+    # The call's line: "hi" (the only one). "" for calls from before it was recorded.
     language: Mapped[str] = mapped_column(String(2), default="", server_default="")
     # Staff calling their own receptionist from the dashboard: a real call
     # (real bookings), left out of the clinic's call counts and problems, and
@@ -334,7 +334,7 @@ class Usage(Base):
     test: Mapped[bool] = mapped_column(default=False)  # a staff test call
     source: Mapped[str] = mapped_column(String(20))  # call | hindi_names
     part: Mapped[str] = mapped_column(String(12))  # listening | thinking | speaking | call_line | other
-    provider: Mapped[str] = mapped_column(String(30))  # sarvam | elevenlabs | openai | livekit
+    provider: Mapped[str] = mapped_column(String(30))  # sarvam | openai | livekit
     model: Mapped[str] = mapped_column(String(100), default="")
     # tokens_in | tokens_cached | tokens_out | seconds_heard | characters | minutes
     unit: Mapped[str] = mapped_column(String(20))
@@ -373,8 +373,8 @@ class ExchangeRate(Base):
 
 
 class Allowance(Base):
-    """Free usage a vendor's plan includes every month (ElevenLabs' free
-    characters, LiveKit's free minutes), from a date on."""
+    """Free usage a vendor's plan includes every month (LiveKit's free
+    minutes), from a date on."""
 
     __tablename__ = "allowances"
 

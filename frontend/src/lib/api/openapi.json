@@ -89,7 +89,6 @@
           "provider": {
             "enum": [
               "sarvam",
-              "elevenlabs",
               "openai",
               "livekit"
             ],
@@ -143,7 +142,6 @@
           "provider": {
             "enum": [
               "sarvam",
-              "elevenlabs",
               "openai",
               "livekit"
             ],
@@ -432,7 +430,6 @@
           "provider": {
             "enum": [
               "sarvam",
-              "elevenlabs",
               "openai",
               "livekit"
             ],
@@ -482,7 +479,6 @@
           "provider": {
             "enum": [
               "sarvam",
-              "elevenlabs",
               "openai",
               "livekit"
             ],
@@ -557,7 +553,6 @@
           },
           "language": {
             "enum": [
-              "en",
               "hi",
               ""
             ],
@@ -649,7 +644,6 @@
           },
           "language": {
             "enum": [
-              "en",
               "hi",
               ""
             ],
@@ -777,7 +771,6 @@
           },
           "language": {
             "enum": [
-              "en",
               "hi",
               ""
             ],
@@ -991,7 +984,6 @@
           },
           "language": {
             "enum": [
-              "en",
               "hi",
               ""
             ],
@@ -1128,7 +1120,6 @@
           },
           "language": {
             "enum": [
-              "en",
               "hi",
               ""
             ],
@@ -1983,7 +1974,6 @@
           "provider": {
             "enum": [
               "sarvam",
-              "elevenlabs",
               "openai",
               "livekit"
             ],
@@ -2046,7 +2036,6 @@
           "provider": {
             "enum": [
               "sarvam",
-              "elevenlabs",
               "openai",
               "livekit"
             ],
@@ -2406,7 +2395,6 @@
           "provider": {
             "enum": [
               "sarvam",
-              "elevenlabs",
               "openai",
               "livekit"
             ],
@@ -2598,7 +2586,6 @@
           "provider": {
             "enum": [
               "sarvam",
-              "elevenlabs",
               "openai",
               "livekit"
             ],
@@ -2673,7 +2660,6 @@
           "provider": {
             "enum": [
               "sarvam",
-              "elevenlabs",
               "openai",
               "livekit"
             ],

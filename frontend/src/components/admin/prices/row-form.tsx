@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PRICED_VENDORS } from "@/lib/costs";
+import { VENDORS } from "@/lib/costs";
 
 export type Units = Record<string, string>;
 export type Values = Record<string, unknown>;
@@ -91,7 +91,7 @@ function FieldInput({ f, value, units, onChange }: { f: Field; value: unknown; u
     </Select>
   );
   switch (f.kind) {
-    case "vendor": return choose(Object.entries(PRICED_VENDORS));
+    case "vendor": return choose(Object.entries(VENDORS));
     case "unit": return choose(Object.entries(units));
     case "currency": return choose([["INR", "Rupees (₹)"], ["USD", "Dollars ($)"]]);
     case "number":

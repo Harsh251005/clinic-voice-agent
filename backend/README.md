@@ -273,11 +273,13 @@ Hindi-name suggestions are counted too, as *other costs*.
   dollar-to-rupee rate (set by hand to what your card is charged, dated),
   free monthly allowances (LiveKit minutes: the LiveKit-minutes problem uses
   this allowance), monthly fees (plan subscriptions) and each month's real
-  bills. ElevenLabs is not listed or offered (Hindi first, 2026-11-08); its
-  saved prices stay, so past English calls keep their cost.
+  bills.
 - Starts with the official prices as checked on 2026-10-13 (migration
-  0012). `scribe_v2_medical` has no published price, so calls using it show
-  as incomplete and the *Price missing* problem opens until you add one.
+  0012). Migration 0013 (Hindi only, 2026-11-08) then deletes everything
+  ElevenLabs and the English line left behind: their prices and allowance,
+  every call that ran on them (with its events, transcript, costs and the
+  appointments it booked), their problems. It can't be undone; the
+  migrations command copies a SQLite file first.
 - Usage outlives its call: erasing a test call, the 180-day trace purge or
   deleting a clinic keeps what was spent (the call link just goes).
 - **The limits:** usage is LiveKit's per-session total, so a vendor's own

@@ -2,7 +2,7 @@
 // Prices: everything the costs are worked out from, edited here and never in
 // code. Vendors' prices (one row per model, dated so the past keeps its own),
 // the dollar rate, free allowances, monthly fees, and each month's real bills
-// to check against. ElevenLabs is left out (Hindi first): see PRICED_VENDORS.
+// to check against.
 import Link from "next/link";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { CostSection } from "@/components/admin/prices/cost-section";
 import { PriceSection } from "@/components/admin/prices/price-section";
 import { day, thisMonth, today } from "@/components/admin/prices/row-form";
-import { money, monthName, PRICED_VENDORS, quantity, useCostSettings } from "@/lib/costs";
+import { money, monthName, quantity, useCostSettings, VENDORS } from "@/lib/costs";
 import type { Schemas } from "@/lib/api/client";
 
 export default function PricesPage() {
@@ -33,14 +33,13 @@ export default function PricesPage() {
   );
 }
 
-const listed = <R extends { provider: string }>(rows: R[]) => rows.filter((r) => r.provider in PRICED_VENDORS);
-const vendor = (p: string) => PRICED_VENDORS[p] ?? p;
+const vendor = (p: string) => VENDORS[p] ?? p;
 
 function Body({ s }: { s: Schemas["CostSettings"] }) {
   const units = s.units;
   return (
     <>
-      <PriceSection rows={listed(s.prices)} units={units} />
+      <PriceSection rows={s.prices} units={units} />
 
       <CostSection kind="rates" title="Dollar to rupee rate"
         about="OpenAI and LiveKit bill in dollars. Set the rate your card is actually charged; a new rate applies from its date on."
@@ -56,7 +55,7 @@ function Body({ s }: { s: Schemas["CostSettings"] }) {
 
       <CostSection kind="allowances" title="Free allowances"
         about="Free usage your plan includes each month. The month's total takes it off; each call still shows its full price."
-        rows={listed(s.allowances)} addLabel="Add an allowance" units={units}
+        rows={s.allowances} addLabel="Add an allowance" units={units}
         fresh={() => ({ provider: "livekit", unit: "minutes", quantity: 0, valid_from: today(), note: "" })}
         fields={[
           { name: "provider", label: "Vendor", kind: "vendor" },
@@ -70,7 +69,7 @@ function Body({ s }: { s: Schemas["CostSettings"] }) {
 
       <CostSection kind="fixed" title="Monthly fees"
         about="Plan subscriptions you pay whatever the usage (a LiveKit Ship plan, say)."
-        rows={listed(s.fixed)} addLabel="Add a fee"
+        rows={s.fixed} addLabel="Add a fee"
         fresh={() => ({ name: "", provider: "livekit", amount: 0, currency: "USD", valid_from: `${thisMonth()}-01`, valid_to: null })}
         fields={[
           { name: "name", label: "Name", kind: "text", hint: "e.g. LiveKit Ship plan" },
@@ -84,7 +83,7 @@ function Body({ s }: { s: Schemas["CostSettings"] }) {
 
       <CostSection kind="bills" title="Vendors' bills"
         about="Type in what each vendor actually billed for a month (from its invoice or usage page). Costs compares it with ours."
-        rows={listed(s.bills)} addLabel="Add a bill"
+        rows={s.bills} addLabel="Add a bill"
         fresh={() => ({ month: thisMonth(), provider: "sarvam", amount: 0, currency: "INR", note: "" })}
         fields={[
           { name: "month", label: "Month", kind: "month" },

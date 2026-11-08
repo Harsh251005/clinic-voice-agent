@@ -37,7 +37,7 @@ test("a language model is one price row: input, cached and output, changed toget
   const model = prices.getByRole("listitem").filter({ hasText: "sarvam-105b-conversations" });
   await expect(model).toHaveCount(1);
   await expect(model).toContainText("Input ₹15.00 · Cached input ₹5.00 · Output ₹60.00 per million tokens");
-  await expect(page.getByText(/ElevenLabs|eleven_|scribe_/)).toHaveCount(0); // Hindi first: not on this page
+  await expect(page.getByText(/ElevenLabs|eleven_|scribe_/)).toHaveCount(0); // migration 0013 removed them
 
   await model.getByRole("button", { name: "Change" }).click();
   const form = page.getByRole("dialog");

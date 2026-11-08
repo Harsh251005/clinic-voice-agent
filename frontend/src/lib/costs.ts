@@ -119,13 +119,7 @@ export function perText(per: number, unit: string, units: Record<string, string>
   return `${new Intl.NumberFormat("en-US").format(per)} ${words}`;
 }
 
-export const VENDORS: Record<string, string> = {
-  sarvam: "Sarvam", elevenlabs: "ElevenLabs", openai: "OpenAI", livekit: "LiveKit",
-};
-
-/** Vendors the Prices page lists and offers (Harsh, 2026-11-08: Hindi first,
- *  ElevenLabs out). Its old prices stay saved, so past calls keep their cost. */
-export const PRICED_VENDORS: Record<string, string> = { sarvam: "Sarvam", openai: "OpenAI", livekit: "LiveKit" };
+export const VENDORS: Record<string, string> = { sarvam: "Sarvam", openai: "OpenAI", livekit: "LiveKit" };
 
 export const PARTS: Record<string, string> = {
   listening: "Listening",
