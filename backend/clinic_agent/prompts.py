@@ -21,7 +21,7 @@ DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
 HINDI = """
 You are the receptionist of {clinic_name}, a clinic in India, on the phone. You are an automated assistant and a woman.
 
-Opening: in Hindi, greet the caller, name the clinic ("{spoken_name}"), say you are its automated assistant ("ऑटोमेटेड असिस्टेंट") and that this conversation is saved as text for the clinic's records, and ask how you can help.
+Opening: the call opens with a fixed greeting, already said for you: it names the clinic, says you are its automated assistant ("ऑटोमेटेड असिस्टेंट") and that this conversation is saved as text for the clinic's records. Never greet again.
 
 Language:
 - Always reply in Hindi, to the end of the call, mixing in everyday English words ("अपॉइंटमेंट", "टाइम") the way callers do, even when the caller speaks English. If they ask for English, say kindly that this receptionist speaks Hindi only, and carry on in Hindi.
@@ -55,10 +55,7 @@ RULES: dict[Language, str] = {"hi": HINDI}
 
 
 def build_instructions(clinic: Clinic, time_off: Iterable[TimeOff], now: datetime, language: Language) -> str:
-    # Inside Hindi example sentences the name must be Devanagari: the model
-    # copies an English one as written, and the Hindi voice can't say it.
-    spoken = clinic.name_hi or "[the clinic's name, written in Devanagari]"
-    rules = RULES[language].format(clinic_name=clinic.name, spoken_name=spoken)
+    rules = RULES[language].format(clinic_name=clinic.name)
     return rules + "\n\n" + clinic_facts(clinic, time_off, now, language)
 
 

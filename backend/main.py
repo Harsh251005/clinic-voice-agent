@@ -21,7 +21,7 @@ import sys
 
 from livekit.agents import AgentServer, JobContext, WorkerOptions, cli
 
-from clinic_agent import heartbeat
+from clinic_agent import heartbeat, voice_clips
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.call_limit import end_after
 from clinic_agent.call_record import CallRecorder, stack_of
@@ -126,18 +126,23 @@ async def entrypoint(ctx: JobContext) -> None:
     ctx.add_shutdown_callback(record.finish)
 
     wait_for_numbers(session, cfg.min_endpointing_delay, cfg.number_endpointing_delay)
-    link = ClinicLink(clinic.id, clinic.timezone, sessions, call.language, on_change=record.on_change)
-    tools = [*booking_tools(link), end_call_tool(call.language)]
+    # The greeting, fillers and fixed goodbyes, each with its recording for this
+    # voice when an admin has recorded one; anything missing is said live.
+    phrases = await asyncio.to_thread(
+        voice_clips.for_call, sessions, clinic, call.language, None if TEXT_ONLY else session.tts)
+    link = ClinicLink(clinic.id, clinic.timezone, sessions, call.language, phrases, on_change=record.on_change)
+    tools = [*booking_tools(link), end_call_tool(call.language, phrases)]
     logger.info("starting session: %s", stack)
     keep_promises(session, [t.info.name for t in tools if t.info.name != "end_call"])
     # record=False: no audio, transcript or trace goes to LiveKit Cloud, whatever
     # the project's setting says. Our own record (above) keeps the transcript
     # as text only; audio is never stored anywhere.
-    await session.start(agent=ClinicAgent(instructions, tools), room=ctx.room, record=False)
+    await session.start(agent=ClinicAgent(instructions, tools, phrases, call.language), room=ctx.room, record=False)
 
-    limit = asyncio.create_task(
-        end_after(session, ctx, cfg.max_call_minutes * 60, on_limit=lambda: record.mark("time_limit"))
-    )
+    limit = asyncio.create_task(end_after(
+        session, ctx, cfg.max_call_minutes * 60, phrases.one("goodbye_time_limit", call.language),
+        on_limit=lambda: record.mark("time_limit"),
+    ))
 
     async def _stop_limit() -> None:
         limit.cancel()

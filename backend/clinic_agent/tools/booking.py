@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, time
 from typing import Literal
 
@@ -22,6 +22,7 @@ from clinic_agent.context import clinic_now
 from clinic_agent.dispatch import Language
 from clinic_agent.store.db import Sessions
 from clinic_agent.tools.speech import filler_unless_spoken
+from clinic_agent.voice_clips import Phrasebook
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,8 @@ class ClinicLink:
     timezone: str
     sessions: Sessions
     language: Language  # the call's line: what the "one moment" filler is said in
+    # The call's fixed phrases (fillers), with their recordings; built-in words by default.
+    phrases: Phrasebook = field(default_factory=Phrasebook)
     # Told of every appointment a tool changes: (appointment id, action, undo).
     # The call's record uses it (clinic_agent/call_record.py).
     on_change: Callable[[int, str, dict | None], None] | None = None
@@ -82,7 +85,7 @@ def booking_tools(link: ClinicLink) -> list:
                 return fn(s, link.clinic_id, *args)
 
         task = asyncio.ensure_future(asyncio.to_thread(work))  # start before the filler wait
-        await filler_unless_spoken(ctx, said, link.language)
+        await filler_unless_spoken(ctx, said, link.phrases, link.language)
         try:
             result = await task
         except booking.BookingError as err:

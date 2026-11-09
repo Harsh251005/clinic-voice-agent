@@ -111,6 +111,10 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
             return (f"Recording a voice clip failed ({inc.detail}), {_plural(inc.count, 'time')}.",
                     "Calls say those phrases live meanwhile. Try Record again; if it keeps failing, check the "
                     "voice vendor's status and credits.", None)
+        case "voice_clips_unread":
+            return (f"{at}A call could not read its fixed phrases ({inc.detail}), {_plural(inc.count, 'time')}.",
+                    "Those calls said the greeting, fillers and goodbyes live, in the built-in words (any edited "
+                    "wording was not used). Check the worker log and the database.", None)
         case "purge_failed":
             return ("Deleting expired transcripts failed.",
                     "Transcripts older than 30 days may still be stored: check the API log.", None)

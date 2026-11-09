@@ -17,17 +17,19 @@ import logging
 from livekit.agents import RunContext, function_tool, get_job_context
 from livekit.agents.llm import ToolFlag
 
+from clinic_agent import voice_clips
 from clinic_agent.dispatch import Language
+from clinic_agent.voice_clips import Phrasebook
 
 logger = logging.getLogger("clinic-agent")
 
-# Only if the model sent an empty goodbye: never hang up without one.
-FALLBACK_GOODBYE: dict[Language, str] = {
-    "hi": "कॉल करने के लिए धन्यवाद जी। आपका दिन शुभ हो, नमस्ते!",
-}
 
+def end_call_tool(language: Language, phrases: Phrasebook | None = None):
+    """The tool for a call in `language`. Only if the model sends an empty
+    goodbye is the fixed one said (from `phrases`, recorded when it can be):
+    never hang up without one."""
+    phrases = phrases or Phrasebook()
 
-def end_call_tool(language: Language):
     @function_tool(flags=ToolFlag.IGNORE_ON_ENTER)
     async def end_call(ctx: RunContext, goodbye: str) -> None:
         """Say goodbye and hang up. Use when the caller is done: they say bye, "bas itna hi",
@@ -44,8 +46,8 @@ def end_call_tool(language: Language):
         """
         ctx.disallow_interruptions()
         await ctx.wait_for_playout()  # anything the model said despite the rule above
-        text = goodbye.strip() or FALLBACK_GOODBYE[language]
-        await ctx.session.say(text, allow_interruptions=False).wait_for_playout()
+        said = voice_clips.Said(goodbye.strip()) if goodbye.strip() else phrases.one("goodbye_fallback", language)
+        await voice_clips.say(ctx.session, said, allow_interruptions=False).wait_for_playout()
         logger.info("end_call: goodbye played, hanging up")
         hang_up(ctx.session)
 

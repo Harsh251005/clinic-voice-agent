@@ -11,18 +11,13 @@ never both. When it says the line but forgets the tool (seen live: "मैं �
 from __future__ import annotations
 
 import re
-from itertools import count
 
 from livekit.agents import AgentSession, RunContext
 from livekit.agents.voice.events import SpeechCreatedEvent
 
+from clinic_agent import voice_clips
 from clinic_agent.dispatch import Language
-
-# In the call's language: each line's voice speaks only its own.
-FILLERS: dict[Language, list[str]] = {
-    "hi": ["एक सेकंड जी, मैं चेक करके बताती हूँ।", "ठीक है, एक पल, मैं देख लेती हूँ।", "जी, बस एक सेकंड।"],
-}
-_turn = count()
+from clinic_agent.voice_clips import Phrasebook
 
 # Saying it will check: "चेक करके", "चेक कर लेती", "देखती हूँ", "let me check"...
 # Not "चेकअप" (a check-up) and not a question ("चेक करूँ?"), which waits for the caller.
@@ -55,20 +50,20 @@ def spoke_before_tool(ctx: RunContext) -> bool:
     )
 
 
-async def filler_unless_spoken(ctx: RunContext | None, said: set[str], language: Language) -> None:
-    """Say one short "let me check" line if the model didn't say anything
-    before calling the tool. `said` holds speech ids already covered, so
-    several tools called in one reply say it once. No-op without a session
-    (tools called directly, as in tests)."""
+async def filler_unless_spoken(ctx: RunContext | None, said: set[str], phrases: Phrasebook, language: Language) -> None:
+    """Say one short "let me check" line (a filler from `phrases`, in the
+    call's language: the voice speaks only its own) if the model didn't say
+    anything before calling the tool. `said` holds speech ids already
+    covered, so several tools called in one reply say it once. No-op without
+    a session (tools called directly, as in tests)."""
     if ctx is None:
         return
     await ctx.wait_for_playout()
     if spoke_before_tool(ctx) or ctx.speech_handle.id in said or ctx.speech_handle.id in _nudged:
         return
     said.add(ctx.speech_handle.id)
-    options = FILLERS[language]
     # Not added to the chat: the model's next reply shouldn't treat it as a turn.
-    ctx.session.say(options[next(_turn) % len(options)], add_to_chat_ctx=False)
+    voice_clips.say(ctx.session, phrases.one("filler", language), add_to_chat_ctx=False)
 
 
 def promised_without_tool(handle) -> bool:

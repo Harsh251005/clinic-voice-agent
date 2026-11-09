@@ -86,7 +86,17 @@ The pipeline is split so each concern lives in exactly one module:
   the clinic (`context.load_clinic`, off the event loop), builds instructions,
   builds a session and starts `ClinicAgent` in the room, then starts
   `call_limit.end_after` (`MAX_CALL_MINUTES`), cancelled on job shutdown.
-  The prompt's opening rule makes the agent say it is an automated assistant.
+  The fixed greeting (`voice_clips`, said in `on_enter`, uninterruptible,
+  never model-written) says it is an automated assistant and the call is
+  saved as text; the prompt's Opening rule tells the model it was said.
+- `clinic_agent/voice_clips.py` — the **fixed phrases** (greeting, fillers,
+  fixed goodbyes): `for_call` loads them once per call with any recording
+  for the call's exact voice + words (`clip_key`); `say` plays the
+  recording or speaks the words live. **Any clip problem = said live**
+  (Harsh, 2026-11-09: reliability over savings); unreadable phrases fall
+  back to `BUILT_IN` (must equal migration 0014's seeds) and open
+  `voice_clips_unread`. Nothing records itself: `record` runs only on an
+  admin's click.
 - `api/` — FastAPI call-link server (browser calls until telephony).
   `/call/<slug>` page (no language choice: every call is Hindi); `POST
   /call/<slug>/pass` (no body; an old tab's is ignored) signs a LiveKit token for a

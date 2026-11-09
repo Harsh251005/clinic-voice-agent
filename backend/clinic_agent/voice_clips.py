@@ -14,10 +14,12 @@ import random
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
+from livekit import rtc
 from livekit.agents import tts as lk_tts
 from livekit.agents.utils import http_context
 
 from clinic_agent import incidents
+from clinic_agent.providers import identity as voice_identity
 from clinic_agent.store import repo
 from clinic_agent.store.db import Session, Sessions
 from clinic_agent.store.models import utc_now
@@ -25,6 +27,18 @@ from clinic_agent.store.models import utc_now
 logger = logging.getLogger("clinic-agent.voice-clips")
 
 RECORD_TIMEOUT = 30.0  # seconds for one phrase; Sarvam answers a sentence in about one
+FRAME_MS = 100  # a recording is played in frames this long
+
+# Said live when the database has no phrase of a kind (or could not be read):
+# a call never goes without its greeting, fillers or goodbye. Same words as
+# the seeds in migration 0014; an admin's edits live in the database.
+BUILT_IN: dict[tuple[str, str], list[str]] = {
+    ("greeting", "hi"): ["नमस्ते, {clinic} में आपका स्वागत है। मैं इसकी ऑटोमेटेड असिस्टेंट हूँ, और यह बातचीत क्लिनिक के "
+                         "रिकॉर्ड के लिए टेक्स्ट में सेव हो रही है। बताइए, मैं आपकी कैसे मदद कर सकती हूँ?"],
+    ("filler", "hi"): ["एक सेकंड जी, मैं चेक करके बताती हूँ।", "ठीक है, एक पल, मैं देख लेती हूँ।", "जी, बस एक सेकंड।"],
+    ("goodbye_fallback", "hi"): ["कॉल करने के लिए धन्यवाद जी। आपका दिन शुभ हो, नमस्ते!"],
+    ("goodbye_time_limit", "hi"): ["माफ़ कीजिए जी, इस कॉल का समय पूरा हो गया है। आप दोबारा कॉल कर सकते हैं। नमस्ते!"],
+}
 
 
 def clip_key(voice: dict, text: str) -> str:
@@ -50,34 +64,80 @@ class Phrasebook:
     """Everything fixed a call may say, loaded once at its start so nothing
     reads the database mid-call. Built by `load`."""
 
-    def __init__(self, said: dict[tuple[str, str], list[Said]]) -> None:
-        self._said = said
+    def __init__(self, said: dict[tuple[str, str], list[Said]] | None = None, clinic_name: str = "") -> None:
+        self._said = said or {}
+        self._clinic = clinic_name
         self._last: dict[str, Said] = {}
 
     def one(self, kind: str, language: str) -> Said:
         """The phrase of `kind` in `language`; a set of fillers gives one at
-        random, never the one said last."""
-        options = self._said[(kind, language)]
+        random, never the one said last. A kind the database lacks is said
+        live in its built-in words."""
+        options = self._said.get((kind, language)) or [
+            Said(t.replace("{clinic}", self._clinic)) for t in BUILT_IN[(kind, language)]]
         fresh = [o for o in options if o != self._last.get(kind + language)] or options
         self._last[kind + language] = choice = random.choice(fresh)
         return choice
 
 
-def load(s: Session, clinic, languages: Iterable[str], voice_of: Callable[[str], dict]) -> Phrasebook:
+def load(s: Session, clinic, languages: Iterable[str], voice_of: Callable[[str], dict | None]) -> Phrasebook:
     """The clinic's phrases in `languages`, each with its recording for the
-    voice `voice_of(language)` (providers.identity) when one exists. The
-    greeting's `{clinic}` is the clinic's Hindi name, else its own."""
+    voice `voice_of(language)` (providers.identity) when one exists; None (a
+    typed console call has no voice) loads no recordings. The greeting's
+    `{clinic}` is the clinic's Hindi name, else its own."""
+    name = clinic.name_hi or clinic.name
     said: dict[tuple[str, str], list[Said]] = {}
     for language in languages:
         voice = voice_of(language)
         rows = sorted(repo.phrases_for_call(s, clinic.id, language), key=lambda p: p.slot)
-        texts = [p.text.replace("{clinic}", clinic.name_hi or clinic.name) for p in rows]
-        clips = repo.clips_by_key(s, [clip_key(voice, t) for t in texts])
+        texts = [p.text.replace("{clinic}", name) for p in rows]
+        clips = repo.clips_by_key(s, [clip_key(voice, t) for t in texts]) if voice else {}
         for row, text in zip(rows, texts):
-            clip = clips.get(clip_key(voice, text))
+            clip = clips.get(clip_key(voice, text)) if voice else None
             said.setdefault((row.kind, language), []).append(
-                Said(text, clip.pcm, clip.sample_rate) if clip else Said(text))
-    return Phrasebook(said)
+                Said(text, clip.pcm, clip.sample_rate) if clip and _playable(clip) else Said(text))
+    return Phrasebook(said, name)
+
+
+def _playable(clip) -> bool:
+    """A stored take that can be played as 16-bit mono PCM; anything else is
+    skipped and the phrase is said live."""
+    ok = clip.sample_rate > 0 and len(clip.pcm) >= 2 and len(clip.pcm) % 2 == 0
+    if not ok:
+        logger.warning("voice clip %s is unplayable; saying it live", clip.key[:12])
+    return ok
+
+
+def for_call(sessions: Sessions, clinic, language: str, voice: lk_tts.TTS | None) -> Phrasebook:
+    """The call's phrasebook. Reading it never stops a call: on any failure
+    the phrases are said live in their built-in words, and the admin is told."""
+    try:
+        with sessions() as s:
+            return load(s, clinic, [language], lambda _: voice_identity(voice) if voice is not None else None)
+    except Exception as err:  # noqa: BLE001 - the call goes on with live speech
+        logger.exception("could not load the voice clips; saying every phrase live")
+        try:
+            with sessions() as s:
+                incidents.report(s, "voice_clips_unread", utc_now(), clinic_id=clinic.id, detail=type(err).__name__)
+        except Exception:  # noqa: BLE001 - the database itself is down; the log has it
+            logger.exception("could not report the voice clips failure")
+        return Phrasebook(clinic_name=clinic.name_hi or clinic.name)
+
+
+def say(session, said: Said, **kwargs):
+    """Say a phrase: its recording when it has one (no voice vendor call),
+    else the voice says the words live. Either way the words are what the
+    transcript and the model see. Returns LiveKit's SpeechHandle."""
+    if said.pcm:
+        return session.say(said.text, audio=_frames(said), **kwargs)
+    return session.say(said.text, **kwargs)
+
+
+async def _frames(said: Said):
+    step = said.sample_rate * FRAME_MS // 1000 * 2  # bytes per frame (16-bit mono)
+    for start in range(0, len(said.pcm), step):
+        chunk = said.pcm[start:start + step]
+        yield rtc.AudioFrame(chunk, said.sample_rate, 1, len(chunk) // 2)
 
 
 class RecordFailed(RuntimeError):

@@ -473,7 +473,7 @@ Sarvam's ears, voice or brain automatically; check them by hand (a spoken
 
 Offline tests prove the wiring, not the conversation. Live tests are evals:
 an LLM judge (`gpt-4.1`; the agent's own mini model failed correct replies)
-grades each reply against a stated intent (greets first, refuses
+grades each reply against a stated intent (refuses
 medicine, escalates chest pain, never states a fee, never confirms a booking,
 answers Hinglish in Hinglish). They test no audio and do not measure
 end-to-end latency: only a spoken `console` call does that.
@@ -494,6 +494,7 @@ api/                    call-link server: page + signed join pass (python -m api
     ├── context.py      loads the call's clinic and its local time
     ├── dispatch.py     which clinic and language a call is for: the agent name + metadata format
     ├── call_limit.py   hard cap on call length: goodbye, then close the room
+    ├── voice_clips.py  the fixed phrases (greeting, fillers, goodbyes): recorded or said live
     ├── call_record.py  each call's trace (timings, tools, errors) + transcript
     ├── incidents.py    problems: what counts, when one opens and closes
     ├── heartbeat.py    the worker checking in while connected to LiveKit
@@ -591,14 +592,28 @@ write the same tables through `store/repo.py`.
   argument — what was done on the call (the booking's doctor, day and time),
   then goodbye — speaks it with interruptions off, waits until it has
   played, then closes the session and deletes the room, which disconnects a
-  phone caller. An empty goodbye gets a stock one; it never hangs up
+  phone caller. An empty goodbye gets the fixed one (recorded when it can
+  be, see below); it never hangs up
   silently. (LiveKit's `EndCallTool` asked for the goodbye in a second model
   reply after the tool, and the call ended in silence when that reply was
   empty or interrupted.) Hidden during the greeting; a caller who only says
   thanks is asked "anything else?" first.
-- **The greeting calls no tool** (`tool_choice="none"` in `on_enter`). Seen
-  live: with the booking tools available, the greeting looked up tomorrow
-  evening's slots and offered them before the caller had said a word.
+- **The greeting is fixed text, never written by the model**, and the
+  caller can't cut it off (it tells them the call is automated and saved).
+  No model round runs before the caller speaks, so it can't call a tool
+  either (seen live, when the model wrote it: it looked up tomorrow
+  evening's slots before the caller had said a word).
+- **Fixed phrases play from a recording when there is one**
+  (`voice_clips.py`): the greeting, the three "one moment" fillers (one at
+  random, never the same twice running) and the two fixed goodbyes (empty
+  `end_call` goodbye, time limit). Each call loads them once at its start:
+  a phrase recorded for the call's exact voice (vendor, model, speaker,
+  pace, pitch, sample rate) and exact words plays that recording, with no
+  voice-vendor call; anything else is said live, as before. A recording is
+  made only when an admin asks (admin page: coming). If the phrases can't
+  be read at all, the call says them live in their built-in words and the
+  admin sees a "could not read its fixed phrases" problem. The model's own
+  goodbye is always live.
 - **The voice gets whole sentences.** The reply streams from the model a few
   words at a time; Sarvam voices each piece it is handed as one take, so a
   piece cut mid-sentence changed the tone halfway through. LiveKit's own
@@ -609,15 +624,15 @@ write the same tables through `store/repo.py`.
   then at a space; Sarvam's `max_chunk_length` is raised so it never re-cuts.
 - **No dead air around a lookup.** The model says a short line ("ठीक है,
   मैं चेक करके बताती हूँ") in the same reply as a booking tool call, so it
-  plays at once. If it didn't, the tool says one itself in the caller's
-  language (Devanagari in the last caller turn = Hindi), once per reply,
+  plays at once. If it didn't, the tool says a fixed filler itself, in the
+  call's language (Hindi), once per reply,
   while the database work runs (`tools/speech.py`). If the model says it
   will check but calls no tool (seen live: "मैं कल के स्लॉट्स चेक कर लेती
   हूँ", then silence), `keep_promises` notices when that reply ends and
   makes it call a booking tool at once (`tool_choice="required"`). A
   question ("चेक करूँ?") or "चेकअप" doesn't count, and a forced follow-up is
   never forced again.
-- **It says it is automated.** The first line names the clinic and says it
+- **It says it is automated.** The fixed greeting names the clinic and says it
   is the clinic's automated assistant ("ऑटोमेटेड असिस्टेंट" in Hindi), and
   that the conversation is saved as text for the clinic's records. The call
   page says both, plus "for 30 days. No audio is recorded."
@@ -626,7 +641,8 @@ write the same tables through `store/repo.py`.
   ऑटोमेटेड असिस्टेंट"). The caller's gender is still never assumed ("ji").
   Pick only female voices (`SARVAM_TTS_SPEAKER`).
 - **Calls have a time limit** (`MAX_CALL_MINUTES`, default 10). At the limit
-  the receptionist apologises, says goodbye (it can't be interrupted), and
+  the receptionist says the fixed time-limit goodbye (it can't be
+  interrupted; no model round), and
   closes the room, which disconnects the caller.
 - **Every call is recorded as text, never audio.** The worker writes two
   things per call (`call_record.py`):

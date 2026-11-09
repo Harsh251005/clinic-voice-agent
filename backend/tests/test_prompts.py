@@ -162,7 +162,7 @@ def test_the_hindi_line_says_names_as_the_clinic_spelt_them(db):
     repo.update_doctor(s, clinic.doctors[0].id, name_hi="डॉक्टर आशा मेहता")
     clinic = repo.get_clinic(s, clinic_id)
     hindi = build_instructions(clinic, [], NOW, "hi")
-    assert 'name the clinic ("डेमो फ़ैमिली क्लिनिक")' in hindi
+    assert "- Name: Demo Family Clinic (in Hindi: डेमो फ़ैमिली क्लिनिक)" in hindi
     assert f"{clinic.doctors[0].name} (in Hindi: डॉक्टर आशा मेहता)" in hindi
 
 
