@@ -88,8 +88,8 @@ The pipeline is split so each concern lives in exactly one module:
   builds a session and starts `ClinicAgent` in the room, then starts
   `call_limit.end_after` (`MAX_CALL_MINUTES`), cancelled on job shutdown.
   The fixed greeting (`voice_clips`, said in `on_enter`, uninterruptible,
-  never model-written) says it is an automated assistant and the call is
-  saved as text; the prompt's Opening rule tells the model it was said.
+  never model-written; its words are the admin's, nothing required) opens
+  the call; the prompt's Opening rule tells the model it was said.
 - `clinic_agent/voice_clips.py` — the **fixed phrases** (greeting, fillers,
   fixed goodbyes): `for_call` loads them once per call with any recording
   for the call's exact voice + words (`clip_key`); `say` plays the
@@ -99,8 +99,8 @@ The pipeline is split so each concern lives in exactly one module:
   `voice_clips_unread`. Nothing records itself: `record` runs only on an
   admin's click, from `api/dashboard/voice.py` (page `/admin/voice`: edit in
   English, Hindi suggested by `providers/hindi.translate_phrase`, Record /
-  Play). `repo` refuses a greeting without ऑटोमेटेड + टेक्स्ट (and
-  `{clinic}` in the shared one): callers must hear both.
+  Play). No required wording in a greeting (Harsh, 2026-11-09: he handles
+  what callers are told); don't add checks back.
 - `api/` — FastAPI call-link server (browser calls until telephony).
   `/call/<slug>` page (no language choice: every call is Hindi); `POST
   /call/<slug>/pass` (no body; an old tab's is ignored) signs a LiveKit token for a

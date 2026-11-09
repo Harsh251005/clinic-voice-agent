@@ -95,20 +95,12 @@ def test_the_only_doctor_is_never_asked_about(db):
     assert "the clinic's only one: every appointment is with them, so never ask which doctor" in one
 
 
-def test_the_receptionist_says_it_is_automated(db):
-    # Callers must know they aren't talking to a person (the call page says it too).
+def test_the_model_knows_the_greeting_was_said_and_never_greets_again(db):
+    # The greeting is fixed text said before the model speaks (voice_clips); its words are the admin's.
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
     opening = text[text.index("Opening:"):text.index("Language:")]
-    assert "automated assistant" in opening and "ऑटोमेटेड असिस्टेंट" in opening
-
-
-def test_the_receptionist_says_the_call_is_saved_as_text(db):
-    # Every call's transcript is kept (call_record.py): callers are told, in their language.
-    s, clinic_id = db
-    text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
-    opening = text[text.index("Opening:"):text.index("Language:")]
-    assert "this conversation is saved as text for the clinic's records" in opening
+    assert "fixed greeting, already said for you" in opening and "Never greet again" in opening
 
 
 def test_visit_reason_is_asked_for_in_english():
@@ -128,8 +120,6 @@ def test_the_core_rules_are_there():
     # The safety and booking rules are the core: the line must have them.
     rules = _rules("hi")
     for rule in [
-        "ऑटोमेटेड असिस्टेंट",
-        "saved as text for the clinic's records",
         "Call check_booking", "Only after a clear yes, call book_appointment",
         "call again with the same details after a clear yes",
         "call end_call", "never give medical advice", "one-zero-eight", "one-one-two",

@@ -19,7 +19,7 @@ from tests.test_hindi_names import FakeOpenAI
 from tests.test_voice_clips import VOICE, FakeVoice
 
 ADMIN = "harsh@example.com"
-OK_GREETING = "नमस्ते जी, {clinic} में स्वागत है। मैं ऑटोमेटेड असिस्टेंट हूँ, बातचीत टेक्स्ट में सेव होती है।"
+OK_GREETING = "नमस्ते जी, {clinic} में स्वागत है।"
 
 
 @pytest.fixture
@@ -121,13 +121,12 @@ def test_editing_a_phrase_keeps_its_english_and_says_it_live_until_recorded_agai
     assert edited["takes"][0]["recorded_at"] is None  # new words: not recorded yet
 
 
-def test_a_greeting_that_drops_the_disclosure_is_refused(world, fake_voice):  # noqa: F811
+def test_a_greeting_saves_whatever_the_admin_writes(world, fake_voice):  # noqa: F811
     c = _admin()
     greeting = _phrase(c.get("/api/admin/voice").json(), "greeting")
-    r = c.put(f"/api/admin/voice/phrases/{greeting['id']}", json={"source": "Hello", "text": "नमस्ते, {clinic} में स्वागत है।"})
-    assert r.status_code == 422 and "automated assistant" in r.json()["detail"]
-    r = c.put(f"/api/admin/voice/clinics/{world['cure']}/greeting", json={"source": "Hi", "text": "नमस्ते।"})
-    assert r.status_code == 422
+    r = c.put(f"/api/admin/voice/phrases/{greeting['id']}", json={"source": "Hello", "text": "नमस्ते जी, बताइए।"})
+    assert r.status_code == 200 and _phrase(r.json(), "greeting")["text"] == "नमस्ते जी, बताइए।"
+    assert c.put(f"/api/admin/voice/clinics/{world['cure']}/greeting", json={"source": "Hi", "text": "नमस्ते।"}).status_code == 200
 
 
 def test_a_clinic_can_have_its_own_greeting_and_go_back_to_the_shared_one(world, fake_voice):  # noqa: F811

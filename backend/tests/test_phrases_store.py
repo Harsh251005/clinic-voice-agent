@@ -42,9 +42,9 @@ def test_a_clinics_own_greeting_replaces_the_global_one_for_that_clinic_only(db)
 
 def test_setting_the_override_again_edits_it_instead_of_adding_a_second(db):
     s, clinic_id = db
-    repo.set_greeting_override(s, clinic_id, "hi", "पहला: ऑटोमेटेड, टेक्स्ट")
-    repo.set_greeting_override(s, clinic_id, "hi", "दूसरा: ऑटोमेटेड, टेक्स्ट")
-    assert [p.text for p in repo.list_phrases(s) if p.clinic_id == clinic_id] == ["दूसरा: ऑटोमेटेड, टेक्स्ट"]
+    repo.set_greeting_override(s, clinic_id, "hi", "पहला")
+    repo.set_greeting_override(s, clinic_id, "hi", "दूसरा")
+    assert [p.text for p in repo.list_phrases(s) if p.clinic_id == clinic_id] == ["दूसरा"]
 
 
 def test_two_phrases_can_not_share_a_place(db):
@@ -74,7 +74,7 @@ def test_phrase_text_is_trimmed_and_must_be_sensible(db):
 
 def test_deleting_a_clinic_deletes_its_own_greeting(db):
     s, clinic_id = db
-    repo.set_greeting_override(s, clinic_id, "hi", "मेरा: ऑटोमेटेड, टेक्स्ट")
+    repo.set_greeting_override(s, clinic_id, "hi", "मेरा")
     s.delete(repo.get_clinic(s, clinic_id))
     s.commit()
     assert not [p for p in repo.list_phrases(s) if p.clinic_id is not None]
@@ -118,20 +118,9 @@ def test_every_hindi_phrase_has_its_english_source(db):
     assert (first_hindi.source, first_hindi.text) == ("New English", "नया हिंदी")
 
 
-def test_a_greeting_can_not_drop_what_every_caller_must_hear(db):
-    # Callers must be told the receptionist is automated and the call is kept as text.
+def test_a_greeting_may_say_anything(db):
+    # No required wording (Harsh, 2026-11-09): what callers are told is the admin's call.
     s, clinic_id = db
     greeting, = _of(repo.list_phrases(s), "greeting")
-    for bad, why in [
-        ("नमस्ते, {clinic} में आपका स्वागत है। बताइए?", "automated assistant"),
-        ("नमस्ते, {clinic} में स्वागत है। मैं ऑटोमेटेड असिस्टेंट हूँ।", "saved as text"),
-        ("नमस्ते। मैं ऑटोमेटेड असिस्टेंट हूँ, बातचीत टेक्स्ट में सेव होती है।", "{clinic}"),  # the shared one names the clinic
-    ]:
-        with pytest.raises(ValueError, match=why.replace("{", r"\{").replace("}", r"\}")):
-            repo.set_phrase_text(s, greeting.id, bad)
-        s.rollback()
-    with pytest.raises(ValueError, match="automated assistant"):
-        repo.set_greeting_override(s, clinic_id, "hi", "नमस्ते जी।")
-    # a clinic's own greeting may name the clinic in its own words
-    own = repo.set_greeting_override(s, clinic_id, "hi", "नमस्ते, डेमो क्लिनिक। मैं ऑटोमेटेड असिस्टेंट हूँ, बातचीत टेक्स्ट में सेव होती है।")
-    assert own.clinic_id == clinic_id
+    assert repo.set_phrase_text(s, greeting.id, "नमस्ते जी, बताइए।").text == "नमस्ते जी, बताइए।"
+    assert repo.set_greeting_override(s, clinic_id, "hi", "नमस्ते।").text == "नमस्ते।"

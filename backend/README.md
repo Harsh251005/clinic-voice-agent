@@ -251,9 +251,9 @@ every clinic?" and never shows patients:
   clinic's spoken name, or a clinic's own), the three "one moment" fillers
   and the two fixed goodbyes. You write English; **Suggest Hindi** asks
   OpenAI for the Hindi she says (tokens counted as other costs), which you
-  can edit before saving. A greeting can't be saved without saying she is
-  an automated assistant (ऑटोमेटेड) and the call is saved as text
-  (टेक्स्ट); the shared one must also keep `{clinic}`. Each line shows,
+  can edit before saving. The greeting's words are entirely yours (Harsh,
+  2026-11-09: no required wording; what callers are told is the admin's
+  call). Each line shows,
   per clinic for the greeting, whether it is **recorded in the current
   voice** (vendor, model, speaker, pace, pitch) and its exact words; **Play**
   a recording, **Record** one, a line, or everything not yet recorded (the
@@ -651,10 +651,11 @@ write the same tables through `store/repo.py`.
   makes it call a booking tool at once (`tool_choice="required"`). A
   question ("चेक करूँ?") or "चेकअप" doesn't count, and a forced follow-up is
   never forced again.
-- **It says it is automated.** The fixed greeting names the clinic and says it
-  is the clinic's automated assistant ("ऑटोमेटेड असिस्टेंट" in Hindi), and
-  that the conversation is saved as text for the clinic's records. The call
-  page says both, plus "for 30 days. No audio is recorded."
+- **It says it is automated.** The default greeting names the clinic and
+  says it is the clinic's automated assistant ("ऑटोमेटेड असिस्टेंट" in
+  Hindi), and that the conversation is saved as text for the clinic's
+  records. An admin may change those words freely (nothing enforces them).
+  The call page says both, plus "for 30 days. No audio is recorded."
 - **She speaks as a woman.** Every voice is female, so in Hindi everything
   she says about herself is feminine ("बात कर रही हूँ", "बताती हूँ", "की
   ऑटोमेटेड असिस्टेंट"). The caller's gender is still never assumed ("ji").

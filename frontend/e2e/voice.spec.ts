@@ -30,13 +30,14 @@ test("a line is changed in English and Hindi, then put back", async ({ page }) =
   await expect(page.getByText("बस एक पल जी।")).toHaveCount(0);
 });
 
-test("a greeting that stops saying it is automated is refused", async ({ page }) => {
+test("a clinic gets any greeting the admin writes, then the shared one back", async ({ page }) => {
   await page.goto("/admin/voice");
-  await page.getByRole("button", { name: "Change Shared greeting" }).click();
-  await page.getByLabel("What she says (Hindi)").fill("नमस्ते, {clinic} में स्वागत है।");
+  await page.getByRole("button", { name: "Give Demo Family Clinic its own greeting" }).click();
+  await page.getByLabel("What she says (Hindi)").fill("नमस्ते जी, बताइए।");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("alert")).toContainText("automated assistant");
-  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByText("नमस्ते जी, बताइए।")).toBeVisible();
+  await page.getByRole("button", { name: "Demo Family Clinic: use the shared greeting" }).click();
+  await expect(page.getByText("नमस्ते जी, बताइए।")).toHaveCount(0);
 });
 
 test("a clinic gets its own greeting and goes back to the shared one", async ({ page }) => {

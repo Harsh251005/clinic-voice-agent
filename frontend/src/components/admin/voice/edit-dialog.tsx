@@ -74,8 +74,8 @@ export function EditDialog({ editing, maxChars, onClose }: { editing: Editing; m
               onChange={(e) => setText(e.target.value)} />
             <p className="flex justify-between gap-3 text-xs text-muted-foreground">
               <span>
-                {editing.greeting
-                  ? `Must still say ऑटोमेटेड असिस्टेंट and that the call is saved as text (टेक्स्ट)${editing.greeting === "shared" ? ", and keep {clinic}" : ""}.`
+                {editing.greeting === "shared"
+                  ? "{clinic} becomes each clinic's name in Hindi. Devanagari only, with । ? and , for punctuation."
                   : "Devanagari only, with । ? and , for punctuation."}
               </span>
               <span className="shrink-0 tabular-nums">{text.length}/{maxChars}</span>
