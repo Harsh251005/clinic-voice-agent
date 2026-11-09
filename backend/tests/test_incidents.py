@@ -10,6 +10,7 @@ from clinic_agent import incidents
 from clinic_agent.config import load_settings
 from clinic_agent.store import repo
 from clinic_agent.store.db import sessions_for
+from clinic_agent.store.models import utc_now
 from tests.test_api import client, seeded_url  # noqa: F401 - fixtures
 from tests.test_dashboard_api import client_as, world  # noqa: F401 - fixtures
 
@@ -282,11 +283,12 @@ def test_a_line_off_reads_plainly_for_the_clinic_and_technically_for_the_operato
 
 def test_the_clinic_marks_its_own_problem_seen_but_not_a_system_one(world):  # noqa: F811
     with _sessions()() as s:
-        sync(s)
-        incidents.report(s, "patients_cant_connect", NOW, clinic_id=world["cure"], subject="dropped")
+        now = utc_now()  # real time: saving "seen" re-checks problems, and an old report would have gone quiet
+        sync(s, now)
+        incidents.report(s, "patients_cant_connect", now, clinic_id=world["cure"], subject="dropped")
         mine = next(i.id for i in repo.open_incidents(s) if i.clinic_id == world["cure"])
         offline = next(i.id for i in repo.open_incidents(s) if i.kind == "worker_offline")
-        incidents.report(s, "patients_cant_connect", NOW, clinic_id=world["demo"], subject="dropped")
+        incidents.report(s, "patients_cant_connect", now, clinic_id=world["demo"], subject="dropped")
         theirs = next(i.id for i in repo.open_incidents(s) if i.clinic_id == world["demo"])
     c = client_as("reception@cure.in")
     base = f"/api/clinics/{world['cure']}/problems"
@@ -393,3 +395,23 @@ def test_worker_status_for_the_call_page(client):  # noqa: F811
     with _sessions()() as s:
         repo.beat(s, "AW_1", "host", ["hi"], utc_now())
     assert client.get("/healthz/worker").json()["online"] is True
+
+
+def test_a_change_saved_in_the_dashboard_re_checks_problems_before_it_answers(world):  # noqa: F811
+    # Harsh, 2026-11-09: fix it in the dashboard and the problem is gone at once, not half a minute later.
+    c = client_as("harsh@example.com", admin=True)
+    clinic = world["cure"]
+
+    def open_here():
+        return [p["kind"] for p in c.get("/api/admin/problems").json()["open"] if p["clinic_id"] == clinic]
+
+    assert c.put(f"/api/admin/clinics/{clinic}/active", json={"active": False}).status_code == 200
+    assert "clinic_paused" in open_here()  # no background check has run: the save itself checked
+    assert c.put(f"/api/admin/clinics/{clinic}/active", json={"active": True}).status_code == 200
+    assert "clinic_paused" not in open_here()
+
+
+def test_a_failed_problem_check_never_fails_the_save(world, monkeypatch):  # noqa: F811
+    c = client_as("harsh@example.com", admin=True)
+    monkeypatch.setattr(incidents, "sync", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db hiccup")))
+    assert c.put(f"/api/admin/clinics/{world['cure']}/active", json={"active": False}).status_code == 200

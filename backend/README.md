@@ -333,6 +333,11 @@ not tried again since") instead of "fixed".
 | Phrase translation failing | Suggest Hindi fails (OpenAI) | no | a suggestion works, or a quiet hour |
 | Fixed phrases unreadable | a call can't read its phrases: it says the built-in words live | no | the clinic's next call reads them, or a quiet hour |
 
+- **A fix made in the dashboard shows at once.** Every change the API
+  accepts (adding a price, setting hours, adding or turning on a doctor,
+  resuming a clinic...) re-checks problems before it answers, and the
+  dashboard asks for them again right after: the problem is gone (or
+  there) within about a second, not at the next half-minute check.
 - **The worker checks in** every 30 s (`clinic_agent/heartbeat.py`), from
   the moment LiveKit registers it (connected and ready for calls). Console
   doesn't. The API re-checks every condition every 30 s.

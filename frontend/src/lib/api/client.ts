@@ -12,6 +12,21 @@ export const api = createClient<paths>({
   headers: { "x-clinic-console": "1" },
 });
 
+// Told after every change the API accepted (any method but GET), however the
+// page made it: a saved change may have fixed a problem, and the API has
+// re-checked problems before answering (providers.tsx refreshes the bell).
+const onChange = new Set<() => void>();
+export function afterEveryChange(listener: () => void): () => void {
+  onChange.add(listener);
+  return () => onChange.delete(listener);
+}
+api.use({
+  onResponse({ request, response }) {
+    if (request.method !== "GET" && response.ok) onChange.forEach((listener) => listener());
+    return response;
+  },
+});
+
 export class ApiError extends Error {
   constructor(readonly status: number, message: string) {
     super(message);

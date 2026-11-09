@@ -168,6 +168,10 @@ The pipeline is split so each concern lives in exactly one module:
   never by a click or a timer alone): the same thing working again closes
   it (`resolved_how="fixed"`); only what nothing retries goes "quiet" after
   its spell, labelled so in the bell. A new kind needs its recovery rule.
+  Every accepted change (`/api/*`, not GET) re-checks before answering
+  (`api/app.py` `check_problems`, one at a time) and the dashboard's API
+  client refreshes problems after it (`afterEveryChange`), so a fix made in
+  the dashboard clears its problem at once.
   Words live in `api/dashboard/problems.py`, in two voices: plain
   for the clinic, technical for the admin. Alerts stay **in the website**
   (Harsh, 2026-09-28): every page shows a banner, a bell and "(!)" in the
