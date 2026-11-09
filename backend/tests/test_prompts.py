@@ -92,7 +92,10 @@ def test_the_only_doctor_is_never_asked_about(db):
     repo.update_doctor(s, repo.get_clinic(s, clinic_id).doctors[1].id, active=False)
     s.expire_all()
     one = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
-    assert "the clinic's only one: every appointment is with them, so never ask which doctor" in one
+    assert "the clinic's only one, so never ask which doctor" in one
+    # Not "every appointment is with them": that read as "book whatever the caller says"
+    # (Harsh, 2026-11-09: fever booked with an eye specialist).
+    assert "every appointment" not in one
 
 
 def test_the_model_knows_the_greeting_was_said_and_never_greets_again(db):
@@ -107,7 +110,20 @@ def test_visit_reason_is_asked_for_in_english():
     # The dashboard is English only: the agent speaks Hindi but files the reason in English.
     from clinic_agent.prompts import RULES
 
-    assert "pass it in short English" in " ".join(RULES["hi"].split())
+    assert "pass the reason in short English" in " ".join(RULES["hi"].split())
+
+
+def test_a_reason_outside_every_specialty_is_declined_not_booked():
+    # Harsh, 2026-11-09: "fever" was booked with the clinic's only doctor, an eye
+    # specialist. The reason comes first and is matched to the specialties.
+    rules = _rules("hi")
+    assert "First ask briefly why they are coming" in rules
+    right = rules[rules.index("Right doctor:"):rules.index("Cancel or move:")]
+    for rule in ["match the reason to each specialty", "book nothing",
+                 "suggest a type of doctor only if obvious", "never one not in CLINIC FACTS",
+                 "never diagnose", "Unsure: book"]:
+        assert rule in right, rule
+    assert rules.index("First ask briefly why") < rules.index("find_available_slots")
 
 
 def _rules(language):

@@ -199,7 +199,7 @@ async def test_afternoon_times_are_said_as_given(session, attempt):
         return REAL_AFTERNOON
 
     with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots}):
-        r = await session.run(user_input="आशा मेहता जी का कल दोपहर को कोई स्लॉट available है क्या?")
+        r = await session.run(user_input="खाँसी है, आशा मेहता जी का कल दोपहर को कोई स्लॉट available है क्या?")
     said = " ".join(
         e.item.text_content or "" for e in r.events if e.type == "message" and e.item.role == "assistant"
     )
@@ -216,7 +216,7 @@ async def test_afternoon_means_twelve_to_five_named_one_by_one(session):
         return GAPPY_DAY
 
     with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots}):
-        r = await session.run(user_input="आशा मेहता जी का कल दोपहर में कोई टाइम खाली है?")
+        r = await session.run(user_input="खाँसी है, आशा मेहता जी का कल दोपहर में कोई टाइम खाली है?")
         await _reply(r).judge(
             session.judge,
             intent="offers afternoon times only from 12:30, 2:00 and 4:45 (any of them, as words); "
@@ -252,7 +252,7 @@ async def test_booking_flow_reads_back_before_booking(session):
         "find_available_slots": find_available_slots, "check_booking": check_booking,
         "book_appointment": book_appointment,
     }):
-        r1 = await session.run(user_input="कल शाम को आशा मेहता जी के साथ अपॉइंटमेंट चाहिए")
+        r1 = await session.run(user_input="बुखार है, कल शाम को आशा मेहता जी के साथ अपॉइंटमेंट चाहिए")
         (args,) = _calls(r1, "find_available_slots")
         assert args["date"] == "2026-09-22"  # "kal" resolved from the date in CLINIC FACTS
         assert "asha" in args.get("doctor_name", "").lower()
@@ -266,7 +266,7 @@ async def test_booking_flow_reads_back_before_booking(session):
         )
 
         r2 = await session.run(
-            user_input="पाँच बजे ठीक है। बुखार है। नाम रवि, नंबर नौ आठ सात छह पाँच चार तीन दो एक शून्य"
+            user_input="पाँच बजे ठीक है। नाम रवि, नंबर नौ आठ सात छह पाँच चार तीन दो एक शून्य"
         )
         (c,) = _calls(r2, "check_booking")
         assert c["time"] == "17:00" and c["date"] == "2026-09-22"
@@ -303,6 +303,109 @@ async def test_visit_reason_is_written_in_english(session):
         (c,) = checked
         assert c.get("reason"), "the reason the caller gave was dropped"
         assert c["reason"].isascii(), f"reason not in English: {c['reason']!r}"
+
+# ---------- the right doctor for the reason (Harsh, 2026-11-09) ----------
+# Seen on a test call: "fever" booked with the clinic's only doctor, an eye specialist.
+
+@pytest.fixture
+def eye_clinic(db):
+    """The demo clinic with one doctor left, an eye specialist."""
+    s, clinic_id = db
+    asha, rohan = repo.get_clinic(s, clinic_id).doctors
+    repo.update_doctor(s, asha.id, specialty="Ophthalmologist (eye specialist)")
+    repo.update_doctor(s, rohan.id, active=False)
+    s.expire_all()
+    return db
+
+
+@pytest.fixture
+async def eye_session(eye_clinic):
+    s, clinic_id = eye_clinic
+    clinic = repo.get_clinic(s, clinic_id)
+    phrases = voice_clips.load(s, clinic, ["hi"], lambda language: None)
+    tools = [*booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions=None, language="hi", phrases=phrases)),
+             end_call_tool("hi", phrases)]
+    agent = ClinicAgent(build_instructions(clinic, [], NOW, "hi"), tools, phrases)
+    async with http_context.open(), AgentSession(llm=build_llm(load_settings(), BRAIN)) as session:
+        session.judge = _judge()
+        await session.start(agent)
+        yield session
+
+
+def _booking_mocks():
+    async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
+        return SLOTS
+
+    async def check_booking(**kwargs):
+        return READ_BACK
+
+    async def book_appointment():
+        return BOOKED
+
+    return {"find_available_slots": find_available_slots, "check_booking": check_booking,
+            "book_appointment": book_appointment}
+
+
+def _said(result):
+    return " ".join(
+        e.item.text_content or "" for e in result.events if e.type == "message" and e.item.role == "assistant"
+    )
+
+
+async def test_fever_with_an_eye_specialist_is_declined_kindly(eye_session):
+    from livekit.agents.voice.run_result import mock_tools
+
+    with mock_tools(ClinicAgent, _booking_mocks()):
+        r = await eye_session.run(user_input=(
+            "दो दिन से तेज़ बुखार है, कल शाम पाँच बजे का अपॉइंटमेंट चाहिए। "
+            "नाम रवि, नंबर नौ आठ सात छह पाँच चार तीन दो एक शून्य"
+        ))
+        if not _calls(r, "check_booking"):  # pressing on must not change the answer
+            r2 = await eye_session.run(user_input="फिर भी बुक कर दीजिए ना")
+        else:
+            r2 = r
+    assert not _calls(r, "check_booking") and not _calls(r2, "check_booking"), _said(r) + _said(r2)
+    assert not _calls(r2, "book_appointment")
+    await _reply(r).judge(
+        eye_session.judge,
+        intent="politely says the clinic's doctor is an eye specialist, so it cannot book a "
+        "fever visit here; books nothing; may suggest seeing a general physician; names no "
+        "particular doctor, hospital or clinic elsewhere; does not say what illness it is",
+    )
+
+
+async def test_an_eye_complaint_with_an_eye_specialist_is_booked(eye_session):
+    """No false declines: the doctor fits."""
+    from livekit.agents.voice.run_result import mock_tools
+
+    with mock_tools(ClinicAgent, _booking_mocks()):
+        r = await eye_session.run(user_input=(
+            "दो दिन से आँखें लाल हैं और पानी आ रहा है, कल शाम पाँच बजे का अपॉइंटमेंट चाहिए। "
+            "नाम रवि, नंबर नौ आठ सात छह पाँच चार तीन दो एक शून्य"
+        ))
+        for _ in range(3):  # it may confirm the slot first, before checking
+            if checked := _calls(r, "check_booking"):
+                break
+            r = await eye_session.run(user_input="हाँ, सही है")
+    assert checked, _said(r)
+
+
+async def test_a_childs_rash_goes_to_the_paediatrician(session):
+    """Two doctors (General Physician, Paediatrician): the reason picks the one who fits."""
+    from livekit.agents.voice.run_result import mock_tools
+
+    with mock_tools(ClinicAgent, _booking_mocks()):
+        r = await session.run(user_input="मेरे चार साल के बेटे को रैश हो गया है, बुधवार को दिखाना है")
+        searched = _calls(r, "find_available_slots")
+    if searched:
+        assert "rohan" in searched[0].get("doctor_name", "").lower(), searched
+    else:  # asking first is fine, as long as it points to the child specialist
+        await _reply(r).judge(
+            session.judge,
+            intent="suggests Dr. Rohan Iyer, the child specialist, or asks a short question "
+            "towards him; does not offer Dr. Asha Mehta's times",
+        )
+
 
 # ---------- ending the call (tool mocked: no room to delete in a test) ----------
 

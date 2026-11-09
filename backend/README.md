@@ -426,6 +426,15 @@ instructions in its README); every action below is an `/api` endpoint here.
   English, whatever language the caller used ("आँखों से धुंधला दिखता है" →
   "Blurred vision"), since the dashboard is English only. It is shown on the row; staff can add or change it. It is health
   information: shown to the clinic, never written to logs.
+- **The right doctor for the reason.** The receptionist asks why the caller
+  is coming before it looks for times, and matches it to the doctors'
+  specialties. A reason clearly outside all of them (fever, with only an eye
+  specialist) is declined kindly and nothing is booked; it may suggest the
+  obvious type of doctor ("general physician"), never a named doctor or
+  clinic elsewhere, and never guesses the illness. With several doctors it
+  picks the one who fits. When unsure it books. A caller who won't say why is
+  still booked. The model makes this call, so it is graded by live evals
+  (`tests/test_live.py`, "the right doctor for the reason").
 - **Clinic settings**: details, booking rules, the receptionist link, doctors, weekly
   hours (any number of sessions a day), leave and holidays, FAQ answers (each editable in place), and (admins) the
   team. Everything the agent knows about a clinic is entered here.
