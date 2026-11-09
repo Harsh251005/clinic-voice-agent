@@ -60,3 +60,81 @@ def test_fillers_are_random_and_never_the_same_twice_running(db):
     book = load(s, repo.get_clinic(s, clinic_id), ["hi"], lambda language: VOICE)
     said = [book.one("filler", "hi").text for _ in range(30)]
     assert len(set(said)) == 3 and all(a != b for a, b in zip(said, said[1:]))
+
+
+# ---------- recording (a fake voice: never Sarvam) ----------
+
+import asyncio  # noqa: E402
+
+from livekit import rtc  # noqa: E402
+
+from api.dashboard.problems import admin_words  # noqa: E402
+from clinic_agent import voice_clips  # noqa: E402
+from clinic_agent.store import migrations  # noqa: E402
+from clinic_agent.store.db import make_engine, session_factory  # noqa: E402
+
+
+class FakeVoice:
+    """A TTS whose synthesis gives `samples` of audio, or raises `fails`, or hangs."""
+
+    def __init__(self, samples=2400, fails=None, hangs=False, channels=1):
+        self.samples, self.fails, self.hangs, self.channels, self.said = samples, fails, hangs, channels, []
+
+    def synthesize(self, text):
+        self.said.append(text)
+        voice = self
+
+        class Stream:
+            async def collect(self):
+                if voice.hangs:
+                    await asyncio.sleep(10)
+                if voice.fails:
+                    raise voice.fails
+                return rtc.AudioFrame.create(24000, voice.channels, voice.samples)
+        return Stream()
+
+
+@pytest.fixture
+def sessions(tmp_path):
+    # A file: record() writes from a worker thread, and SQLite :memory: is per thread.
+    engine = make_engine(f"sqlite:///{tmp_path}/clips.db")
+    migrations.upgrade(engine)
+    yield session_factory(engine)
+    engine.dispose()
+
+
+async def test_a_recording_is_kept_under_its_key_and_its_characters_are_costed(sessions):
+    voice = FakeVoice()
+    await voice_clips.record(sessions, voice, VOICE, "नमस्ते जी।")
+    with sessions() as s:
+        clip = repo.clips_by_key(s, [clip_key(VOICE, "नमस्ते जी।")])[clip_key(VOICE, "नमस्ते जी।")]
+        assert (clip.sample_rate, len(clip.pcm), clip.duration_s) == (24000, 4800, 0.1)
+        (used,) = [u for u in repo.usage_between(s, clip.recorded_at.replace(year=2000), clip.recorded_at.replace(year=3000))]
+        assert (used.source, used.part, used.provider, used.model, used.unit, used.quantity) == \
+            ("voice_clip", "other", "sarvam", "m", "characters", float(len("नमस्ते जी।")))
+    assert voice.said == ["नमस्ते जी।"]
+
+
+@pytest.mark.parametrize("voice", [
+    FakeVoice(fails=RuntimeError("402 Payment Required")),
+    FakeVoice(samples=0),
+    FakeVoice(channels=2),
+], ids=["vendor error", "no audio", "not mono"])
+async def test_a_failed_recording_saves_nothing_and_tells_the_admin(sessions, voice):
+    with pytest.raises(voice_clips.RecordFailed, match="Calls say it live meanwhile"):
+        await voice_clips.record(sessions, voice, VOICE, "नमस्ते जी।")
+    with sessions() as s:
+        assert not repo.list_clips(s)
+        assert not repo.usage_between(s, repo.utc_now().replace(year=2000), repo.utc_now().replace(year=3000))
+        (inc,) = [i for i in repo.open_incidents(s) if i.kind == "voice_clip_failed"]
+        title, action, _ = admin_words(inc, None)
+        assert "Recording a voice clip failed" in title and "Calls say those phrases live" in action
+
+
+async def test_a_recording_that_hangs_gives_up_and_a_good_one_closes_the_problem(sessions, monkeypatch):
+    monkeypatch.setattr(voice_clips, "RECORD_TIMEOUT", 0.05)
+    with pytest.raises(voice_clips.RecordFailed, match="took too long"):
+        await voice_clips.record(sessions, FakeVoice(hangs=True), VOICE, "जी।")
+    await voice_clips.record(sessions, FakeVoice(), VOICE, "जी।")
+    with sessions() as s:
+        assert not [i for i in repo.open_incidents(s) if i.kind == "voice_clip_failed"]

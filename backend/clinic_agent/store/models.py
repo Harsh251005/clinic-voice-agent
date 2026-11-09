@@ -332,7 +332,7 @@ class Usage(Base):
     call_id: Mapped[int | None] = mapped_column(ForeignKey("calls.id", ondelete="SET NULL"), default=None, index=True)
     language: Mapped[str] = mapped_column(String(2), default="")  # the call's line; "" for other costs
     test: Mapped[bool] = mapped_column(default=False)  # a staff test call
-    source: Mapped[str] = mapped_column(String(20))  # call | hindi_names
+    source: Mapped[str] = mapped_column(String(20))  # call | hindi_names | voice_clip
     part: Mapped[str] = mapped_column(String(12))  # listening | thinking | speaking | call_line | other
     provider: Mapped[str] = mapped_column(String(30))  # sarvam | openai | livekit
     model: Mapped[str] = mapped_column(String(100), default="")
