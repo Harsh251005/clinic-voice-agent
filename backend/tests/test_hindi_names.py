@@ -118,3 +118,50 @@ def test_each_suggestion_asked_of_openai_is_counted_in_costs(world, answers):  #
         ("hindi_names", "other", "openai", hindi.MODEL, "tokens_cached", 20.0, world["cure"]),
         ("hindi_names", "other", "openai", hindi.MODEL, "tokens_out", 9.0, world["cure"]),
     }
+
+
+# ---------- the receptionist's fixed phrases (voice clips) ----------
+
+def test_a_phrase_comes_back_in_hindi_with_its_placeholder(answers):
+    answers("नमस्ते जी, {clinic} में आपका स्वागत है।")
+    english = "Hello, welcome to  {clinic}."
+    assert hindi.translate_phrase(load_settings(), english) == "नमस्ते जी, {clinic} में आपका स्वागत है।"
+    assert FakeOpenAI.asked == ["Hello, welcome to {clinic}."]
+    hindi.translate_phrase(load_settings(), english)
+    assert len(FakeOpenAI.asked) == 1  # asked once
+
+
+def test_a_phrase_and_a_name_with_the_same_words_are_asked_separately(answers):
+    answers("जी")
+    hindi.translate_phrase(load_settings(), "Yes")
+    hindi.suggest(load_settings(), "Yes")
+    assert len(FakeOpenAI.asked) == 2  # different instructions: never one answer for both
+
+
+@pytest.mark.parametrize("reply", [
+    "नमस्ते जी, आपका स्वागत है।",             # the placeholder was dropped
+    "नमस्ते जी, {clinic} {clinic} में।",      # or doubled
+    "नमस्ते जी, {क्लिनिक} में स्वागत है।",      # or translated
+    "Namaste ji, {clinic} mein swagat hai",  # Roman letters: the voice can't say them
+    "नमस्ते, welcome to {clinic}",
+    "{clinic}",
+])
+def test_a_phrase_that_lost_its_placeholder_or_is_not_devanagari_is_refused(answers, reply):
+    answers(reply)
+    with pytest.raises(hindi.NoSuggestion):
+        hindi.translate_phrase(load_settings(), "Hello, welcome to {clinic}.")
+
+
+def test_a_phrase_uses_the_clinics_own_spellings_and_reports_usage(answers):
+    answers("डॉक्टर हर्ष अभी क्लिनिक में हैं।")
+    seen = []
+    hindi.translate_phrase(load_settings(), "Dr. Harsh is in the clinic.",
+                           known={"Harsh": "हर्ष", "Mehta": "मेहता"}, on_usage=lambda *a: seen.append(a))
+    assert FakeOpenAI.asked == ["Dr. Harsh is in the clinic.\nSpell these words exactly as the clinic already does: Harsh = हर्ष"]
+    assert seen == [("gpt-4.1-mini", 120, 20, 9)]
+
+
+def test_the_phrase_instructions_keep_her_feminine_and_the_caller_unassumed():
+    rules = hindi.PHRASE_INSTRUCTIONS
+    assert "She is a woman" in rules and "never masculine" in rules
+    assert "never assuming their gender" in rules and "{clinic} exactly as written" in rules

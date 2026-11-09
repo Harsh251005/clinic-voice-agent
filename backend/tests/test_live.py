@@ -355,3 +355,14 @@ async def test_cancel_flow_looks_up_reads_back_then_cancels(session):
         r2 = await session.run(user_input="हाँ, कैंसल कर दीजिए")
         assert [c["appointment_id"] for c in _calls(r2, "cancel_appointment")][-1:] == [7]
         assert len(_calls(r1, "cancel_appointment")) + len(_calls(r2, "cancel_appointment")) == 2
+
+
+def test_a_fixed_phrase_is_translated_feminine_with_its_placeholder():
+    # Voice clips: an admin types English, OpenAI writes the Hindi she says.
+    from clinic_agent.providers import hindi
+
+    hindi._cache.clear()
+    text = hindi.translate_phrase(load_settings(), "Hello, welcome to {clinic}. I am its automated assistant, "
+                                  "and I can help you book an appointment. How can I help you?")
+    assert text.count("{clinic}") == 1 and not re.search(r"[A-Za-z]", text.replace("{clinic}", ""))
+    assert not re.search(r"सकता|रहा हूँ|बताता|दूँगा|का असिस्टेंट", text), text  # never masculine
