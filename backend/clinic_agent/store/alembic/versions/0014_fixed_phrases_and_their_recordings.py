@@ -4,8 +4,8 @@ only) instead of the model's words or lists in the code. Seeded with what
 the code said until now; the greeting and the time-limit goodbye are new
 fixed texts, to be proofread.
 
-Revision ID: 0013
-Revises: 0012
+Revision ID: 0014
+Revises: 0013
 Created: 2026-10-27 21:19:05.533838
 """
 
@@ -13,26 +13,20 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = '0013'
-down_revision = '0012'
+revision = '0014'
+down_revision = '0013'
 branch_labels = None
 depends_on = None
 
-# (kind, language, slot, English source, spoken text; "" = same as the source). Hindi and English only: Marathi has no phrases
-# while the Sarvam line speaks Hindi only; adding them later is adding rows.
+# (kind, language, slot, English source, spoken text; "" = same as the source). Hindi only: it is the one line
+# (docs/decisions.md #13); a second line later is adding its rows.
 SEEDS = [
     ("greeting", "hi", 0, "Hello, welcome to {clinic}. I am its automated assistant, and this conversation is saved as text for the clinic's records. How can I help you?", "नमस्ते, {clinic} में आपका स्वागत है। मैं इसकी ऑटोमेटेड असिस्टेंट हूँ, और यह बातचीत क्लिनिक के रिकॉर्ड के लिए टेक्स्ट में सेव हो रही है। बताइए, मैं आपकी कैसे मदद कर सकती हूँ?"),
-    ("greeting", "en", 0, "Hello, welcome to {clinic}. I am its automated assistant, and this conversation is saved as text for the clinic's records. How can I help you?", ""),
     ("filler", "hi", 1, "One second, let me check and tell you.", "एक सेकंड जी, मैं चेक करके बताती हूँ।"),
     ("filler", "hi", 2, "Okay, one moment, let me have a look.", "ठीक है, एक पल, मैं देख लेती हूँ।"),
     ("filler", "hi", 3, "Yes, just one second.", "जी, बस एक सेकंड।"),
-    ("filler", "en", 1, "One moment, let me check.", ""),
-    ("filler", "en", 2, "Sure, just a second.", ""),
-    ("filler", "en", 3, "Let me look that up for you.", ""),
     ("goodbye_fallback", "hi", 0, "Thank you for calling. Have a good day, goodbye!", "कॉल करने के लिए धन्यवाद जी। आपका दिन शुभ हो, नमस्ते!"),
-    ("goodbye_fallback", "en", 0, "Thank you for calling. Have a good day, goodbye!", ""),
     ("goodbye_time_limit", "hi", 0, "I am sorry, this call has reached its time limit. You are welcome to call again. Goodbye!", "माफ़ कीजिए जी, इस कॉल का समय पूरा हो गया है। आप दोबारा कॉल कर सकते हैं। नमस्ते!"),
-    ("goodbye_time_limit", "en", 0, "I am sorry, this call has reached its time limit. You are welcome to call again. Goodbye!", ""),
 ]
 
 

@@ -11,13 +11,12 @@ def _of(phrases, kind, language="hi"):
     return [p for p in phrases if p.kind == kind and p.language == language]
 
 
-def test_every_kind_is_seeded_in_hindi_and_english_and_marathi_is_not(db):
+def test_every_kind_is_seeded_in_hindi_only(db):
     s, _ = db
     rows = repo.list_phrases(s)
-    for language in ("hi", "en"):
-        assert {p.kind for p in rows if p.language == language} == set(PHRASE_KINDS)
-        assert [p.slot for p in _of(rows, "filler", language)] == [1, 2, 3]  # the set of three
-    assert not [p for p in rows if p.language == "mr"]  # the Sarvam line speaks Hindi only
+    assert {p.kind for p in rows} == set(PHRASE_KINDS)
+    assert [p.slot for p in _of(rows, "filler")] == [1, 2, 3]  # the set of three
+    assert {p.language for p in rows} == {"hi"}  # one line (docs/decisions.md #13)
 
 
 def test_the_greeting_is_a_template_for_the_clinic_name(db):
@@ -32,10 +31,8 @@ def test_a_clinics_own_greeting_replaces_the_global_one_for_that_clinic_only(db)
     repo.set_greeting_override(s, clinic_id, "hi", "नमस्ते जी, {clinic} में स्वागत है।")
     mine, = _of(repo.phrases_for_call(s, clinic_id, "hi"), "greeting")
     assert mine.text == "नमस्ते जी, {clinic} में स्वागत है।" and mine.clinic_id == clinic_id
-    # the fillers and goodbyes stay the global ones, and the English line is untouched
+    # the fillers and goodbyes stay the global ones
     assert len(_of(repo.phrases_for_call(s, clinic_id, "hi"), "filler")) == 3
-    english, = _of(repo.phrases_for_call(s, clinic_id, "en"), "greeting", "en")
-    assert english.clinic_id is None
     theirs, = _of(repo.phrases_for_call(s, other.id, "hi"), "greeting")
     assert theirs.clinic_id is None  # another clinic still hears the global one
     repo.clear_greeting_override(s, clinic_id, "hi")
@@ -111,11 +108,11 @@ def test_the_clip_list_leaves_the_audio_out_and_delete_says_how_many(db):
     assert [c.key for c in repo.list_clips(s)] == ["b"]
 
 
-def test_every_hindi_phrase_has_its_english_source_and_the_english_line_has_one_text(db):
+def test_every_hindi_phrase_has_its_english_source(db):
     s, _ = db
     for p in repo.list_phrases(s):
         assert p.source.isascii() and p.source.strip()  # staff only ever write English
-        assert (p.text == p.source) == (p.language == "en")
-    first_hindi = next(p for p in repo.list_phrases(s) if p.language == "hi")
+        assert p.text != p.source  # what is spoken is the Hindi
+    first_hindi = repo.list_phrases(s)[0]
     repo.set_phrase_text(s, first_hindi.id, "नया हिंदी", source="New English")
     assert (first_hindi.source, first_hindi.text) == ("New English", "नया हिंदी")

@@ -1105,7 +1105,7 @@ def phrases_for_call(s: Session, clinic_id: int, language: str) -> list[Phrase]:
 
 def set_phrase_text(s: Session, phrase_id: int, text: str, source: str | None = None) -> Phrase:
     """Change what is spoken (the Hindi), and with `source` the English it was
-    made from. The English line's phrases have the same words in both."""
+    made from."""
     phrase = _get(s, Phrase, phrase_id)
     phrase.text = _phrase_text(text)
     if source is not None:

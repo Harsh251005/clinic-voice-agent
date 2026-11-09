@@ -444,7 +444,7 @@ class Phrase(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[str] = mapped_column(String(20))  # one of PHRASE_KINDS
-    language: Mapped[str] = mapped_column(String(2))  # hi | en | mr
+    language: Mapped[str] = mapped_column(String(2))  # the line: "hi" (the only one)
     slot: Mapped[int] = mapped_column(default=0)  # fillers 1-3; 0 for the rest
     clinic_id: Mapped[int | None] = mapped_column(ForeignKey("clinics.id", ondelete="CASCADE"), default=None)
     # What staff typed, in English (nobody types Devanagari: Harsh, 2026-10-27).
