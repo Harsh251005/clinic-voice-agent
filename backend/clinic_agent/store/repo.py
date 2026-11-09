@@ -762,6 +762,14 @@ def usage_between(s: Session, start: datetime, end: datetime) -> list[Usage]:
     return list(s.scalars(select(Usage).where(Usage.at >= start, Usage.at < end).order_by(Usage.at, Usage.id)))
 
 
+def usage_kinds(s: Session) -> list[tuple[str, str, str, datetime, datetime]]:
+    """Every (vendor, model, unit) usage was ever counted in, with its first
+    and last use: what a price must name to cover it."""
+    rows = s.execute(select(Usage.provider, Usage.model, Usage.unit, func.min(Usage.at), func.max(Usage.at))
+                     .group_by(Usage.provider, Usage.model, Usage.unit).order_by(Usage.provider, Usage.model, Usage.unit))
+    return [tuple(r) for r in rows]
+
+
 def usage_for_calls(s: Session, call_ids: Iterable[int]) -> list[Usage]:
     ids = list(call_ids)
     if not ids:

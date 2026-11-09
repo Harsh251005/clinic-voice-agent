@@ -70,3 +70,20 @@ test("adding a language model asks for its three prices at once", async ({ page 
   await expect(page.getByText("Removed.")).toBeVisible();
   await expect(model).toHaveCount(0);
 });
+
+test("a missing price opens already filled in, and a price can only be in a unit calls are counted in", async ({ page }) => {
+  // A "price missing" problem's Open link: vendor/model/unit and the first day it was used.
+  await page.goto("/admin/costs/prices?add=sarvam%2Fbulbul%3Av9%2Fcharacters&from=2026-11-01");
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: "Add the missing price" })).toBeVisible();
+  await expect(dialog.locator("#f-model")).toHaveValue("bulbul:v9");
+  await expect(dialog.locator("#f-valid_from")).toHaveValue("2026-11-01");
+  await expect(dialog.locator("#f-per")).toHaveValue("10000");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/admin\/costs\/prices$/);  // a reload won't open it again
+
+  await page.getByRole("button", { name: "Add a price" }).click();
+  await page.getByRole("dialog").locator("#f-unit").click();
+  await expect(page.getByRole("option", { name: "seconds heard" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "call minutes" })).toHaveCount(0);  // Sarvam is never counted in minutes
+});

@@ -158,7 +158,9 @@ The pipeline is split so each concern lives in exactly one module:
   `session.usage`; never money, never words) and this prices it when shown:
   usage × the dated price list (`prices`, `exchange_rates`, `allowances`,
   `fixed_costs`, `vendor_bills`), all edited on the admin Prices page
-  (`api/dashboard/costs.py`), never in code (Harsh, 2026-10-13). Usage
+  (`api/dashboard/costs.py`), never in code (Harsh, 2026-10-13); a price
+  may only be in a unit calls count that vendor in (`costs.COUNTED_IN`:
+  record a new vendor's unit there too). Usage
   outlives its call (FKs `SET NULL`). A new billable vendor call = record
   its usage in the same change, or its cost is silently missing.
 - `clinic_agent/incidents.py` — **problems, flagged**: which conditions and

@@ -685,6 +685,16 @@ class BillRow(BillIn):
     id: int
 
 
+class UsedKind(BaseModel):
+    """What calls were counted in: a price must name this vendor, model and unit
+    (or leave the model blank) to cover them."""
+    provider: str
+    model: str
+    unit: str
+    first_used: date
+    last_used: date
+
+
 class CostSettings(BaseModel):
     prices: list[PriceRow]
     rates: list[RateRow]
@@ -692,6 +702,8 @@ class CostSettings(BaseModel):
     fixed: list[FixedRow]
     bills: list[BillRow]
     units: dict[str, str]  # unit -> plain words
+    used: list[UsedKind]
+    counted_in: dict[str, list[str]]  # vendor -> the units its calls are counted in: a price in another can't match
 
 
 # ---------- voice & phrases (admin) ----------

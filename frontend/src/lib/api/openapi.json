@@ -1526,6 +1526,16 @@
             "title": "Bills",
             "type": "array"
           },
+          "counted_in": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Counted In",
+            "type": "object"
+          },
           "fixed": {
             "items": {
               "$ref": "#/components/schemas/FixedRow"
@@ -1553,6 +1563,13 @@
             },
             "title": "Units",
             "type": "object"
+          },
+          "used": {
+            "items": {
+              "$ref": "#/components/schemas/UsedKind"
+            },
+            "title": "Used",
+            "type": "array"
           }
         },
         "required": [
@@ -1561,7 +1578,9 @@
           "allowances",
           "fixed",
           "bills",
-          "units"
+          "units",
+          "used",
+          "counted_in"
         ],
         "title": "CostSettings",
         "type": "object"
@@ -3641,6 +3660,42 @@
           "text"
         ],
         "title": "Translated",
+        "type": "object"
+      },
+      "UsedKind": {
+        "description": "What calls were counted in: a price must name this vendor, model and unit\n(or leave the model blank) to cover them.",
+        "properties": {
+          "first_used": {
+            "format": "date",
+            "title": "First Used",
+            "type": "string"
+          },
+          "last_used": {
+            "format": "date",
+            "title": "Last Used",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model",
+          "unit",
+          "first_used",
+          "last_used"
+        ],
+        "title": "UsedKind",
         "type": "object"
       },
       "ValidationError": {

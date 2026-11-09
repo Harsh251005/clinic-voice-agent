@@ -8,6 +8,7 @@ Which problems a clinic sees is `incidents.KINDS[kind].clinic_sees`.
 from __future__ import annotations
 
 from datetime import timedelta
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Request
 
@@ -172,8 +173,10 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
                         "Add a rate from that date in Costs, Prices.", "/admin/costs/prices")
             provider, model, unit = (inc.subject.split("/") + ["", "", ""])[:3]
             words = costs.UNITS.get(unit, unit)
-            return (f"Costs are incomplete: {provider} {model} has no price for {words} (used since {inc.detail}).",
-                    "Add its price in Costs, Prices: the vendor's pricing page has it.", "/admin/costs/prices")
+            add = urlencode({"add": inc.subject, "from": inc.detail})
+            return (f"Costs are incomplete: {VENDORS.get(provider, provider)} {model} has no price for {words} (used since {inc.detail}).",
+                    "Open fills in the missing price for you: type the amount from the vendor's pricing page.",
+                    f"/admin/costs/prices?{add}")
         case "voice_clip_failed":
             return (f"Recording a voice clip failed ({inc.detail}), {_plural(inc.count, 'time')}.",
                     "Calls say those phrases live meanwhile. Try Record again; if it keeps failing, check the "

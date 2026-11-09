@@ -180,11 +180,19 @@ def settings(request: Request):
         return schemas.CostSettings(
             **{kind: [_row(kind, r) for r in repo.cost_rows(s, kind)] for kind in ROWS},
             units=costs.UNITS,
+            counted_in={vendor: list(units) for vendor, units in costs.COUNTED_IN.items()},
+            used=[schemas.UsedKind(provider=p, model=m, unit=u, first_used=a.date(), last_used=b.date())
+                  for p, m, u, a, b in repo.usage_kinds(s)],
         )
 
 
 def _check(kind: str, body: BaseModel) -> dict:
     fields = body.model_dump()
+    if kind == "prices" and fields["unit"] not in costs.COUNTED_IN.get(fields["provider"], ()):
+        words = ", ".join(costs.UNITS[u] for u in costs.COUNTED_IN.get(fields["provider"], ()))
+        raise ValueError(f"Calls never count {costs.VENDOR_NAMES.get(fields['provider'], fields['provider'])} in "
+                         f"{costs.UNITS.get(fields['unit'], fields['unit'])}, so this price would match nothing. "
+                         f"It is counted in: {words}.")
     if kind == "fixed" and fields["valid_to"] is not None and fields["valid_to"] < fields["valid_from"]:
         raise ValueError("The last month can't be before the first.")
     if kind == "prices":

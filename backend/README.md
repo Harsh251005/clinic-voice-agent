@@ -289,7 +289,14 @@ Hindi-name suggestions are counted too, as *other costs*.
   dollar-to-rupee rate (set by hand to what your card is charged, dated),
   free monthly allowances (LiveKit minutes: the LiveKit-minutes problem uses
   this allowance), monthly fees (plan subscriptions) and each month's real
-  bills.
+  bills. **A price must match how calls are counted**: Sarvam in seconds
+  heard, characters or tokens, OpenAI in tokens, LiveKit in call minutes
+  (`costs.COUNTED_IN`); the form offers only those units, the API refuses
+  others, and the model box suggests the names calls actually used. A row
+  that can never match says so in amber; one priced ahead of use says "No
+  call has used this model yet". A "price missing" problem's **Open** goes
+  straight to the Add form, filled in (vendor, model, unit, first day used):
+  only the amount is left to type.
 - Starts with the official prices as checked on 2026-10-13 (migration
   0012). Migration 0013 (Hindi only, 2026-11-08) then deletes everything
   ElevenLabs and the English line left behind: their prices and allowance,
@@ -326,7 +333,7 @@ not tried again since") instead of "fixed".
 | Clinic paused | paused in the admin panel | yes | turned back on |
 | Bookings need a call | upcoming bookings flagged (leave, holiday...) | yes | none left |
 | LiveKit minutes | 80% (urgent at 95%) of the monthly allowance (Prices page; 1,000 by default) | no | next month |
-| Price missing | a call in the last 35 days used a model with no price that day, or a dollar price with no rate | no | the price or rate is added |
+| Price missing | a call in the last 35 days used a model with no price that day, or a dollar price with no rate; Open fills in the missing price | no | the price or rate is added (at once: the save re-checks) |
 | Expired transcripts not deleted | the purge fails | no | the next purge works |
 | Recording a voice clip failed | an admin's Record fails (vendor error, timeout) | no | a recording works, or a quiet day |
 | Hindi name suggestions failing | a name's Hindi suggestion fails (OpenAI) | no | the next suggestion works, or a quiet hour |

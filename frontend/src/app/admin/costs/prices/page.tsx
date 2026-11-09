@@ -3,6 +3,7 @@
 // code. Vendors' prices (one row per model, dated so the past keeps its own),
 // the dollar rate, free allowances, monthly fees, and each month's real bills
 // to check against.
+import { Suspense } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -39,7 +40,10 @@ function Body({ s }: { s: Schemas["CostSettings"] }) {
   const units = s.units;
   return (
     <>
-      <PriceSection rows={s.prices} units={units} />
+      {/* Reads ?add= from a "price missing" problem's Open link */}
+      <Suspense fallback={<Skeleton className="h-72" />}>
+        <PriceSection rows={s.prices} units={units} used={s.used} countedIn={s.counted_in} />
+      </Suspense>
 
       <CostSection kind="rates" title="Dollar to rupee rate"
         about="OpenAI and LiveKit bill in dollars. Set the rate your card is actually charged; a new rate applies from its date on."
