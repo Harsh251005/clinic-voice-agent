@@ -24,7 +24,8 @@ cancel/reschedule tools with code-enforced confirmation, end-call tool,
 `console --text`, one worker for all clinics (dispatch), browser call links
 (`api/`), Google sign-in, the **Next.js dashboard** (`frontend/`: Today,
 diary, calls, settings), call records and transcripts, the admin panel, and
-problems flagged on every page. Not yet: a server deployment, telephony (identity is
+problems flagged on every page, and the fixed phrases (greeting, fillers,
+goodbyes) played from admin-made recordings, live when there are none. Not yet: a server deployment, telephony (identity is
 by spoken mobile number until caller ID exists), vendor fallback, the
 patient front door. Plans: `~/.claude/plans/` (current:
 `per-clinic-agent-and-language-lines.md`; also `portfolio-ready.md`,
@@ -96,7 +97,10 @@ The pipeline is split so each concern lives in exactly one module:
   (Harsh, 2026-11-09: reliability over savings); unreadable phrases fall
   back to `BUILT_IN` (must equal migration 0014's seeds) and open
   `voice_clips_unread`. Nothing records itself: `record` runs only on an
-  admin's click.
+  admin's click, from `api/dashboard/voice.py` (page `/admin/voice`: edit in
+  English, Hindi suggested by `providers/hindi.translate_phrase`, Record /
+  Play). `repo` refuses a greeting without ऑटोमेटेड + टेक्स्ट (and
+  `{clinic}` in the shared one): callers must hear both.
 - `api/` — FastAPI call-link server (browser calls until telephony).
   `/call/<slug>` page (no language choice: every call is Hindi); `POST
   /call/<slug>/pass` (no body; an old tab's is ignored) signs a LiveKit token for a
