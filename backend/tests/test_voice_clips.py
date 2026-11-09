@@ -51,7 +51,7 @@ def test_a_phrase_plays_its_recording_only_while_the_voice_and_text_match(db):
     assert recorded.pcm == b"\x01\x02" and recorded.sample_rate == 24000 and recorded.text == live.text
     other = {**VOICE, "voice": "someone else"}
     assert load(s, clinic, ["hi"], lambda language: other).one("greeting", "hi").pcm is None
-    repo.set_greeting_override(s, clinic_id, "hi", "बिल्कुल नया।")  # edited text: back to live
+    repo.set_greeting_override(s, clinic_id, "hi", "बिल्कुल नया: ऑटोमेटेड, टेक्स्ट।")  # edited text: back to live
     assert load(s, clinic, ["hi"], lambda language: VOICE).one("greeting", "hi").pcm is None
 
 

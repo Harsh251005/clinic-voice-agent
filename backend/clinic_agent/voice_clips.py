@@ -85,18 +85,27 @@ def load(s: Session, clinic, languages: Iterable[str], voice_of: Callable[[str],
     voice `voice_of(language)` (providers.identity) when one exists; None (a
     typed console call has no voice) loads no recordings. The greeting's
     `{clinic}` is the clinic's Hindi name, else its own."""
-    name = clinic.name_hi or clinic.name
+    name = spoken_name(clinic)
     said: dict[tuple[str, str], list[Said]] = {}
     for language in languages:
         voice = voice_of(language)
         rows = sorted(repo.phrases_for_call(s, clinic.id, language), key=lambda p: p.slot)
-        texts = [p.text.replace("{clinic}", name) for p in rows]
+        texts = [spoken(p.text, clinic) for p in rows]
         clips = repo.clips_by_key(s, [clip_key(voice, t) for t in texts]) if voice else {}
         for row, text in zip(rows, texts):
             clip = clips.get(clip_key(voice, text)) if voice else None
             said.setdefault((row.kind, language), []).append(
                 Said(text, clip.pcm, clip.sample_rate) if clip and _playable(clip) else Said(text))
     return Phrasebook(said, name)
+
+
+def spoken_name(clinic) -> str:
+    return clinic.name_hi or clinic.name
+
+
+def spoken(text: str, clinic) -> str:
+    """A phrase's words as said on this clinic's calls: `{clinic}` filled in."""
+    return text.replace("{clinic}", spoken_name(clinic))
 
 
 def _playable(clip) -> bool:
@@ -121,7 +130,7 @@ def for_call(sessions: Sessions, clinic, language: str, voice: lk_tts.TTS | None
                 incidents.report(s, "voice_clips_unread", utc_now(), clinic_id=clinic.id, detail=type(err).__name__)
         except Exception:  # noqa: BLE001 - the database itself is down; the log has it
             logger.exception("could not report the voice clips failure")
-        return Phrasebook(clinic_name=clinic.name_hi or clinic.name)
+        return Phrasebook(clinic_name=spoken_name(clinic))
 
 
 def say(session, said: Said, **kwargs):

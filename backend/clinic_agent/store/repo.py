@@ -1086,6 +1086,24 @@ def _phrase_text(text: str) -> str:
     return text
 
 
+# Every caller must hear that the receptionist is automated and that the call
+# is kept as text (the call page says it too): a greeting can't drop either.
+GREETING_MUST_SAY = {"ऑटोमेटेड": "that she is an automated assistant (ऑटोमेटेड असिस्टेंट)",
+                     "टेक्स्ट": "that the conversation is saved as text (टेक्स्ट में सेव)"}
+
+
+def _greeting_text(text: str, template: bool) -> str:
+    """A greeting's words, refused if they drop what every caller must hear.
+    The shared `template` must also name the clinic ({clinic})."""
+    text = _phrase_text(text)
+    missing = [why for word, why in GREETING_MUST_SAY.items() if word not in text]
+    if template and "{clinic}" not in text:
+        missing.append("the clinic's name, written {clinic}")
+    if missing:
+        raise ValueError("The greeting must still say " + " and ".join(missing) + ".")
+    return text
+
+
 def list_phrases(s: Session) -> list[Phrase]:
     """Every phrase, global ones and clinics' own: greeting, fillers, goodbyes."""
     order = {kind: i for i, kind in enumerate(PHRASE_KINDS)}
@@ -1107,7 +1125,7 @@ def set_phrase_text(s: Session, phrase_id: int, text: str, source: str | None = 
     """Change what is spoken (the Hindi), and with `source` the English it was
     made from."""
     phrase = _get(s, Phrase, phrase_id)
-    phrase.text = _phrase_text(text)
+    phrase.text = _greeting_text(text, phrase.clinic_id is None) if phrase.kind == "greeting" else _phrase_text(text)
     if source is not None:
         phrase.source = _phrase_text(source)
     s.commit()
@@ -1116,7 +1134,7 @@ def set_phrase_text(s: Session, phrase_id: int, text: str, source: str | None = 
 
 def set_greeting_override(s: Session, clinic_id: int, language: str, text: str, source: str | None = None) -> Phrase:
     """This clinic's own greeting in `language`, replacing the global one."""
-    text = _phrase_text(text)
+    text = _greeting_text(text, template=False)
     source = _phrase_text(source) if source is not None else text
     _get(s, Clinic, clinic_id)
     phrase = s.scalar(select(Phrase).where(
@@ -1135,6 +1153,14 @@ def clear_greeting_override(s: Session, clinic_id: int, language: str) -> None:
     s.execute(delete(Phrase).where(
         Phrase.clinic_id == clinic_id, Phrase.kind == "greeting", Phrase.language == language))
     s.commit()
+
+
+def clip_dates(s: Session, keys: Iterable[str]) -> dict[str, VoiceClip]:
+    """The recordings among `keys`, without their audio (status on the admin page)."""
+    keys = list(keys)
+    if not keys:
+        return {}
+    return {c.key: c for c in s.scalars(select(VoiceClip).options(defer(VoiceClip.pcm)).where(VoiceClip.key.in_(keys)))}
 
 
 def clips_by_key(s: Session, keys: Iterable[str]) -> dict[str, VoiceClip]:

@@ -246,6 +246,22 @@ every clinic?" and never shows patients:
   everything of it. A SQLite database is copied first
   (`clinic.db.bak-…`); on Postgres that relies on your own backups.
 - **Costs**: what every call cost you, in rupees (below).
+- **Voice & phrases** (`/admin/voice`, `api/dashboard/voice.py`): the
+  receptionist's fixed lines: the greeting (shared, with `{clinic}` for each
+  clinic's spoken name, or a clinic's own), the three "one moment" fillers
+  and the two fixed goodbyes. You write English; **Suggest Hindi** asks
+  OpenAI for the Hindi she says (tokens counted as other costs), which you
+  can edit before saving. A greeting can't be saved without saying she is
+  an automated assistant (ऑटोमेटेड) and the call is saved as text
+  (टेक्स्ट); the shared one must also keep `{clinic}`. Each line shows,
+  per clinic for the greeting, whether it is **recorded in the current
+  voice** (vendor, model, speaker, pace, pitch) and its exact words; **Play**
+  a recording, **Record** one, a line, or everything not yet recorded (the
+  estimated characters and price are shown first, from the Prices page).
+  Nothing records by itself, and recording stops at the first failure
+  (problem "Recording a voice clip failed"). Edited words or a new voice
+  are said live until recorded; old takes stay, so going back to an old
+  voice plays them again.
 
 ### Costs: what each call cost (`/admin/costs`)
 
@@ -308,6 +324,9 @@ for the clinic, technical detail for the operator.
 | LiveKit minutes | 80% (urgent at 95%) of the monthly allowance (Prices page; 1,000 by default) | no | next month |
 | Price missing | a call in the last 35 days used a model with no price that day, or a dollar price with no rate | no | the price or rate is added |
 | Expired transcripts not deleted | the purge fails | no | the next purge works |
+| Recording a voice clip failed | an admin's Record fails (vendor error, timeout) | no | a recording works, or a quiet day |
+| Phrase translation failing | Suggest Hindi fails (OpenAI) | no | a suggestion works, or a quiet hour |
+| Fixed phrases unreadable | a call can't read its phrases: it says the built-in words live | no | a quiet hour |
 
 - **The worker checks in** every 30 s (`clinic_agent/heartbeat.py`), from
   the moment LiveKit registers it (connected and ready for calls). Console
