@@ -4,6 +4,8 @@ everything, technically."""
 
 from datetime import datetime, timedelta
 
+import pytest
+
 from fastapi.testclient import TestClient
 
 from clinic_agent import incidents
@@ -94,7 +96,7 @@ def test_a_vendor_failing_three_times_in_15_minutes(db):
     call(s, clinic_id, NOW - timedelta(minutes=3), errors=["sarvam/bulbul:v3"])
     sync(s)
     (inc,) = [i for i in repo.open_incidents(s) if i.kind == "vendor_errors"]
-    assert inc.subject == "sarvam/bulbul:v3" and inc.detail.startswith("3 errors in 15 minutes")
+    assert inc.subject == "sarvam/bulbul:v3" and inc.detail == "tts|3|APIError, retried"  # the voice part, 3 errors, the latest
 
 
 def _closed(s, kind):
@@ -260,7 +262,7 @@ def _sessions():
 def test_clinic_reads_its_own_problems_in_plain_words(world):  # noqa: F811
     with _sessions()() as s:
         sync(s)  # no worker: offline, for everyone
-        incidents.report(s, "vendor_errors", NOW, subject="sarvam/bulbul:v3")  # the operator's business
+        incidents.report(s, "vendor_errors", NOW, subject="sarvam/bulbul:v3", detail="tts|3|APIStatusError 402, fatal")
         incidents.report(s, "patients_cant_connect", NOW, clinic_id=world["cure"], subject="mic_blocked")
         incidents.report(s, "patients_cant_connect", NOW, clinic_id=world["demo"], subject="no_answer")
     c = client_as("reception@cure.in")
@@ -268,7 +270,8 @@ def test_clinic_reads_its_own_problems_in_plain_words(world):  # noqa: F811
     titles = [p["title"] for p in got["open"]]
     assert titles[0] == "Your receptionist is offline. Patients calling now can't reach it."  # critical first
     assert "1 patient couldn't reach your receptionist: their browser blocked the microphone." in titles
-    assert not any("sarvam" in t or "answer" in t for t in titles)  # no vendors, no other clinic's
+    assert "Your receptionist is having trouble speaking to callers right now." in titles  # a vendor, in plain words
+    assert not any("sarvam" in t.lower() or "402" in t or "didn't answer" in t for t in titles)  # no vendor names, codes or other clinic's
 
 
 def test_a_line_off_reads_plainly_for_the_clinic_and_technically_for_the_operator(world):  # noqa: F811
@@ -415,3 +418,77 @@ def test_a_failed_problem_check_never_fails_the_save(world, monkeypatch):  # noq
     c = client_as("harsh@example.com", admin=True)
     monkeypatch.setattr(incidents, "sync", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db hiccup")))
     assert c.put(f"/api/admin/clinics/{world['cure']}/active", json={"active": False}).status_code == 200
+
+
+# ---------- precise words (Harsh, 2026-11-09: know at once what broke and what to do) ----------
+
+from api.dashboard.problems import admin_words, clinic_words  # noqa: E402
+from clinic_agent.store.models import Incident  # noqa: E402
+
+
+def _vendor(detail, subject="sarvam/bulbul:v4-flash"):
+    return Incident(kind="vendor_errors", subject=subject, detail=detail, count=1, severity="warning", clinic_id=None)
+
+
+@pytest.mark.parametrize(("error", "says", "todo"), [
+    ("APIStatusError 402, fatal", "out of credits (402)", "Top up your Sarvam account"),
+    ("APIStatusError 401, fatal", "its key was rejected (401)", "Sarvam API key in backend/.env"),
+    ("APIStatusError 429, retried", "too many requests (429)", "limiting you"),
+    ("APIStatusError 503, retried", "Sarvam's own servers are failing (503)", "status page"),
+    ("APITimeoutError, retried", "not answering in time", "internet connection"),
+    ("APIConnectionError, retried", "can't be reached", "internet connection"),
+    ("WeirdError, fatal", "errors (WeirdError, fatal)", "errors list"),
+])
+def test_a_vendor_error_says_what_it_means_and_what_to_do(error, says, todo):
+    title, action, link = admin_words(_vendor(f"tts|3|{error}"), None)
+    assert title == f"Sarvam bulbul:v4-flash voice (text to speech): {says}, 3 errors in 15 minutes."
+    assert todo in action and "Clears by itself once a call shows it working" in action and link == "/admin/errors"
+
+
+def test_an_old_vendor_detail_still_reads(db):
+    title, _, _ = admin_words(_vendor("3 errors in 15 minutes; latest APIError"), None)
+    assert title.startswith("Sarvam bulbul:v4-flash: errors (3 errors in 15 minutes; latest APIError)")
+
+
+@pytest.mark.parametrize(("part", "trouble"), [("stt", "hearing callers"), ("llm", "answering callers"), ("tts", "speaking to callers")])
+def test_the_clinic_hears_about_vendor_trouble_in_plain_words(part, trouble):
+    title, action, link = clinic_words(_vendor(f"{part}|3|APIStatusError 402, fatal"), 1)
+    assert title == f"Your receptionist is having trouble {trouble} right now."
+    assert "402" not in title + action and "Sarvam" not in title + action and link is None  # no vendor names or codes
+    assert "clears by itself" in action
+
+
+def test_failed_calls_say_when_in_the_clinics_own_time(db):
+    s, clinic_id = db
+    healthy(s)
+    call(s, clinic_id, datetime(2026, 9, 28, 7, 42), outcome="failed", end_reason="error")  # 1:12 PM in India
+    call(s, clinic_id, datetime(2026, 9, 28, 7, 50), outcome="failed", end_reason="error")
+    sync(s)
+    (inc,) = [i for i in repo.open_incidents(s) if i.kind == "calls_failing"]
+    assert inc.detail == "2|1:12 PM,1:20 PM"
+    title, action, _ = clinic_words(inc, clinic_id)
+    assert title == "2 calls to your receptionist failed at 1:12 PM and 1:20 PM."
+    assert "ring them back" in action and "clears by itself" in action
+    assert admin_words(inc, "Demo")[0] == "Demo: 2 calls failed or dropped (1:12 PM and 1:20 PM)."
+
+
+def test_a_clinic_sees_a_failing_vendor_but_cannot_put_it_away(world):  # noqa: F811
+    with _sessions()() as s:
+        now = utc_now()
+        incidents.report(s, "vendor_errors", now, subject="sarvam/bulbul:v3", detail="tts|3|APIStatusError 402, fatal")
+        vendor = next(i.id for i in repo.open_incidents(s) if i.kind == "vendor_errors")
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}/problems"
+    (p,) = [x for x in c.get(base).json()["open"] if x["kind"] == "vendor_errors"]
+    assert p["title"] == "Your receptionist is having trouble speaking to callers right now." and p["can_mark_seen"] is False
+    assert c.post(f"{base}/{vendor}/seen").status_code == 404
+    admin = client_as("harsh@example.com", admin=True).get("/api/admin/problems").json()
+    assert next(x for x in admin["open"] if x["kind"] == "vendor_errors")["can_mark_seen"] is True
+
+
+def test_many_failed_calls_read_short():
+    def title(times):
+        inc = Incident(kind="calls_failing", detail=f"{len(times)}|{','.join(times)}", count=1, severity="warning", clinic_id=1)
+        return clinic_words(inc, 1)[0]
+    assert title(["5:18 PM", "5:18 PM", "5:18 PM"]) == "3 calls to your receptionist failed at 5:18 PM."
+    assert title(["1:12 PM", "1:30 PM", "2:05 PM", "3:40 PM"]) == "4 calls to your receptionist failed between 1:12 PM and 3:40 PM."

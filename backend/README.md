@@ -318,8 +318,8 @@ not tried again since") instead of "fixed".
 |---|---|---|---|
 | Receptionist offline (urgent) | no worker has checked in for 90 s | yes | a worker checks in |
 | Hindi line off (urgent) | the live worker can't answer Hindi (a key missing): no calls at all | yes | it checks in able to |
-| A vendor failing | 3+ errors from one vendor in 15 minutes | no | a later call shows it working (it heard, replied or spoke with no error from it; a staff test call counts) |
-| Calls failing | 2+ failed or dropped patient calls in an hour | yes | the clinic's next call ends well (a staff test call counts), or an hour without |
+| A vendor failing | 3+ errors from one vendor in 15 minutes; the operator reads what the error means and what to do (401/403 key rejected, 402 out of credits, 429 rate limited, 5xx the vendor's outage, timeout, unreachable) and which part (hearing, thinking, voice) | yes, in plain words ("trouble speaking to callers"), no vendor names; it can't be put away | a later call shows it working (it heard, replied or spoke with no error from it; a staff test call counts) |
+| Calls failing | 2+ failed or dropped patient calls in an hour, with their times in the clinic's time ("1:12 PM and 1:20 PM") | yes | the clinic's next call ends well (a staff test call counts), or an hour without |
 | Patients couldn't get through | the call page reports it (by reason) | yes | a call connects at that clinic, or 2 quiet hours |
 | Server error | an unhandled API error (route and error type only) | no | that same page answers without an error, or 15 quiet minutes |
 | Callers can't book | no active doctor, or one without weekly hours | yes | it's fixed |

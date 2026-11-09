@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from clinic_agent import booking, costs
 from clinic_agent.context import clinic_now
@@ -43,7 +44,8 @@ class Kind:
 KINDS = {
     "worker_offline": Kind("critical", clinic_sees=True),
     "language_off": Kind("critical", clinic_sees=True),  # the only line: no calls at all
-    "vendor_errors": Kind("warning", clinic_sees=False),
+    # Clinics see it too, in plain words (Harsh, 2026-11-09): their calls are the ones affected.
+    "vendor_errors": Kind("warning", clinic_sees=True),
     "calls_failing": Kind("warning", clinic_sees=True),
     "patients_cant_connect": Kind("warning", clinic_sees=True, quiet_minutes=120),
     "server_error": Kind("warning", clinic_sees=False, quiet_minutes=15),
@@ -153,7 +155,7 @@ def findings(s: Session, now: datetime, *, max_call_minutes: int) -> list[Findin
     for clinic in repo.list_clinics(s):
         out += _setup(clinic)
         if clinic.active:
-            out += _failing_calls(clinic.id, calls, now, max_call_minutes)
+            out += _failing_calls(clinic.id, calls, now, max_call_minutes, clinic.timezone)
             out += _bookings_need_call(s, clinic)
     return out
 
@@ -201,9 +203,24 @@ def _vendors(s: Session, now: datetime) -> list[Finding]:
         since = max(worked, default=None)
         mine = sorted((at, d) for at, n, d in errors if n == name and (since is None or at > since))
         if len(mine) >= VENDOR_MIN_ERRORS:
-            out.append(Finding("vendor_errors", subject=name,
-                               detail=f"{len(mine)} errors in 15 minutes; latest {mine[-1][1]}"))
+            part = next((p for c in calls.values() if (p := _part(c.stack, model))), "")
+            out.append(Finding("vendor_errors", subject=name, detail=vendor_detail(part, len(mine), mine[-1][1])))
     return out
+
+
+def vendor_detail(part: str, count: int, latest: str) -> str:
+    """"tts|3|APIStatusError 402, fatal": which part of the call, how many
+    errors in the window, the latest one. Read back by `parse_vendor_detail`."""
+    return f"{part}|{count}|{latest}"
+
+
+def parse_vendor_detail(detail: str) -> tuple[str, int, str]:
+    """(part, count, latest error); an older free-text detail reads as unknown."""
+    part, _, rest = detail.partition("|")
+    count, _, latest = rest.partition("|")
+    if not count.isdigit():
+        return "", 0, detail
+    return part, int(count), latest
 
 
 def _part(stack: str, model: str) -> str | None:
@@ -268,7 +285,7 @@ def _setup(clinic) -> list[Finding]:
     return [Finding("doctor_no_hours", clinic.id, subject=str(d.id), detail=d.name) for d in doctors if not d.hours]
 
 
-def _failing_calls(clinic_id: int, calls, now: datetime, max_call_minutes: int) -> list[Finding]:
+def _failing_calls(clinic_id: int, calls, now: datetime, max_call_minutes: int, timezone: str = "Asia/Kolkata") -> list[Finding]:
     """Calls that went wrong in the last hour: failed, ended by an error, or
     dropped (never finished, and now past the time limit: the worker died).
     Only those after the clinic's last call that ended well count: one good
@@ -287,8 +304,13 @@ def _failing_calls(clinic_id: int, calls, now: datetime, max_call_minutes: int) 
 
     good = [c.started_at for c in mine if c.ended_at and c.outcome != "failed" and c.end_reason != "error"]
     last_good = max(good, default=None)
-    n = sum(1 for c in mine if went_wrong(c) and (last_good is None or c.started_at > last_good))
-    return [Finding("calls_failing", clinic_id, detail=f"{n} calls in the last hour")] if n >= FAILING_MIN_CALLS else []
+    bad = sorted(c.started_at for c in mine if went_wrong(c) and (last_good is None or c.started_at > last_good))
+    if len(bad) < FAILING_MIN_CALLS:
+        return []
+    # When they started, in the clinic's own time ("3:12 PM"), so staff know whom to ring back.
+    zone = ZoneInfo(timezone)
+    times = [at.replace(tzinfo=UTC).astimezone(zone).strftime("%I:%M %p").lstrip("0") for at in bad]
+    return [Finding("calls_failing", clinic_id, detail=f"{len(bad)}|{','.join(times)}"[:300])]
 
 
 def dropped_before(now: datetime, max_call_minutes: int) -> datetime:

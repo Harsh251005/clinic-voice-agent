@@ -42,9 +42,10 @@ function story(p: Problem) {
   return `${since(p.since)}, fixed ${at(p.resolved_at)}`;
 }
 
-/** What goes in the banner: every urgent problem, and the rest until marked seen. */
+/** What goes in the banner: every problem that can't be put away (urgent, or
+ *  for a clinic system-wide), and the rest until marked seen. */
 function bannered(open: Problem[]) {
-  return open.filter((p) => p.severity === "critical" || !p.seen);
+  return open.filter((p) => !p.can_mark_seen || !p.seen);
 }
 
 export function ProblemBanner({ open, onSeen, seenPending }: {
@@ -80,7 +81,7 @@ export function ProblemBanner({ open, onSeen, seenPending }: {
                   <Link href={p.link}>Open</Link>
                 </Button>
               )}
-              {p.severity !== "critical" && (
+              {p.can_mark_seen && (
                 <Button size="sm" variant="ghost" disabled={seenPending} onClick={() => onSeen(p.id)}
                   className="hover:bg-black/5">
                   Seen
@@ -171,10 +172,10 @@ function Row({ p, onSeen }: { p: Problem; onSeen?: (id: number) => void }) {
         <p className="text-xs text-muted-foreground">
           {story(p)}
         </p>
-        {!fixed && (p.link || (onSeen && !p.seen && p.severity !== "critical")) && (
+        {!fixed && (p.link || (onSeen && !p.seen && p.can_mark_seen)) && (
           <div className="flex gap-3 pt-0.5">
             {p.link && <Link href={p.link} className="text-xs font-medium text-primary hover:underline">Open</Link>}
-            {onSeen && !p.seen && p.severity !== "critical" && (
+            {onSeen && !p.seen && p.can_mark_seen && (
               <button type="button" onClick={() => onSeen(p.id)} className="text-xs font-medium text-muted-foreground hover:text-foreground">
                 Mark seen
               </button>

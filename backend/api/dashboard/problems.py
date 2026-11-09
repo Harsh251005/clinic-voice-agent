@@ -36,6 +36,57 @@ def _plural(n: int, word: str) -> str:
     return f"{n} {word}{'' if n == 1 else 's'}"
 
 
+VENDORS = {"sarvam": "Sarvam", "openai": "OpenAI", "livekit": "LiveKit"}
+# Each part of a call: (the admin's name for it, what the caller notices in plain words).
+PARTS = {
+    "stt": ("hearing (speech to text)", "hearing callers"),
+    "llm": ("thinking (language model)", "answering callers"),
+    "tts": ("voice (text to speech)", "speaking to callers"),
+}
+
+
+def _vendor_name(subject: str) -> str:
+    """"sarvam/bulbul:v3" -> "Sarvam bulbul:v3"."""
+    vendor, _, model = subject.partition("/")
+    return f"{VENDORS.get(vendor.lower(), vendor)} {model}".strip()
+
+
+def _meaning(error: str, vendor: str) -> tuple[str, str]:
+    """(what an error means, what to do) from its type and status code, e.g.
+    "APIStatusError 402, fatal" -> out of credits, top up."""
+    words = error.replace(",", " ").split()
+    code = next((int(w) for w in words if w.isdigit() and len(w) == 3), None)
+    kind = words[0] if words else ""
+    if code in (401, 403):
+        return f"its key was rejected ({code})", f"Check the {vendor} API key in backend/.env, then restart the worker."
+    if code == 402:
+        return "out of credits (402)", f"Top up your {vendor} account."
+    if code == 429:
+        return "too many requests (429)", f"{vendor} is limiting you: wait a few minutes, or raise your plan's limit."
+    if code is not None and code >= 500:
+        return f"{vendor}'s own servers are failing ({code})", f"Nothing to fix on your side: check {vendor}'s status page."
+    if "Timeout" in kind:
+        return "not answering in time", f"Check {vendor}'s status page and this server's internet connection."
+    if "Connection" in kind:
+        return "can't be reached", f"Check this server's internet connection and {vendor}'s status page."
+    return (f"errors ({error})" if error else "errors"), f"Open the errors list for details; check {vendor}'s status page."
+
+
+def _failed_calls(detail: str) -> tuple[int, list[str]]:
+    """(how many, their start times) from "2|3:12 PM,3:20 PM"; an older detail gives (0, [])."""
+    n, _, times = detail.partition("|")
+    return (int(n), [t for t in times.split(",") if t]) if n.isdigit() else (0, [])
+
+
+def _when(times: list[str], at: str = "at ") -> str:
+    """"at 3:12 PM", "at 3:12 PM and 3:20 PM", "at 3:12 PM, 3:20 PM and 3:41 PM";
+    the same minute once; more than three: "between 1:12 PM and 3:40 PM"."""
+    unique = list(dict.fromkeys(times))
+    if len(unique) > 3:
+        return f"between {unique[0]} and {unique[-1]}"
+    return at + (unique[0] if len(unique) == 1 else ", ".join(unique[:-1]) + " and " + unique[-1])
+
+
 def clinic_words(inc: repo.Incident, clinic_id: int) -> tuple[str, str, str | None]:
     """(what's wrong, what to do, where to look) for the clinic's staff."""
     base = f"/clinics/{clinic_id}"
@@ -46,9 +97,17 @@ def clinic_words(inc: repo.Incident, clinic_id: int) -> tuple[str, str, str | No
         case "language_off":
             return ("Patients can't call your receptionist right now.",
                     "ClinicDesk support sees this too.", None)
+        case "vendor_errors":
+            part = incidents.parse_vendor_detail(inc.detail)[0]
+            trouble = PARTS.get(part, ("", "answering calls"))[1]
+            return (f"Your receptionist is having trouble {trouble} right now.",
+                    "ClinicDesk support sees this too. It clears by itself once calls work again.", None)
         case "calls_failing":
-            return ("Several calls to your receptionist failed in the last hour.",
-                    "Open Calls to see who called, and ring them back.", f"{base}/calls")
+            n, times = _failed_calls(inc.detail)
+            when = f" {_when(times)}" if times else " in the last hour"
+            return (f"{_plural(n, 'call') if n else 'Several calls'} to your receptionist failed{when}.",
+                    "Open Calls to see who called, and ring them back. This clears by itself once a call goes through.",
+                    f"{base}/calls")
         case "patients_cant_connect":
             why = REASONS.get(inc.subject, "their call didn't go through")
             return (f"{_plural(inc.count, 'patient')} couldn't reach your receptionist: {why}.",
@@ -82,17 +141,25 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
             return (f"The {name} line is off: the worker started without a key it needs, so it takes no calls.",
                     "Set the missing API key in backend/.env and restart the worker; its log names the key.", None)
         case "vendor_errors":
-            return (f"{inc.subject} is failing: {inc.detail}.",
-                    "Check the vendor's status page and the API key.", "/admin/errors")
+            part, count, latest = incidents.parse_vendor_detail(inc.detail)
+            vendor = VENDORS.get(inc.subject.partition("/")[0].lower(), "the vendor")
+            meaning, todo = _meaning(latest, vendor)
+            role = f" {PARTS[part][0]}" if part in PARTS else ""
+            times = f", {_plural(count, 'error')} in 15 minutes" if count else ""
+            return (f"{_vendor_name(inc.subject)}{role}: {meaning}{times}.",
+                    f"{todo} Clears by itself once a call shows it working (a test call counts).", "/admin/errors")
         case "calls_failing":
-            return (f"{at}{inc.detail} failed or dropped.", "Open the calls' traces.",
+            n, times = _failed_calls(inc.detail)
+            when = f" ({_when(times, at='')})" if times else ""
+            return (f"{at}{_plural(n, 'call') if n else 'Several calls'} failed or dropped{when}.",
+                    "Open the calls' traces. Clears by itself once a call there ends well (a test call counts).",
                     f"/admin/calls?clinic={inc.clinic_id}")
         case "patients_cant_connect":
             return (f"{at}{_plural(inc.count, 'patient')} couldn't connect ({inc.subject}).",
                     "Check the call page, LiveKit and the worker.", None)
         case "server_error":
             return (f"Server error: {inc.subject}, {_plural(inc.count, 'time')}.",
-                    "See the API log for the traceback.", None)
+                    "See the API log for the traceback. Clears by itself once that page works again.", None)
         case "livekit_minutes":
             return (f"LiveKit minutes: {inc.detail}.",
                     "Upgrade the LiveKit plan or self-host before calls are refused.", None)
@@ -127,14 +194,15 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
     return (f"{at}{title}", action, f"/admin/clinics/{inc.clinic_id}" if inc.clinic_id else None)
 
 
-def _problem(inc: repo.Incident, words: tuple[str, str, str | None], seen, clinic_name: str | None = None) -> schemas.Problem:
+def _problem(inc: repo.Incident, words: tuple[str, str, str | None], seen, clinic_name: str | None = None,
+             can_mark_seen: bool = True) -> schemas.Problem:
     title, action, link = words
     return schemas.Problem(
         id=inc.id, kind=inc.kind, severity=inc.severity, title=title, action=action, link=link,
         clinic_id=inc.clinic_id, clinic_name=clinic_name, count=inc.count,
         since=convert.utc(inc.opened_at), last_seen=convert.utc(inc.last_seen_at),
         resolved_at=convert.utc(inc.resolved_at), resolved_how=inc.resolved_how or ("fixed" if inc.resolved_at else ""),
-        seen=seen is not None,
+        seen=seen is not None, can_mark_seen=can_mark_seen and inc.severity != "critical",
     )
 
 
@@ -148,7 +216,8 @@ def clinic_problems(request: Request, clinic_id: int = Depends(open_clinic)):
     with request.app.state.sessions() as s:
         rows = repo.list_incidents(s, since=utc_now() - HISTORY, clinic_id=clinic_id)
         return _split([
-            _problem(i, clinic_words(i, clinic_id), i.seen_by_clinic_at)
+            # A system-wide problem (a vendor failing) stays up for the clinic until it's fixed.
+            _problem(i, clinic_words(i, clinic_id), i.seen_by_clinic_at, can_mark_seen=i.clinic_id is not None)
             for i in rows if incidents.clinic_sees(i.kind)
         ])
 
@@ -162,7 +231,7 @@ def clinic_seen(problem_id: int, request: Request, clinic_id: int = Depends(open
         if not incidents.clinic_sees(inc.kind):
             raise repo.NotFound(problem_id)
         inc = repo.mark_incident_seen(s, inc.id, "clinic", utc_now())
-        return _problem(inc, clinic_words(inc, clinic_id), inc.seen_by_clinic_at)
+        return _problem(inc, clinic_words(inc, clinic_id), inc.seen_by_clinic_at, can_mark_seen=True)
 
 
 @router.get("/api/admin/problems", response_model=schemas.Problems)

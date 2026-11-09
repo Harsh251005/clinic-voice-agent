@@ -2792,6 +2792,10 @@
             "title": "Action",
             "type": "string"
           },
+          "can_mark_seen": {
+            "title": "Can Mark Seen",
+            "type": "boolean"
+          },
           "clinic_id": {
             "anyOf": [
               {
@@ -2900,7 +2904,8 @@
           "last_seen",
           "resolved_at",
           "resolved_how",
-          "seen"
+          "seen",
+          "can_mark_seen"
         ],
         "title": "Problem",
         "type": "object"

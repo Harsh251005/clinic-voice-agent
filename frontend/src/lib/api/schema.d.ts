@@ -2266,6 +2266,8 @@ export interface components {
         Problem: {
             /** Action */
             action: string;
+            /** Can Mark Seen */
+            can_mark_seen: boolean;
             /** Clinic Id */
             clinic_id: number | null;
             /** Clinic Name */
