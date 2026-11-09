@@ -2854,6 +2854,15 @@
             ],
             "title": "Resolved At"
           },
+          "resolved_how": {
+            "enum": [
+              "",
+              "fixed",
+              "quiet"
+            ],
+            "title": "Resolved How",
+            "type": "string"
+          },
           "seen": {
             "title": "Seen",
             "type": "boolean"
@@ -2890,6 +2899,7 @@
           "since",
           "last_seen",
           "resolved_at",
+          "resolved_how",
           "seen"
         ],
         "title": "Problem",

@@ -203,6 +203,7 @@ def test_a_call_whose_phrases_cannot_be_read_says_them_live_and_tells_the_admin(
     def broken(*args):
         raise RuntimeError("database gone")
 
+    real = voice_clips.load
     monkeypatch.setattr(voice_clips, "load", broken)
     book = for_call(sessions, clinic, "hi", None)
     greeting = book.one("greeting", "hi")
@@ -212,6 +213,10 @@ def test_a_call_whose_phrases_cannot_be_read_says_them_live_and_tells_the_admin(
         (inc,) = [i for i in repo.open_incidents(s) if i.kind == "voice_clips_unread"]
         assert inc.clinic_id == clinic.id and inc.detail == "RuntimeError"
         assert "could not read its fixed phrases" in admin_words(inc, "Demo")[0]
+    monkeypatch.setattr(voice_clips, "load", real)
+    for_call(sessions, clinic, "hi", None)  # the next call reads them fine: the problem closes as fixed
+    with sessions() as s:
+        assert not [i for i in repo.open_incidents(s) if i.kind == "voice_clips_unread"]
 
 
 def test_for_call_finds_the_recordings_of_the_calls_own_voice(sessions, env):

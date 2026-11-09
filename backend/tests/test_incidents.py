@@ -30,11 +30,14 @@ def healthy(s, now=NOW):
     repo.beat(s, "AW_test", "host", ["hi"], now)
 
 
-def call(s, clinic_id, started, *, ended=True, outcome="booked", end_reason="caller_left", room="call-demo-x", errors=()):
-    c = repo.start_call(s, clinic_id, room, "sarvam/saaras:v3 · sarvam/sarvam-105b · sarvam/bulbul:v3", "hi", started)
+def call(s, clinic_id, started, *, ended=True, outcome="booked", end_reason="caller_left", room="call-demo-x", errors=(),
+         did=("stt", "llm", "tts"), test=False):
+    """A call; `did` the parts that worked on it (a timing each: heard, replied, spoke)."""
+    c = repo.start_call(s, clinic_id, room, "sarvam/saaras:v3 · sarvam/sarvam-105b · sarvam/bulbul:v3", "hi", started, test=test)
     if ended:
         events = [{"t_ms": 100, "kind": "error", "name": name, "duration_ms": None, "ok": False, "detail": "APIError, retried"}
                   for name in errors]
+        events += [{"t_ms": 200, "kind": part, "name": "", "duration_ms": 300, "ok": True, "detail": ""} for part in did]
         repo.finish_call(s, c.id, ended_at=started + timedelta(minutes=2), end_reason=end_reason, outcome=outcome,
                          turn_count=1, error_count=len(errors), appointments=[], events=events, transcript=[],
                          purge_after=started + timedelta(days=30))
@@ -91,6 +94,61 @@ def test_a_vendor_failing_three_times_in_15_minutes(db):
     sync(s)
     (inc,) = [i for i in repo.open_incidents(s) if i.kind == "vendor_errors"]
     assert inc.subject == "sarvam/bulbul:v3" and inc.detail.startswith("3 errors in 15 minutes")
+
+
+def _closed(s, kind):
+    (inc,) = [i for i in repo.list_incidents(s, since=NOW - timedelta(days=1)) if i.kind == kind and i.resolved_at]
+    return inc.resolved_how
+
+
+def test_a_failing_vendor_closes_once_a_later_call_shows_it_working(db):
+    # Harsh, 2026-11-09: solved = gone, without waiting out the 15 minutes or clicking anything.
+    s, clinic_id = db
+    healthy(s)
+    call(s, clinic_id, NOW - timedelta(minutes=6), errors=["sarvam/bulbul:v3"] * 3)
+    sync(s)
+    assert "vendor_errors" in open_kinds(s)
+    call(s, clinic_id, NOW - timedelta(minutes=4), did=("stt", "llm"))  # hung up before she spoke: proves nothing
+    sync(s)
+    assert "vendor_errors" in open_kinds(s)
+    call(s, clinic_id, NOW - timedelta(minutes=2), did=("stt", "llm", "tts"), test=True)  # a staff test call spoke fine
+    sync(s)
+    assert "vendor_errors" not in open_kinds(s) and _closed(s, "vendor_errors") == "fixed"
+    call(s, clinic_id, NOW - timedelta(minutes=1), errors=["sarvam/bulbul:v3"])
+    sync(s)
+    assert "vendor_errors" not in open_kinds(s)  # one new error is not three: the old ones were before the fix
+
+
+def test_another_vendor_working_does_not_close_the_failing_one(db):
+    s, clinic_id = db
+    healthy(s)
+    call(s, clinic_id, NOW - timedelta(minutes=6), errors=["sarvam/bulbul:v3"] * 3)
+    call(s, clinic_id, NOW - timedelta(minutes=2), errors=["sarvam/bulbul:v3"], did=("stt", "llm", "tts"))
+    sync(s)
+    assert "vendor_errors" in open_kinds(s)  # it spoke, but the voice also failed on that call
+
+
+def test_failed_calls_close_when_the_clinics_next_call_ends_well(db):
+    s, clinic_id = db
+    healthy(s)
+    call(s, clinic_id, NOW - timedelta(minutes=30), outcome="failed", end_reason="error")
+    call(s, clinic_id, NOW - timedelta(minutes=25), outcome="failed", end_reason="error")
+    sync(s)
+    assert "calls_failing" in open_kinds(s, clinic_id)
+    call(s, clinic_id, NOW - timedelta(minutes=5), test=True)  # Harsh's test call after the fix
+    sync(s)
+    assert "calls_failing" not in open_kinds(s, clinic_id) and _closed(s, "calls_failing") == "fixed"
+
+
+def test_a_patient_who_could_not_connect_closes_when_a_call_connects_there(db):
+    s, clinic_id = db
+    healthy(s)
+    incidents.report(s, "patients_cant_connect", NOW, clinic_id=clinic_id, subject="no_answer")
+    sync(s, NOW + timedelta(minutes=1))
+    assert "patients_cant_connect" in open_kinds(s)
+    call(s, clinic_id, NOW + timedelta(minutes=2))
+    sync(s, NOW + timedelta(minutes=3))
+    assert "patients_cant_connect" not in open_kinds(s) and _closed(s, "patients_cant_connect") == "fixed"
 
 
 def test_calls_failing_counts_failed_and_dropped_but_not_the_console(db):
@@ -176,15 +234,20 @@ def test_reports_are_counted_on_one_incident_and_close_when_quiet(db):
     healthy(s, NOW + timedelta(minutes=121))
     sync(s, NOW + timedelta(minutes=121))
     assert open_kinds(s) == []
+    assert _closed(s, "patients_cant_connect") == "quiet"  # nothing retried it: shown as gone quiet, not fixed
     incidents.report(s, "patients_cant_connect", NOW, clinic_id=clinic_id, subject="mic_blocked")
     assert len(repo.list_incidents(s, since=NOW - timedelta(days=1))) == 2  # a new one, the old kept as history
 
 
 def test_clear_closes_an_event_when_the_thing_works_again(db):
-    s, _ = db
+    s, clinic_id = db
     incidents.report(s, "purge_failed", NOW)
     incidents.clear(s, "purge_failed", NOW)
-    assert "purge_failed" not in open_kinds(s)
+    assert "purge_failed" not in open_kinds(s) and _closed(s, "purge_failed") == "fixed"
+    for why in ("ConfigError", "NoSuggestion"):
+        incidents.report(s, "hindi_names_failing", NOW, clinic_id=clinic_id, subject=why)
+    incidents.clear(s, "hindi_names_failing", NOW, clinic_id=clinic_id, subject=None)  # every reason at once
+    assert "hindi_names_failing" not in open_kinds(s)
 
 
 # ---------- the API: who reads what ----------
@@ -259,6 +322,42 @@ def test_an_unhandled_error_becomes_a_problem_without_the_request(world, monkeyp
     with _sessions()() as s:
         (inc,) = [i for i in repo.open_incidents(s) if i.kind == "server_error"]
     assert inc.subject == "GET /api/admin/clinics · RuntimeError"  # the route, never the message
+
+
+def test_a_server_error_closes_when_that_page_answers_again(world, monkeypatch):  # noqa: F811
+    from api.app import create_app
+    from api.dashboard.access import Viewer, current_viewer
+
+    app = create_app(load_settings())
+    app.dependency_overrides[current_viewer] = lambda: Viewer(email="harsh@example.com", is_admin=True, clinic_ids=frozenset())
+    real = repo.list_clinics
+    monkeypatch.setattr(repo, "list_clinics", lambda s: (_ for _ in ()).throw(RuntimeError("boom")))
+    with TestClient(app, raise_server_exceptions=False) as c:
+        assert c.get("/api/admin/clinics").status_code == 500
+        assert c.get("/healthz").status_code == 200  # another page working proves nothing
+        with _sessions()() as s:
+            assert "server_error" in open_kinds(s)
+        monkeypatch.setattr(repo, "list_clinics", real)  # the fix
+        assert c.get("/api/admin/clinics").status_code == 200
+        with _sessions()() as s:
+            assert "server_error" not in open_kinds(s)
+            p = c.get("/api/admin/problems").json()
+            (fixed,) = [x for x in p["recent"] if x["kind"] == "server_error"]
+            assert fixed["resolved_how"] == "fixed"
+
+
+def test_an_api_restart_still_closes_a_server_error_when_its_page_works(world):  # noqa: F811
+    from api.app import create_app
+    from api.dashboard.access import Viewer, current_viewer
+
+    with _sessions()() as s:
+        incidents.report(s, "server_error", NOW, subject="GET /api/admin/clinics · RuntimeError")
+    app = create_app(load_settings())
+    app.dependency_overrides[current_viewer] = lambda: Viewer(email="harsh@example.com", is_admin=True, clinic_ids=frozenset())
+    with TestClient(app) as c:  # the lifespan reads the open ones at start
+        assert c.get("/api/admin/clinics").status_code == 200
+    with _sessions()() as s:
+        assert "server_error" not in open_kinds(s)
 
 
 # ---------- the patient's call page reporting trouble ----------

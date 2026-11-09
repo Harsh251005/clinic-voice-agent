@@ -304,6 +304,9 @@ class Incident(Base):
     opened_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
     last_seen_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
     resolved_at: Mapped[datetime | None] = mapped_column(default=None)  # UTC
+    # How it closed: "fixed" (shown working again) or "quiet" (nothing new for a
+    # while, and nothing retried it); "" for those closed before this was kept.
+    resolved_how: Mapped[str] = mapped_column(String(10), default="", server_default="")
     # Acknowledged ("Seen") on each side, so the admin seeing it doesn't hide it from the clinic.
     seen_by_clinic_at: Mapped[datetime | None] = mapped_column(default=None)
     seen_by_admin_at: Mapped[datetime | None] = mapped_column(default=None)

@@ -496,6 +496,9 @@ class Problem(BaseModel):
     since: datetime
     last_seen: datetime
     resolved_at: datetime | None
+    # "fixed": shown working again; "quiet": nothing new for a while and nothing
+    # retried it (last happened at last_seen); "" while open, or closed before this was kept
+    resolved_how: Literal["", "fixed", "quiet"]
     seen: bool  # acknowledged on this side
 
 

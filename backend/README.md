@@ -308,16 +308,20 @@ Hindi-name suggestions are counted too, as *other costs*.
 
 Nothing is only in a log. `clinic_agent/incidents.py` decides what counts
 and `api/dashboard/problems.py` words it twice: plain words and what to do
-for the clinic, technical detail for the operator.
+for the clinic, technical detail for the operator. **A problem closes on
+proof that it's fixed** (Harsh, 2026-11-09), never because someone clicked:
+the same thing working again closes it. Only what nothing retries closes
+after a quiet spell, and the bell's history says so ("Last happened 3:12 PM,
+not tried again since") instead of "fixed".
 
 | Problem | Opens when | Clinic sees | Closes when |
 |---|---|---|---|
 | Receptionist offline (urgent) | no worker has checked in for 90 s | yes | a worker checks in |
 | Hindi line off (urgent) | the live worker can't answer Hindi (a key missing): no calls at all | yes | it checks in able to |
-| A vendor failing | 3+ errors from one vendor in 15 minutes | no | it drops below that |
-| Calls failing | 2+ failed or dropped patient calls in an hour | yes | an hour without |
-| Patients couldn't get through | the call page reports it (by reason) | yes | 2 hours without a report |
-| Server error | an unhandled API error (route and error type only) | no | 15 quiet minutes |
+| A vendor failing | 3+ errors from one vendor in 15 minutes | no | a later call shows it working (it heard, replied or spoke with no error from it; a staff test call counts) |
+| Calls failing | 2+ failed or dropped patient calls in an hour | yes | the clinic's next call ends well (a staff test call counts), or an hour without |
+| Patients couldn't get through | the call page reports it (by reason) | yes | a call connects at that clinic, or 2 quiet hours |
+| Server error | an unhandled API error (route and error type only) | no | that same page answers without an error, or 15 quiet minutes |
 | Callers can't book | no active doctor, or one without weekly hours | yes | it's fixed |
 | Clinic paused | paused in the admin panel | yes | turned back on |
 | Bookings need a call | upcoming bookings flagged (leave, holiday...) | yes | none left |
@@ -325,8 +329,9 @@ for the clinic, technical detail for the operator.
 | Price missing | a call in the last 35 days used a model with no price that day, or a dollar price with no rate | no | the price or rate is added |
 | Expired transcripts not deleted | the purge fails | no | the next purge works |
 | Recording a voice clip failed | an admin's Record fails (vendor error, timeout) | no | a recording works, or a quiet day |
+| Hindi name suggestions failing | a name's Hindi suggestion fails (OpenAI) | no | the next suggestion works, or a quiet hour |
 | Phrase translation failing | Suggest Hindi fails (OpenAI) | no | a suggestion works, or a quiet hour |
-| Fixed phrases unreadable | a call can't read its phrases: it says the built-in words live | no | a quiet hour |
+| Fixed phrases unreadable | a call can't read its phrases: it says the built-in words live | no | the clinic's next call reads them, or a quiet hour |
 
 - **The worker checks in** every 30 s (`clinic_agent/heartbeat.py`), from
   the moment LiveKit registers it (connected and ready for calls). Console

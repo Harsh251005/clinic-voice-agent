@@ -133,7 +133,8 @@ def _problem(inc: repo.Incident, words: tuple[str, str, str | None], seen, clini
         id=inc.id, kind=inc.kind, severity=inc.severity, title=title, action=action, link=link,
         clinic_id=inc.clinic_id, clinic_name=clinic_name, count=inc.count,
         since=convert.utc(inc.opened_at), last_seen=convert.utc(inc.last_seen_at),
-        resolved_at=convert.utc(inc.resolved_at), seen=seen is not None,
+        resolved_at=convert.utc(inc.resolved_at), resolved_how=inc.resolved_how or ("fixed" if inc.resolved_at else ""),
+        seen=seen is not None,
     )
 
 

@@ -2285,6 +2285,11 @@ export interface components {
             link: string | null;
             /** Resolved At */
             resolved_at: string | null;
+            /**
+             * Resolved How
+             * @enum {string}
+             */
+            resolved_how: "" | "fixed" | "quiet";
             /** Seen */
             seen: boolean;
             /**

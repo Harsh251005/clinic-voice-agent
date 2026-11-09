@@ -122,7 +122,9 @@ def for_call(sessions: Sessions, clinic, language: str, voice: lk_tts.TTS | None
     the phrases are said live in their built-in words, and the admin is told."""
     try:
         with sessions() as s:
-            return load(s, clinic, [language], lambda _: voice_identity(voice) if voice is not None else None)
+            book = load(s, clinic, [language], lambda _: voice_identity(voice) if voice is not None else None)
+            incidents.clear(s, "voice_clips_unread", utc_now(), clinic_id=clinic.id)  # read fine: closes as fixed
+            return book
     except Exception as err:  # noqa: BLE001 - the call goes on with live speech
         logger.exception("could not load the voice clips; saying every phrase live")
         try:

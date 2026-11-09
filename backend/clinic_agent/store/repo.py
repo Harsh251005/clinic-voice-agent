@@ -920,10 +920,12 @@ def open_incidents(s: Session) -> list[Incident]:
     return list(s.scalars(select(Incident).where(Incident.resolved_at.is_(None))))
 
 
-def resolve_incident(s: Session, incident_id: int, now: datetime) -> None:
+def resolve_incident(s: Session, incident_id: int, now: datetime, how: str = "fixed") -> None:
+    """Close it: "fixed" (proof it works again) or "quiet" (nothing new for a
+    while, and nothing retried it)."""
     row = _get(s, Incident, incident_id)
     if row.resolved_at is None:
-        row.resolved_at = now
+        row.resolved_at, row.resolved_how = now, how
         s.commit()
 
 
@@ -949,6 +951,12 @@ def delete_old_incidents(s: Session, before: datetime) -> int:
     n = s.execute(delete(Incident).where(Incident.resolved_at < before)).rowcount
     s.commit()
     return n
+
+
+def calls_started_since(s: Session, since: datetime) -> list[Call]:
+    """Every call started since then, console and staff tests included: any
+    of them can show a vendor working again."""
+    return list(s.scalars(select(Call).where(Call.started_at >= since)))
 
 
 def patient_calls_since(s: Session, since: datetime, *, with_tests: bool = False) -> list[Call]:

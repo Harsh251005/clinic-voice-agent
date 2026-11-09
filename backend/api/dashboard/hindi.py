@@ -39,7 +39,10 @@ def suggestion(request: Request, name: str, clinic_id: int) -> str:
             repo.add_usage(s, clinic_id, utc_now(), "hindi_names", "other", items)
 
     try:
-        return hindi.suggest(request.app.state.cfg, name, known, on_usage=used)
+        name_hi = hindi.suggest(request.app.state.cfg, name, known, on_usage=used)
+        with request.app.state.sessions() as s:  # works again: its problem closes as fixed
+            incidents.clear(s, "hindi_names_failing", utc_now(), clinic_id=clinic_id, subject=None)
+        return name_hi
     except (ConfigError, hindi.NoSuggestion) as err:
         logger.warning("no Hindi name suggestion: %s", err)
         with request.app.state.sessions() as s:

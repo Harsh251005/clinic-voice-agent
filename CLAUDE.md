@@ -164,7 +164,11 @@ The pipeline is split so each concern lives in exactly one module:
 - `clinic_agent/incidents.py` — **problems, flagged**: which conditions and
   events count (`KINDS`), `sync` (the API re-checks every 30 s: opens,
   updates, closes) and `report` (events: counted, closed after a quiet
-  spell). Words live in `api/dashboard/problems.py`, in two voices: plain
+  spell). **A problem closes on proof it is fixed** (Harsh, 2026-11-09:
+  never by a click or a timer alone): the same thing working again closes
+  it (`resolved_how="fixed"`); only what nothing retries goes "quiet" after
+  its spell, labelled so in the bell. A new kind needs its recovery rule.
+  Words live in `api/dashboard/problems.py`, in two voices: plain
   for the clinic, technical for the admin. Alerts stay **in the website**
   (Harsh, 2026-09-28): every page shows a banner, a bell and "(!)" in the
   tab, so **any new failure mode gets an incident kind in the same change**,
