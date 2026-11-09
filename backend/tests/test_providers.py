@@ -108,3 +108,22 @@ def test_each_vendor_requires_its_own_key(env, vendor, key, build):
 def test_unknown_vendor_lists_available(env, build, available):
     with pytest.raises(ValueError, match=rf"unknown .* vendor 'nope'; available: {__import__('re').escape(available)}"):
         build(load_settings(), "nope")
+
+
+def test_speed_and_pitch_reach_sarvam_on_v4_flash(env):
+    # Harsh, 2026-11-09: the voice drifted higher and lower. Plugin 1.8.3 sent
+    # nothing but speed for v4-flash; check what the request really carries.
+    from livekit.plugins.sarvam.tts import _model_extra_fields
+
+    env.setenv("SARVAM_TTS_MODEL", "bulbul:v4-flash")
+    env.setenv("SARVAM_TTS_SPEAKER", "aparna_hi_customer")
+    env.setenv("SARVAM_TTS_PACE", "0.9")
+    env.setenv("SARVAM_TTS_PITCH", "-0.2")
+    opts = build_tts(load_settings(), "sarvam")._opts
+    assert (opts.pace, opts.pitch, opts.max_chunk_length) == (0.9, -0.2, 500)
+    assert _model_extra_fields(opts)["pitch"] == -0.2
+
+
+def test_blank_speed_and_pitch_are_sarvams_own(env):
+    opts = build_tts(load_settings(), "sarvam")._opts
+    assert (opts.pace, opts.pitch) == (1.0, 0.0)

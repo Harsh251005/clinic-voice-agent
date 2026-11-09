@@ -24,6 +24,10 @@ def _sarvam(cfg: Settings) -> tts.TTS:
         target_language_code=cfg.sarvam_tts_language or "hi-IN",
         speech_sample_rate=cfg.sarvam_tts_sample_rate or 24000,
         output_audio_codec=cfg.sarvam_tts_codec or "linear16",
+        # Blank = Sarvam's own 1.0 and 0.0. Pitch is a fixed setting, applied
+        # by bulbul:v4-flash only (the plugin sends it for no other model).
+        pace=cfg.sarvam_tts_pace if cfg.sarvam_tts_pace is not None else 1.0,
+        pitch=cfg.sarvam_tts_pitch,
         # Sarvam re-cuts any text longer than this, wherever the count lands,
         # and voices each part as a new take. Ours arrive already cut at
         # sentence ends (sentences.py), so it must never cut them again.
@@ -46,6 +50,7 @@ def identity(voice: tts.TTS) -> dict:
             "vendor": "sarvam", "model": opts.model, "voice": opts.speaker,
             "language_code": str(opts.target_language_code),
             "sample_rate": opts.speech_sample_rate, "codec": opts.output_audio_codec,
+            "pace": opts.pace, "pitch": opts.pitch,
         }
     raise TypeError(f"unknown voice {type(voice).__name__}: add it to providers/tts.py identity")
 

@@ -752,6 +752,8 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `SARVAM_TTS_SPEAKER` | `suhani` | Any voice of the chosen model (a woman's: the prompt says so); v2 names such as `anushka` are rejected by `bulbul:v3`. |
 | `SARVAM_TTS_CODEC` | `linear16` | Raw PCM: compressed formats cost a decode per chunk. |
 | `SARVAM_TTS_LANGUAGE` | `hi-IN` | The replies are Devanagari. |
+| `SARVAM_TTS_PACE` | `1` | Speed of the voice, 0.5 to 2. Restart to hear a change. |
+| `SARVAM_TTS_PITCH` | `0` | Pitch, set once for every reply: -0.5 (lower) to 0.5 (higher). Only `bulbul:v4-flash` applies it. Temperature is not a setting: v4-flash fixes it at 0.6 itself. A change in either makes new voice clips (the old ones stay for going back). |
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
 | `PUBLIC_BASE_URL` | `http://localhost:8080` | Where the call-link server is reachable; the dashboard builds each clinic's link from it. Your tunnel's https address for a demo from outside. |
 | `MAX_CALL_MINUTES` | `10` | Longest a call may last before a goodbye and hang-up. Guards against forgotten or abused calls spending minutes. |

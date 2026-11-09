@@ -19,7 +19,7 @@ def clip_key(voice: dict, text: str) -> str:
     sounds (providers.identity) and the exact text. A new voice or a single
     changed character is a new key, so an old take never plays by mistake;
     going back to an old voice finds its clips again."""
-    parts = [voice[k] for k in ("vendor", "model", "voice", "language_code", "sample_rate", "codec")]
+    parts = [voice[k] for k in ("vendor", "model", "voice", "language_code", "sample_rate", "codec", "pace", "pitch")]
     return hashlib.sha256("\x1f".join(str(p) for p in [*parts, text]).encode()).hexdigest()
 
 

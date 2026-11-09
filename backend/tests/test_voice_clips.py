@@ -19,7 +19,8 @@ def test_a_clip_is_found_again_only_for_the_same_voice_and_exact_text(env):
     key = clip_key(voice, "नमस्ते")
     assert key == clip_key(dict(voice), "नमस्ते") and len(key) == 64
     assert key != clip_key(voice, "नमस्ते।")  # one character
-    for field, other in (("voice", "anushka"), ("model", "bulbul:v2"), ("language_code", "mr-IN"), ("sample_rate", 16000)):
+    for field, other in (("voice", "anushka"), ("model", "bulbul:v2"), ("language_code", "mr-IN"), ("sample_rate", 16000),
+                         ("pace", 1.1), ("pitch", 0.1)):
         assert key != clip_key({**voice, field: other}, "नमस्ते"), field
     env.setenv("SARVAM_TTS_MODEL", "bulbul:v4-flash")
     env.setenv("SARVAM_TTS_SPEAKER", "aparna_hi_customer")
@@ -29,7 +30,8 @@ def test_a_clip_is_found_again_only_for_the_same_voice_and_exact_text(env):
 from clinic_agent.store import repo  # noqa: E402
 from clinic_agent.voice_clips import load  # noqa: E402
 
-VOICE = {"vendor": "sarvam", "model": "m", "voice": "v", "language_code": "hi-IN", "sample_rate": 24000, "codec": "linear16"}
+VOICE = {"vendor": "sarvam", "model": "m", "voice": "v", "language_code": "hi-IN", "sample_rate": 24000, "codec": "linear16",
+         "pace": 1.0, "pitch": 0.0}
 
 
 def _record(s, text, pcm=b"\x01\x02"):
