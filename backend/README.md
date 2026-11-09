@@ -780,8 +780,8 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.sarvam.ai/text-to-s
 `200` means the key works; `403` means get a new one from the dashboard.
 
 **`RuntimeWarning: coroutine 'AgentServer.aclose' was never awaited` on
-Ctrl+C in `console`** — harmless, and a LiveKit bug (1.8.2, the latest
-release). Ctrl+C schedules the shutdown; when the worker finishes it raises
+Ctrl+C in `console`** — harmless, and a LiveKit bug (seen on 1.8.2; not
+re-checked since the 1.8.11 upgrade). Ctrl+C schedules the shutdown; when the worker finishes it raises
 SIGTERM, whose handler schedules a second `aclose()` onto an event loop that
 has already stopped. The first shutdown has completed by then. Nothing to fix
 on our side.
