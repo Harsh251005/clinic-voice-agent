@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
-from api.dashboard import costs, schemas
+from api.dashboard import convert, costs, schemas
 from api.dashboard.access import admin, staff_errors
 from clinic_agent import incidents, voice_clips
 from clinic_agent.config import ConfigError
@@ -66,7 +66,7 @@ def _page(s, request: Request, voice: dict | None, problem: str) -> schemas.Voic
             clip = clips.get(keys.get(words, ""))
             listed.append(schemas.Take(
                 clinic_id=clinic_id, clinic_name=name, spoken=words, key=keys.get(words),
-                recorded_at=clip.recorded_at if clip else None, duration_s=clip.duration_s if clip else None))
+                recorded_at=convert.utc(clip.recorded_at) if clip else None, duration_s=clip.duration_s if clip else None))
         out.append(schemas.PhraseOut(
             id=p.id, kind=p.kind, language=p.language, slot=p.slot, clinic_id=p.clinic_id,
             clinic_name=clinics[p.clinic_id].name if p.clinic_id else "", source=p.source, text=p.text, takes=listed))
