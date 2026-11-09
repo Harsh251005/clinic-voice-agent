@@ -99,7 +99,9 @@ The pipeline is split so each concern lives in exactly one module:
   `voice_clips_unread`. Nothing records itself: `record` runs only on an
   admin's click, from `api/dashboard/voice.py` (page `/admin/voice`: edit in
   English, Hindi suggested by `providers/hindi.translate_phrase`, Record /
-  Play). No required wording in a greeting (Harsh, 2026-11-09: he handles
+  Play). A played recording asks no vendor, so usage counts nothing for it;
+  `CallRecorder.clip_played` adds a trace step (`kind="clip"`, the line's
+  kind, never words) so the call page shows it at ₹0. No required wording in a greeting (Harsh, 2026-11-09: he handles
   what callers are told); don't add checks back.
 - `api/` — FastAPI call-link server (browser calls until telephony).
   `/call/<slug>` page (no language choice: every call is Hindi); `POST

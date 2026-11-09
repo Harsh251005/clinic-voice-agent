@@ -244,6 +244,14 @@ class SaySession:
 
 async def test_a_recorded_phrase_plays_its_audio_and_an_unrecorded_one_is_said_live():
     session = SaySession()
+    heard = []
+    book = Phrasebook({("filler", "hi"): [Said("जी", b"\x00\x00", 24000, kind="filler")],
+                       ("greeting", "hi"): [Said("नमस्ते", kind="greeting")]})
+    book.on_play = heard.append
+    say(session, book.one("filler", "hi"))
+    say(session, book.one("greeting", "hi"))
+    assert heard == ["filler"]  # only a recording is noted: live speech is what usage counts
+    session.said.clear()
     pcm = bytes(range(256)) * 25  # 6,400 bytes = 3,200 samples at 24 kHz: two 100 ms frames
     say(session, Said("जी, बस एक सेकंड।", pcm, 24000), add_to_chat_ctx=False)
     say(session, Said("नमस्ते"), allow_interruptions=False)
@@ -253,3 +261,13 @@ async def test_a_recorded_phrase_plays_its_audio_and_an_unrecorded_one_is_said_l
     assert [f.samples_per_channel for f in frames] == [2400, 800] and all(f.sample_rate == 24000 for f in frames)
     assert b"".join(bytes(f.data) for f in frames) == pcm
     assert (live_text, live_kwargs) == ("नमस्ते", {"allow_interruptions": False})
+
+
+def test_a_played_recording_is_a_step_in_the_trace_by_kind_only():
+    from clinic_agent.call_record import CallRecorder
+
+    rec = CallRecorder.__new__(CallRecorder)
+    rec.events, rec.t0 = [], __import__("time").time()
+    rec.clip_played("greeting")
+    (event,) = rec.events
+    assert (event["kind"], event["name"], event["ok"], event["duration_ms"]) == ("clip", "greeting", True, None)

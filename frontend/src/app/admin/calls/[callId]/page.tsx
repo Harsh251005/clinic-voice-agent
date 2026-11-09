@@ -6,7 +6,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, ArrowLeft, CircleCheck, CircleX, LockKeyhole, ShieldAlert, TriangleAlert, Wrench } from "lucide-react";
+import { AlertCircle, ArrowLeft, AudioLines, CircleCheck, CircleX, LockKeyhole, ShieldAlert, TriangleAlert, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { CallResult } from "@/components/admin/bits";
 import { offset, Transcript } from "@/components/calls/transcript";
-import { adminKeys, duration, END_REASONS, ms, STAGES, useCallTrace, when } from "@/lib/admin";
+import { adminKeys, duration, END_REASONS, ms, RECORDED, recordedLines, STAGES, useCallTrace, when } from "@/lib/admin";
 import { languageName } from "@/lib/calls";
 import { PARTS, quantity, rupees, VENDORS } from "@/lib/costs";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
@@ -74,7 +74,7 @@ function Body({ t }: { t: Schemas["CallTrace"] }) {
         </dl>
       </header>
 
-      <CostPanel cost={t.cost ?? null} />
+      <CostPanel cost={t.cost ?? null} recorded={recordedLines(t.events)} />
       <Timeline events={t.events} />
       <TranscriptPanel t={t} />
     </>
@@ -82,7 +82,7 @@ function Body({ t }: { t: Schemas["CallTrace"] }) {
 }
 
 /** What this call cost, part by part, from its exact usage. */
-function CostPanel({ cost }: { cost: Schemas["CallCost"] | null }) {
+function CostPanel({ cost, recorded }: { cost: Schemas["CallCost"] | null; recorded: string }) {
   return (
     <section aria-labelledby="cost" className="rounded-xl border bg-card">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b px-5 py-3.5">
@@ -112,6 +112,16 @@ function CostPanel({ cost }: { cost: Schemas["CallCost"] | null }) {
               <span className="text-right tabular-nums">{rupees(l.rupees)}</span>
             </li>
           ))}
+          {recorded && (
+            <li className="grid grid-cols-[1fr_auto] gap-x-4 px-5 py-2.5">
+              <span>
+                <span className="font-medium">Played from recordings</span>
+                <span className="text-muted-foreground"> · {recorded}</span>
+                <span className="block text-xs text-muted-foreground">The voice wasn&apos;t asked for these, so they cost nothing. Speaking above is only what was said live.</span>
+              </span>
+              <span className="text-right tabular-nums">{rupees(0)}</span>
+            </li>
+          )}
         </ul>
       )}
     </section>
@@ -139,17 +149,19 @@ function Timeline({ events }: { events: Schemas["TraceEvent"][] }) {
         <ol className="divide-y">
           {events.map((e, i) => {
             const stage = STAGES[e.kind];
-            const Icon = e.kind === "tool" ? Wrench : e.kind === "error" ? TriangleAlert : e.ok ? CircleCheck : CircleX;
+            const Icon = e.kind === "tool" ? Wrench : e.kind === "error" ? TriangleAlert : e.kind === "clip" ? AudioLines : e.ok ? CircleCheck : CircleX;
             return (
               <li key={i} className={cn("grid grid-cols-[3rem_1fr_auto] items-center gap-3 px-5 py-2.5 text-sm", !e.ok && "bg-destructive/5")}>
                 <span className="text-xs text-muted-foreground tabular-nums">{offset(e.t_ms)}</span>
                 <div className="min-w-0">
                   <p className="flex items-center gap-2">
                     <Icon className={cn("size-4 shrink-0", e.ok ? "text-muted-foreground" : "text-destructive")} aria-hidden />
-                    <span className="font-medium">{e.kind === "tool" ? <span className="font-mono text-[13px]">{e.name}</span> : e.kind === "error" ? "Vendor error" : stage?.label ?? e.kind}</span>
+                    <span className="font-medium">{e.kind === "tool" ? <span className="font-mono text-[13px]">{e.name}</span> : e.kind === "error" ? "Vendor error"
+                      : e.kind === "clip" ? `${RECORDED[e.name] ?? e.name}, from its recording` : stage?.label ?? e.kind}</span>
                     {e.kind === "error" && <span className="font-mono text-[13px] text-muted-foreground">{e.name}</span>}
                     {e.kind === "tool" && <span className={cn("text-xs", e.ok ? "text-success-foreground" : "text-destructive")}>{e.ok ? "worked" : "refused"}</span>}
                   </p>
+                  {e.kind === "clip" && <p className="truncate pl-6 text-xs text-muted-foreground">no voice cost</p>}
                   {(e.detail || stage) && (
                     <p className="truncate pl-6 text-xs text-muted-foreground">{[stage?.hint, e.detail].filter(Boolean).join(" · ")}</p>
                   )}

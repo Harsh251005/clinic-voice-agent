@@ -50,6 +50,7 @@ with sessions_for(load_settings().database_url)() as s:
                                  {"part": "call_line", "provider": "livekit", "model": "agent_session", "unit": "minutes", "quantity": 1.4},
                              ])
     call(timedelta(minutes=50), "booked", [
+        ev(0, "clip", None, "greeting"),  # the greeting played from its recording
         ev(900, "stt", 310), ev(900, "eou", 620), ev(1400, "llm", 780), ev(1500, "tts", 240), ev(1500, "reply", 1650),
         ev(9000, "tool", 42, "check_booking"), ev(15000, "tool", 37, "book_appointment"),
     ], [

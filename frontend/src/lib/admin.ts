@@ -110,3 +110,21 @@ export function vendorsOf(stack: string): string {
 }
 
 export type CallSummary = Schemas["CallSummary"];
+
+/** A fixed line played from its recording (trace step "clip"): no voice cost. */
+export const RECORDED: Record<string, string> = {
+  greeting: "Greeting",
+  filler: "“One moment” line",
+  goodbye_fallback: "Goodbye",
+  goodbye_time_limit: "Time-limit goodbye",
+};
+
+/** "Greeting, 2 “one moment” lines": the recorded lines a call played. */
+export function recordedLines(events: { kind: string; name: string }[]): string {
+  const counts = new Map<string, number>();
+  for (const e of events) if (e.kind === "clip") counts.set(e.name, (counts.get(e.name) ?? 0) + 1);
+  return [...counts].map(([name, n]) => {
+    const word = RECORDED[name] ?? name;
+    return n === 1 ? word : `${n} ${word.replace("line", "lines").replace(/^“One/, "“one")}`;
+  }).join(", ");
+}

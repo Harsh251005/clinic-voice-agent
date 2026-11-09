@@ -649,7 +649,11 @@ write the same tables through `store/repo.py`.
   made only when an admin asks (admin page: coming). If the phrases can't
   be read at all, the call says them live in their built-in words and the
   admin sees a "could not read its fixed phrases" problem. The model's own
-  goodbye is always live.
+  goodbye is always live. **A line played from its recording costs
+  nothing:** the voice isn't asked, so LiveKit counts no characters for it
+  and Costs never charges it; the call's trace lists it as a step ("Greeting,
+  from its recording") and its cost box as "Played from recordings, ₹0".
+  Only making a recording (Record) is charged, once, under Other costs.
 - **The voice gets whole sentences.** The reply streams from the model a few
   words at a time; Sarvam voices each piece it is handed as one take, so a
   piece cut mid-sentence changed the tone halfway through. LiveKit's own

@@ -103,6 +103,12 @@ class CallRecorder:
         """An appointment a tool booked, moved or cancelled (tools.booking.ClinicLink)."""
         self.changes.append({"id": appointment_id, "action": action} | ({"undo": undo} if undo else {}))
 
+    def clip_played(self, kind: str) -> None:
+        """A fixed line played from its recording (voice_clips): a step in the
+        trace, by kind only, never its words. The voice wasn't asked, so it
+        costs nothing; live speech is what usage counts."""
+        self._event(self._ms(time.time()), "clip", kind, None)
+
     def mark(self, end_reason: str) -> None:
         """Say why the call is ending when the session can't tell (the time limit)."""
         self.end_reason = end_reason

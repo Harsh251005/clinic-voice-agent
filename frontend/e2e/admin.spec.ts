@@ -20,6 +20,8 @@ test("a call's trace has every step and none of the words", async ({ page }) => 
   await expect(page.getByText("check_booking")).toBeVisible();
   await expect(page.getByText("book_appointment")).toBeVisible();
   await expect(page.getByText(/Appointment #\d+ booked/)).toBeVisible();
+  await expect(page.getByText("Greeting, from its recording")).toBeVisible();  // a step, by kind only
+  await expect(page.getByText("Played from recordings")).toBeVisible();  // in the cost box, at ₹0
   await expect(page.getByText("कल सुबह डॉक्टर आशा का टाइम है?")).toHaveCount(0);
 });
 
