@@ -201,6 +201,11 @@ The pipeline is split so each concern lives in exactly one module:
   repeating**: the first call is only the check and read-back, the same
   call again acts once the caller has spoken (`confirmed` in the wrapper).
   Never go back to trusting a `caller_confirmed` flag.
+  **The right doctor for the reason** (Harsh, 2026-11-09): the model judges
+  whether the reason fits a specialty (no code can); `check_booking` sets the
+  reason beside the specialty before the read-back (`fit_gate`), and
+  `reason_fits="unsure"` books with `appointments.reason_unsure` ("Check
+  reason" in the dashboard). A doctor's specialty is required.
 - `clinic_agent/store/` — clinic data (SQLAlchemy, sync). `repo.py` holds every
   query; writes commit before returning; callers see `repo.NotFound` /
   `repo.SlotTaken`, never SQLAlchemy errors. **Only `store/` imports

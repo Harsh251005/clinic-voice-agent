@@ -49,7 +49,9 @@ export function Doctors({ clinic }: { clinic: Schemas["Clinic"] }) {
                   <div>
                     <p className="font-semibold">{d.name}</p>
                     {d.name_hi && <p lang="hi" className="text-sm text-muted-foreground">{d.name_hi}</p>}
-                    <p className="text-sm text-muted-foreground">{d.specialty || "No specialty"}</p>
+                    {d.specialty
+                      ? <p className="text-sm text-muted-foreground">{d.specialty}</p>
+                      : <p className="text-sm text-warning-foreground">No specialty yet: add one so the receptionist books the right patients</p>}
                   </div>
                 </div>
                 {d.active ? <Badge className="bg-accent text-accent-foreground">Accepting bookings</Badge> : <Badge variant="outline">Bookings paused</Badge>}
@@ -178,8 +180,9 @@ function DoctorForm({ clinicId, initial, extra, submitLabel, pending, onSubmit }
       </Field>
       <HindiNameField id={`${id}-name-hi`} label="Name in Hindi" clinicId={clinicId} english={f.name}
         value={f.name_hi ?? ""} onChange={(name_hi) => set({ name_hi })} placeholder="डॉक्टर आशा मेहता" />
-      <Field id={`${id}-specialty`} label="Specialty">
-        <Input id={`${id}-specialty`} maxLength={200} placeholder="General Physician" value={f.specialty} onChange={(e) => set({ specialty: e.target.value })} />
+      <Field id={`${id}-specialty`} label="Specialty"
+        hint="Even if it's General Physician. The receptionist won't book a visit this doctor doesn't see.">
+        <Input id={`${id}-specialty`} required maxLength={200} placeholder="General Physician" value={f.specialty} onChange={(e) => set({ specialty: e.target.value })} />
       </Field>
       <Field id={`${id}-fee`} label="Consultation fee (₹)">
         <Input id={`${id}-fee`} type="number" min={0} step={50} required value={f.fee} onChange={(e) => set({ fee: Number(e.target.value) })} />

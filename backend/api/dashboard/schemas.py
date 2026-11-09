@@ -46,6 +46,17 @@ def hindi_name(value: str | None) -> str | None:
     return value
 
 
+def required_specialty(value: str | None) -> str | None:
+    """Never blank, not even spaces: the receptionist matches reasons to it."""
+    if value is None:
+        return None
+    value = " ".join(value.split())
+    if not value:
+        raise PydanticCustomError(
+            "specialty", "Add the doctor's specialty, for example General Physician or Eye Specialist.")
+    return value
+
+
 class Doctor(BaseModel):
     id: int
     name: str
@@ -127,7 +138,14 @@ class DoctorIn(BaseModel):
     @classmethod
     def _hindi(cls, value: str | None) -> str | None:
         return hindi_name(value)
-    specialty: str = Field(default="", max_length=200)
+    # Required (Harsh, 2026-11-09), "General Physician" included: the receptionist
+    # matches each caller's reason to it before booking.
+    specialty: str = Field(min_length=1, max_length=200)
+
+    @field_validator("specialty")
+    @classmethod
+    def _specialty(cls, value: str | None) -> str | None:
+        return required_specialty(value)
     fee: int = Field(ge=0)
     slot_minutes: int = Field(ge=5, le=120)
 
@@ -144,7 +162,12 @@ class DoctorPatch(BaseModel):
     @classmethod
     def _hindi(cls, value: str | None) -> str | None:
         return hindi_name(value)
-    specialty: str | None = Field(default=None, max_length=200)
+    specialty: str | None = Field(default=None, min_length=1, max_length=200)
+
+    @field_validator("specialty")
+    @classmethod
+    def _specialty(cls, value: str | None) -> str | None:
+        return required_specialty(value)
     fee: int | None = Field(default=None, ge=0)
     slot_minutes: int | None = Field(default=None, ge=5, le=120)
     active: bool | None = None
@@ -199,6 +222,8 @@ class Appointment(BaseModel):
     source: Literal["voice", "dashboard"]
     visit: Visit | None = None  # what happened at the clinic, as staff marked it
     reason: str  # why the patient is coming; "" if not given
+    # The receptionist couldn't tell whether the reason fits the doctor: check it.
+    reason_unsure: bool = False
     # Why a booking can't go ahead as booked (leave, holiday, hours changed,
     # doctor inactive): staff should call the patient. None when it's fine.
     problem: str | None = None

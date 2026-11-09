@@ -403,6 +403,7 @@ def book(
     patient_phone: str,
     source: str = "voice",
     reason: str = "",
+    reason_unsure: bool = False,
 ) -> Appointment:
     """Book a slot. Raises SlotTaken if the doctor is already booked then."""
     doctor = _get(s, Doctor, doctor_id)
@@ -419,6 +420,7 @@ def book(
             ends_at=ends_at,
             source=source,
             reason=reason,
+            reason_unsure=reason_unsure,
         )
         s.add(appt)
         try:
@@ -491,6 +493,14 @@ def update_appointment_details(
     appt = _get(s, Appointment, appointment_id)
     appt.patient = _patient(s, appt.clinic_id, patient_name, patient_phone)
     appt.reason = reason
+    s.commit()
+    return appt
+
+
+def reason_checked(s: Session, appointment_id: int) -> Appointment:
+    """Staff checked a reason the receptionist wasn't sure fits the doctor."""
+    appt = _get(s, Appointment, appointment_id)
+    appt.reason_unsure = False
     s.commit()
     return appt
 

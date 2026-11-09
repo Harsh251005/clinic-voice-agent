@@ -51,6 +51,9 @@ KINDS = {
     "server_error": Kind("warning", clinic_sees=False, quiet_minutes=15),
     "no_doctors": Kind("warning", clinic_sees=True),
     "doctor_no_hours": Kind("warning", clinic_sees=True),
+    # The receptionist can't tell which visits this doctor sees (Harsh, 2026-11-09:
+    # specialty required). Saved blank before it was; closes once it is filled in.
+    "doctor_no_specialty": Kind("warning", clinic_sees=True),
     "clinic_paused": Kind("info", clinic_sees=True),
     "bookings_need_call": Kind("warning", clinic_sees=True),
     "livekit_minutes": Kind("warning", clinic_sees=False),
@@ -282,7 +285,11 @@ def _setup(clinic) -> list[Finding]:
     doctors = [d for d in clinic.doctors if d.active]
     if not doctors:
         return [Finding("no_doctors", clinic.id)]
-    return [Finding("doctor_no_hours", clinic.id, subject=str(d.id), detail=d.name) for d in doctors if not d.hours]
+    return [
+        *(Finding("doctor_no_hours", clinic.id, subject=str(d.id), detail=d.name) for d in doctors if not d.hours),
+        *(Finding("doctor_no_specialty", clinic.id, subject=str(d.id), detail=d.name)
+          for d in doctors if not d.specialty.strip()),
+    ]
 
 
 def _failing_calls(clinic_id: int, calls, now: datetime, max_call_minutes: int, timezone: str = "Asia/Kolkata") -> list[Finding]:

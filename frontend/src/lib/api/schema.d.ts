@@ -683,6 +683,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clinics/{clinic_id}/appointments/{appointment_id}/reason-checked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reason Checked
+         * @description Staff checked a reason the receptionist wasn't sure fits the doctor: clear the mark.
+         */
+        post: operations["reason_checked_api_clinics__clinic_id__appointments__appointment_id__reason_checked_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/clinics/{clinic_id}/appointments/{appointment_id}/restore": {
         parameters: {
             query?: never;
@@ -1259,6 +1279,11 @@ export interface components {
             problem?: string | null;
             /** Reason */
             reason: string;
+            /**
+             * Reason Unsure
+             * @default false
+             */
+            reason_unsure: boolean;
             /**
              * Source
              * @enum {string}
@@ -2145,10 +2170,7 @@ export interface components {
             name_hi: string;
             /** Slot Minutes */
             slot_minutes: number;
-            /**
-             * Specialty
-             * @default
-             */
+            /** Specialty */
             specialty: string;
         };
         /** Pattern */
@@ -4201,6 +4223,38 @@ export interface operations {
         };
     };
     cancel_api_clinics__clinic_id__appointments__appointment_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: number;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reason_checked_api_clinics__clinic_id__appointments__appointment_id__reason_checked_post: {
         parameters: {
             query?: never;
             header?: never;

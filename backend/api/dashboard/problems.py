@@ -119,6 +119,10 @@ def clinic_words(inc: repo.Incident, clinic_id: int) -> tuple[str, str, str | No
         case "doctor_no_hours":
             return (f"Callers can't book {inc.detail}: no weekly hours are set.",
                     "Set their hours in Clinic settings, Weekly hours.", f"{base}/setup?tab=hours")
+        case "doctor_no_specialty":
+            return (f"{inc.detail} has no specialty, so the receptionist can't tell which visits they see.",
+                    "Add their specialty in Clinic settings, Doctors (General Physician counts).",
+                    f"{base}/setup?tab=doctors")
         case "clinic_paused":
             return ("Your receptionist is paused by ClinicDesk support. It isn't answering calls.",
                     "Contact ClinicDesk support to turn it back on.", None)

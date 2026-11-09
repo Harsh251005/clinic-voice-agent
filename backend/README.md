@@ -330,6 +330,7 @@ not tried again since") instead of "fixed".
 | Patients couldn't get through | the call page reports it (by reason) | yes | a call connects at that clinic, or 2 quiet hours |
 | Server error | an unhandled API error (route and error type only) | no | that same page answers without an error, or 15 quiet minutes |
 | Callers can't book | no active doctor, or one without weekly hours | yes | it's fixed |
+| A doctor has no specialty | an active doctor saved without one (it is required now) | yes | the specialty is filled in |
 | Clinic paused | paused in the admin panel | yes | turned back on |
 | Bookings need a call | upcoming bookings flagged (leave, holiday...) | yes | none left |
 | LiveKit minutes | 80% (urgent at 95%) of the monthly allowance (Prices page; 1,000 by default) | no | next month |
@@ -432,9 +433,16 @@ instructions in its README); every action below is an `/api` endpoint here.
   specialist) is declined kindly and nothing is booked; it may suggest the
   obvious type of doctor ("general physician"), never a named doctor or
   clinic elsewhere, and never guesses the illness. With several doctors it
-  picks the one who fits. When unsure it books. A caller who won't say why is
-  still booked. The model makes this call, so it is graded by live evals
+  picks the one who fits. When unsure it books, marked **Check reason** on
+  Today and in the diary ("The receptionist wasn't sure this doctor sees
+  this"); staff clear it from the appointment's menu, *Reason checked*. A
+  caller who won't say why is still booked, unmarked. Before every read-back,
+  `check_booking` sets the reason beside the doctor's specialty for a second
+  look. The model makes the call, so it is graded by live evals
   (`tests/test_live.py`, "the right doctor for the reason").
+- **Every doctor has a specialty** ("General Physician" counts): the form and
+  the API refuse a blank one, and a doctor saved blank before is a problem
+  until it is filled in.
 - **Clinic settings**: details, booking rules, the receptionist link, doctors, weekly
   hours (any number of sessions a day), leave and holidays, FAQ answers (each editable in place), and (admins) the
   team. Everything the agent knows about a clinic is entered here.

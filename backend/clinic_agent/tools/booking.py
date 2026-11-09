@@ -53,6 +53,7 @@ class _Checked:
     patient_name: str
     patient_phone: str
     reason: str
+    reason_unsure: bool  # booked marked for the clinic to check the reason fits the doctor
     caller_turns: int  # caller messages heard when it was checked
 
 
@@ -63,6 +64,20 @@ class _Pending:
     action: str  # "cancel" | "move"
     key: tuple  # what exactly: the same call again means "they said yes"
     caller_turns: int  # caller messages heard when it was read back
+
+
+def fit_gate(reason: str, specialty: str) -> str:
+    """A second look before the read-back (Harsh, 2026-11-09: "fever" was
+    booked with an eye specialist): the reason, beside the doctor's specialty.
+    The model judges; nothing in code can tell what a specialty treats."""
+    if not (reason.strip() and specialty):
+        return ""
+    return (
+        f"First, the reason given is \"{reason.strip()}\" and the doctor is a {specialty}. "
+        f"If that reason is clearly outside this specialty, don't read back and never book it: "
+        f"kindly tell the caller this doctor doesn't see it, suggesting a type of doctor only "
+        f"if obvious. Otherwise: "
+    )
 
 
 def _caller_turns(ctx: RunContext | None) -> int | None:
@@ -92,7 +107,7 @@ def booking_tools(link: ClinicLink) -> list:
             raise ToolError(str(err)) from None
         if isinstance(result, booking.Changed) and link.on_change:
             link.on_change(result.appointment_id, result.action, result.undo)
-        return str(result)
+        return result if isinstance(result, booking.ReadBack) else str(result)
 
     async def confirmed(ctx: RunContext | None, action: str, key: tuple, check: Callable, act: Callable, args: tuple,
                         ask: str, read_back: Callable[[str], str]) -> str:
@@ -153,6 +168,7 @@ def booking_tools(link: ClinicLink) -> list:
         patient_name: str,
         patient_phone: str,
         reason: str = "",
+        reason_fits: Literal["yes", "unsure"] = "yes",
     ) -> str:
         """Check a booking and get the details to read back. Books nothing.
 
@@ -170,6 +186,11 @@ def booking_tools(link: ClinicLink) -> list:
                 short, plain English in Roman letters, translated from whatever
                 the caller said, never Devanagari (e.g. "Blurred vision for 2
                 days", "Tooth pain"). Empty if the caller didn't want to say.
+            reason_fits: Whether the reason is something the doctor's specialty
+                (in CLINIC FACTS) treats: "yes" if it clearly is, or no reason
+                was given; "unsure" if you can't tell, and the clinic will be
+                asked to check. A reason clearly outside the specialty is never
+                booked: don't call this, kindly decline instead.
         """
         day, start = _date(date), _time(time)
         details = await run(
@@ -177,9 +198,10 @@ def booking_tools(link: ClinicLink) -> list:
             patient_name, patient_phone, clinic_now(link.timezone),
         )
         checked[:] = [_Checked(
-            doctor_name, day, start, patient_name, patient_phone, reason, _caller_turns(ctx) or 0,
+            doctor_name, day, start, patient_name, patient_phone, reason,
+            reason_fits == "unsure", _caller_turns(ctx) or 0,
         )]
-        return (
+        return fit_gate(reason, details.specialty) + (
             f"Not booked yet. Read this back to the caller in one sentence, the number "
             f"digit by digit, and ask if it is correct: {details}. If they say yes, call "
             f"book_appointment. If anything is wrong, fix it and call check_booking again."
@@ -203,7 +225,7 @@ def booking_tools(link: ClinicLink) -> list:
             )
         result = await run(
             ctx, booking.book_slot, c.doctor_name, c.day, c.start,
-            c.patient_name, c.patient_phone, clinic_now(link.timezone), c.reason,
+            c.patient_name, c.patient_phone, clinic_now(link.timezone), c.reason, c.reason_unsure,
         )
         checked.clear()
         return result

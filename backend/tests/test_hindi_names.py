@@ -77,7 +77,7 @@ def test_saving_with_the_hindi_box_blank_fills_it_in_and_a_typed_one_is_kept(wor
     assert c.patch(base, json=details | {"name_hi": ""}).json()["name_hi"] == "क्योर डेंटल"
     assert c.patch(base, json=details | {"name_hi": "क्यूअर डेंटल"}).json()["name_hi"] == "क्यूअर डेंटल"  # staff's own
     answers("डॉक्टर रोहन")
-    doctor = c.post(f"{base}/doctors", json={"name": "Dr. Rohan", "fee": 300, "slot_minutes": 15}).json()
+    doctor = c.post(f"{base}/doctors", json={"name": "Dr. Rohan", "specialty": "Paediatrician", "fee": 300, "slot_minutes": 15}).json()
     assert doctor["name_hi"] == "डॉक्टर रोहन"
 
 
@@ -85,7 +85,7 @@ def test_a_failed_suggestion_never_blocks_a_save_and_is_flagged(world, answers):
     answers(openai.APIConnectionError(request=None))
     c = client_as("reception@cure.in")
     base = f"/api/clinics/{world['cure']}"
-    r = c.post(f"{base}/doctors", json={"name": "Dr. Rohan", "fee": 300, "slot_minutes": 15})
+    r = c.post(f"{base}/doctors", json={"name": "Dr. Rohan", "specialty": "Paediatrician", "fee": 300, "slot_minutes": 15})
     assert r.status_code == 200 and r.json()["name_hi"] == ""  # saved; the Hindi line spells it itself
     assert c.post(f"{base}/hindi-name", json={"name": "Dr. Rohan"}).status_code == 503
     titles = [p["title"] for p in client_as("harsh@example.com", admin=True).get("/api/admin/problems").json()["open"]]

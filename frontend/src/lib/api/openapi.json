@@ -223,6 +223,11 @@
             "title": "Reason",
             "type": "string"
           },
+          "reason_unsure": {
+            "default": false,
+            "title": "Reason Unsure",
+            "type": "boolean"
+          },
           "source": {
             "enum": [
               "voice",
@@ -1857,6 +1862,7 @@
             "anyOf": [
               {
                 "maxLength": 200,
+                "minLength": 1,
                 "type": "string"
               },
               {
@@ -2535,14 +2541,15 @@
             "type": "integer"
           },
           "specialty": {
-            "default": "",
             "maxLength": 200,
+            "minLength": 1,
             "title": "Specialty",
             "type": "string"
           }
         },
         "required": [
           "name",
+          "specialty",
           "fee",
           "slot_minutes"
         ],
@@ -6003,6 +6010,55 @@
           }
         },
         "summary": "Cancel"
+      }
+    },
+    "/api/clinics/{clinic_id}/appointments/{appointment_id}/reason-checked": {
+      "post": {
+        "description": "Staff checked a reason the receptionist wasn't sure fits the doctor: clear the mark.",
+        "operationId": "reason_checked_api_clinics__clinic_id__appointments__appointment_id__reason_checked_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointment_id",
+            "required": true,
+            "schema": {
+              "title": "Appointment Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reason Checked"
       }
     },
     "/api/clinics/{clinic_id}/appointments/{appointment_id}/restore": {

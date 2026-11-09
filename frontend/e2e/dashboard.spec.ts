@@ -2,7 +2,7 @@
 // fresh database (e2e/start-api.sh: the demo clinic plus one booking today).
 // Tests share that database and run in order.
 import { expect, test, type Page } from "@playwright/test";
-import { heartbeat } from "./backend";
+import { heartbeat, unsureBookingToday } from "./backend";
 
 const SETUP = "/clinics/1/setup";
 
@@ -88,9 +88,26 @@ test("a double booking is refused with a reason", async ({ page }) => {
   await expect(page.getByText(/already has .* from 11:05 am to 11:20 am/)).toBeVisible();
 });
 
+test("a booking the receptionist wasn't sure about is marked until staff check it", async ({ page }) => {
+  unsureBookingToday("Kavya Rao");
+  await page.goto("/clinics/1/today");
+  const row = page.getByRole("listitem").filter({ hasText: "Kavya Rao" });
+  await expect(row.getByText("Check reason")).toBeVisible();
+  await page.goto("/clinics/1/appointments");
+  await page.getByRole("button", { name: /Kavya Rao.*Check reason/ }).click();
+  await expect(page.getByText("The receptionist wasn't sure this doctor sees this.")).toBeVisible();
+  await page.getByRole("menuitem", { name: "Reason checked" }).click();
+  await expect(page.getByText("Kavya Rao: reason checked.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Kavya Rao/ })).not.toHaveAccessibleName(/Check reason/);
+  await page.goto("/clinics/1/today");
+  await expect(page.getByRole("listitem").filter({ hasText: "Kavya Rao" })).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Kavya Rao" }).getByText("Check reason")).toHaveCount(0);
+});
+
 test("a new doctor starts with the common week", async ({ page }) => {
   await page.goto(`${SETUP}?tab=doctors`);
   await page.getByLabel("Name", { exact: true }).fill("Dr. Neha Kulkarni");
+  await page.getByLabel("Specialty").fill("Dermatologist");
   await expect(page.getByRole("combobox", { name: "Starting hours" })).toHaveText("Mon–Sat, 10 am–1 pm and 5–8 pm");
   await page.getByRole("button", { name: "Add doctor" }).click();
   await expect(page.getByText(/Dr. Neha Kulkarni added with Mon–Sat/)).toBeVisible();
@@ -102,6 +119,7 @@ test("a new doctor starts with the common week", async ({ page }) => {
 test("a doctor can be removed for good, after a warning", async ({ page }) => {
   await page.goto(`${SETUP}?tab=doctors`);
   await page.getByLabel("Name", { exact: true }).fill("Dr. Temp Locum");
+  await page.getByLabel("Specialty").fill("General Physician");
   await page.getByRole("button", { name: "Add doctor" }).click();
   const card = page.locator('[data-slot="card"]').filter({ has: page.getByText("Dr. Temp Locum", { exact: true }) });
   await card.getByRole("button", { name: "Remove" }).click();

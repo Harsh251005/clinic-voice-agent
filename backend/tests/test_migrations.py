@@ -169,11 +169,13 @@ def test_elevenlabs_and_the_english_line_leave_no_trace(tmp_path):
         s.flush()
 
         def appt(hour):
-            a = m.Appointment(clinic_id=clinic.id, doctor_id=doctor.id, patient_id=patient.id,
-                              starts_at=datetime(2026, 10, 13, hour), ends_at=datetime(2026, 10, 13, hour, 30))
-            s.add(a)
-            s.flush()
-            return a.id
+            # Written as 0012 had them: reason_unsure (0016) did not exist yet.
+            return s.execute(text(
+                "INSERT INTO appointments (clinic_id, doctor_id, patient_id, starts_at, ends_at, status, source,"
+                " reason, created_at) VALUES (:c, :d, :p, :start, :end, 'booked', 'voice', '', :now) RETURNING id"),
+                {"c": clinic.id, "d": doctor.id, "p": patient.id, "now": now.isoformat(" "),
+                 "start": datetime(2026, 10, 13, hour).isoformat(" "),
+                 "end": datetime(2026, 10, 13, hour, 30).isoformat(" ")}).scalar_one()
 
         english_booked, moved_later, hindi_booked = appt(10), appt(11), appt(12)
 

@@ -36,6 +36,16 @@ class Changed(str):
         return obj
 
 
+class ReadBack(str):
+    """check_slot's details to read back, carrying the doctor's specialty so
+    the tool can set it beside the visit reason before anything is booked."""
+
+    def __new__(cls, text: str, specialty: str) -> ReadBack:
+        obj = super().__new__(cls, text)
+        obj.specialty = specialty
+        return obj
+
+
 def normalise_phone(raw: str) -> str:
     """A 10-digit Indian mobile number, accepting +91 / 0 prefixes and spaces."""
     digits = re.sub(r"\D", "", raw)
@@ -112,9 +122,10 @@ def check_slot(
     confirms a time that isn't free.
     """
     clinic, doctor, _, phone = _bookable(s, clinic_id, doctor_name, day, start, patient_name, patient_phone, now)
-    return (
+    return ReadBack(
         f"{doctor.name}, {_day(day)}, {start:%H:%M} ({hindi_time(start)}), "
-        f"for {patient_name.strip()}, mobile {' '.join(phone)}"
+        f"for {patient_name.strip()}, mobile {' '.join(phone)}",
+        doctor.specialty.strip(),
     )
 
 
@@ -128,6 +139,7 @@ def book_slot(
     patient_phone: str,
     now: datetime,
     reason: str = "",
+    reason_unsure: bool = False,
 ) -> str:
     clinic, doctor, starts_at, phone = _bookable(
         s, clinic_id, doctor_name, day, start, patient_name, patient_phone, now
@@ -135,7 +147,7 @@ def book_slot(
     try:
         appt = repo.book(
             s, clinic.id, doctor.id, starts_at, patient_name.strip(), phone,
-            source="voice", reason=_reason(reason),
+            source="voice", reason=_reason(reason), reason_unsure=reason_unsure and bool(reason.strip()),
         )
     except repo.SlotTaken:
         time_off = repo.time_off_overlapping(s, clinic.id, day, day)

@@ -171,6 +171,10 @@ class Appointment(Base):
     # Why the patient is coming, in the caller's or staff's words ("आँखों से
     # धुंधला दिखता है"). Health information: shown to the clinic, never logged.
     reason: Mapped[str] = mapped_column(String(300), default="", server_default="")
+    # The receptionist couldn't tell whether the reason fits the doctor's
+    # specialty, so it booked and asked the clinic to check (Harsh, 2026-11-09).
+    # Staff clear it once checked. A clear mismatch is never booked at all.
+    reason_unsure: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(default=utc_now)  # UTC
 
     doctor: Mapped[Doctor] = relationship()

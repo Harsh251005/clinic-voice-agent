@@ -113,6 +113,15 @@ def visit(appointment_id: int, body: schemas.VisitIn, request: Request, clinic_i
         return _out(s, booking.staff_visit(s, clinic_id, appointment_id, body.visit, now))
 
 
+@router.post("/api/clinics/{clinic_id}/appointments/{appointment_id}/reason-checked",
+             response_model=schemas.Appointment)
+def reason_checked(appointment_id: int, request: Request, clinic_id: int = Depends(clinic_staff)):
+    """Staff checked a reason the receptionist wasn't sure fits the doctor: clear the mark."""
+    with staff_errors(), request.app.state.sessions() as s:
+        appt = repo.in_clinic(s, repo.Appointment, appointment_id, clinic_id)
+        return _out(s, repo.reason_checked(s, appt.id))
+
+
 def _out(s, appt) -> schemas.Appointment:
     appt = repo.get_appointment(s, appt.id)
     problem = None

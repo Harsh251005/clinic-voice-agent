@@ -137,3 +137,32 @@ async def test_lookups_stop_after_three_misses(tools):
 def _manage(sessions, clinic_id):
     _, _, _, mine, cancel, move = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions, "hi"))
     return mine, cancel, move
+
+
+async def test_the_reason_is_set_beside_the_specialty_before_the_read_back(tools):
+    # Harsh, 2026-11-09: "fever" was booked with an eye specialist. check_booking
+    # gives the model a second look before anything is read back or booked.
+    _, _, sessions, clinic_id = tools
+    _, check, *_ = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions, "hi"))
+    day = next_working_day().isoformat()
+    said = await check(None, doctor_name="Asha", date=day, time="17:00",
+                       patient_name="Ravi", patient_phone="9876543210", reason="Fever for 2 days")
+    assert said.startswith('First, the reason given is "Fever for 2 days" and the doctor is a General Physician.')
+    assert "clearly outside this specialty, don't read back and never book it" in said
+    no_reason = await check(None, doctor_name="Asha", date=day, time="17:15",
+                            patient_name="Ravi", patient_phone="9876543210")
+    assert no_reason.startswith("Not booked yet.")  # nothing to compare
+
+
+async def test_an_unsure_reason_is_booked_marked_for_the_clinic_to_check(tools):
+    find, check_then_book, sessions, clinic_id = tools
+    day = next_working_day()
+    await check_then_book(doctor_name="Asha", date=day.isoformat(), time="17:00", patient_name="Ravi",
+                          patient_phone="9876543210", reason="Headache", reason_fits="unsure")
+    await check_then_book(doctor_name="Asha", date=day.isoformat(), time="17:15", patient_name="Mira",
+                          patient_phone="9876543211", reason="Fever")
+    await check_then_book(doctor_name="Asha", date=day.isoformat(), time="17:30", patient_name="Om",
+                          patient_phone="9876543212", reason_fits="unsure")  # no reason: nothing to check
+    with sessions() as s:
+        marks = {a.patient.name: a.reason_unsure for a in repo.appointments_on(s, clinic_id, day)}
+    assert marks == {"Ravi": True, "Mira": False, "Om": False}
