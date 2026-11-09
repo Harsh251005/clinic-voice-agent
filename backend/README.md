@@ -246,6 +246,22 @@ every clinic?" and never shows patients:
   everything of it. A SQLite database is copied first
   (`clinic.db.bak-…`); on Postgres that relies on your own backups.
 - **Costs**: what every call cost you, in rupees (below).
+- **Voice & phrases** (`/admin/voice`, `api/dashboard/voice.py`): the
+  receptionist's fixed lines: the greeting (shared, with `{clinic}` for each
+  clinic's spoken name, or a clinic's own), the three "one moment" fillers
+  and the two fixed goodbyes. You write English; **Suggest Hindi** asks
+  OpenAI for the Hindi she says (tokens counted as other costs), which you
+  can edit before saving. The greeting's words are entirely yours (Harsh,
+  2026-11-09: no required wording; what callers are told is the admin's
+  call). Each line shows,
+  per clinic for the greeting, whether it is **recorded in the current
+  voice** (vendor, model, speaker, pace, pitch) and its exact words; **Play**
+  a recording, **Record** one, a line, or everything not yet recorded (the
+  estimated characters and price are shown first, from the Prices page).
+  Nothing records by itself, and recording stops at the first failure
+  (problem "Recording a voice clip failed"). Edited words or a new voice
+  are said live until recorded; old takes stay, so going back to an old
+  voice plays them again.
 
 ### Costs: what each call cost (`/admin/costs`)
 
@@ -308,6 +324,9 @@ for the clinic, technical detail for the operator.
 | LiveKit minutes | 80% (urgent at 95%) of the monthly allowance (Prices page; 1,000 by default) | no | next month |
 | Price missing | a call in the last 35 days used a model with no price that day, or a dollar price with no rate | no | the price or rate is added |
 | Expired transcripts not deleted | the purge fails | no | the next purge works |
+| Recording a voice clip failed | an admin's Record fails (vendor error, timeout) | no | a recording works, or a quiet day |
+| Phrase translation failing | Suggest Hindi fails (OpenAI) | no | a suggestion works, or a quiet hour |
+| Fixed phrases unreadable | a call can't read its phrases: it says the built-in words live | no | a quiet hour |
 
 - **The worker checks in** every 30 s (`clinic_agent/heartbeat.py`), from
   the moment LiveKit registers it (connected and ready for calls). Console
@@ -473,7 +492,7 @@ Sarvam's ears, voice or brain automatically; check them by hand (a spoken
 
 Offline tests prove the wiring, not the conversation. Live tests are evals:
 an LLM judge (`gpt-4.1`; the agent's own mini model failed correct replies)
-grades each reply against a stated intent (greets first, refuses
+grades each reply against a stated intent (refuses
 medicine, escalates chest pain, never states a fee, never confirms a booking,
 answers Hinglish in Hinglish). They test no audio and do not measure
 end-to-end latency: only a spoken `console` call does that.
@@ -494,6 +513,7 @@ api/                    call-link server: page + signed join pass (python -m api
     ├── context.py      loads the call's clinic and its local time
     ├── dispatch.py     which clinic and language a call is for: the agent name + metadata format
     ├── call_limit.py   hard cap on call length: goodbye, then close the room
+    ├── voice_clips.py  the fixed phrases (greeting, fillers, goodbyes): recorded or said live
     ├── call_record.py  each call's trace (timings, tools, errors) + transcript
     ├── incidents.py    problems: what counts, when one opens and closes
     ├── heartbeat.py    the worker checking in while connected to LiveKit
@@ -534,6 +554,11 @@ write the same tables through `store/repo.py`.
   doctors with fees and weekly hours, leave and holidays inside the booking
   window, FAQ answers, and the clinic's current date and time. Anything not
   there, it says it doesn't know. Edits in the dashboard apply from the next call.
+  With only one active doctor it is told never to ask "which doctor?"; with
+  several, to ask only when the caller hasn't said.
+- **The rules it follows** (`prompts.RULES["hi"]`) stay **under 500 words**
+  (`test_the_rules_stay_short`): a long prompt is paid for on every turn, and
+  the model follows a short one better.
 - **Booking** (three tools, rules in `booking.py`):
   - `find_available_slots(date, doctor?, part_of_day?)` returns **every**
     free start time that day per doctor, **one by one** under fixed parts of
@@ -586,14 +611,28 @@ write the same tables through `store/repo.py`.
   argument — what was done on the call (the booking's doctor, day and time),
   then goodbye — speaks it with interruptions off, waits until it has
   played, then closes the session and deletes the room, which disconnects a
-  phone caller. An empty goodbye gets a stock one; it never hangs up
+  phone caller. An empty goodbye gets the fixed one (recorded when it can
+  be, see below); it never hangs up
   silently. (LiveKit's `EndCallTool` asked for the goodbye in a second model
   reply after the tool, and the call ended in silence when that reply was
   empty or interrupted.) Hidden during the greeting; a caller who only says
   thanks is asked "anything else?" first.
-- **The greeting calls no tool** (`tool_choice="none"` in `on_enter`). Seen
-  live: with the booking tools available, the greeting looked up tomorrow
-  evening's slots and offered them before the caller had said a word.
+- **The greeting is fixed text, never written by the model**, and the
+  caller can't cut it off (it tells them the call is automated and saved).
+  No model round runs before the caller speaks, so it can't call a tool
+  either (seen live, when the model wrote it: it looked up tomorrow
+  evening's slots before the caller had said a word).
+- **Fixed phrases play from a recording when there is one**
+  (`voice_clips.py`): the greeting, the three "one moment" fillers (one at
+  random, never the same twice running) and the two fixed goodbyes (empty
+  `end_call` goodbye, time limit). Each call loads them once at its start:
+  a phrase recorded for the call's exact voice (vendor, model, speaker,
+  pace, pitch, sample rate) and exact words plays that recording, with no
+  voice-vendor call; anything else is said live, as before. A recording is
+  made only when an admin asks (admin page: coming). If the phrases can't
+  be read at all, the call says them live in their built-in words and the
+  admin sees a "could not read its fixed phrases" problem. The model's own
+  goodbye is always live.
 - **The voice gets whole sentences.** The reply streams from the model a few
   words at a time; Sarvam voices each piece it is handed as one take, so a
   piece cut mid-sentence changed the tone halfway through. LiveKit's own
@@ -604,24 +643,26 @@ write the same tables through `store/repo.py`.
   then at a space; Sarvam's `max_chunk_length` is raised so it never re-cuts.
 - **No dead air around a lookup.** The model says a short line ("ठीक है,
   मैं चेक करके बताती हूँ") in the same reply as a booking tool call, so it
-  plays at once. If it didn't, the tool says one itself in the caller's
-  language (Devanagari in the last caller turn = Hindi), once per reply,
+  plays at once. If it didn't, the tool says a fixed filler itself, in the
+  call's language (Hindi), once per reply,
   while the database work runs (`tools/speech.py`). If the model says it
   will check but calls no tool (seen live: "मैं कल के स्लॉट्स चेक कर लेती
   हूँ", then silence), `keep_promises` notices when that reply ends and
   makes it call a booking tool at once (`tool_choice="required"`). A
   question ("चेक करूँ?") or "चेकअप" doesn't count, and a forced follow-up is
   never forced again.
-- **It says it is automated.** The first line names the clinic and says it
-  is the clinic's automated assistant ("ऑटोमेटेड असिस्टेंट" in Hindi), and
-  that the conversation is saved as text for the clinic's records. The call
-  page says both, plus "for 30 days. No audio is recorded."
+- **It says it is automated.** The default greeting names the clinic and
+  says it is the clinic's automated assistant ("ऑटोमेटेड असिस्टेंट" in
+  Hindi), and that the conversation is saved as text for the clinic's
+  records. An admin may change those words freely (nothing enforces them).
+  The call page says both, plus "for 30 days. No audio is recorded."
 - **She speaks as a woman.** Every voice is female, so in Hindi everything
   she says about herself is feminine ("बात कर रही हूँ", "बताती हूँ", "की
   ऑटोमेटेड असिस्टेंट"). The caller's gender is still never assumed ("ji").
   Pick only female voices (`SARVAM_TTS_SPEAKER`).
 - **Calls have a time limit** (`MAX_CALL_MINUTES`, default 10). At the limit
-  the receptionist apologises, says goodbye (it can't be interrupted), and
+  the receptionist says the fixed time-limit goodbye (it can't be
+  interrupted; no model round), and
   closes the room, which disconnects the caller.
 - **Every call is recorded as text, never audio.** The worker writes two
   things per call (`call_record.py`):
@@ -747,6 +788,8 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `SARVAM_TTS_SPEAKER` | `suhani` | Any voice of the chosen model (a woman's: the prompt says so); v2 names such as `anushka` are rejected by `bulbul:v3`. |
 | `SARVAM_TTS_CODEC` | `linear16` | Raw PCM: compressed formats cost a decode per chunk. |
 | `SARVAM_TTS_LANGUAGE` | `hi-IN` | The replies are Devanagari. |
+| `SARVAM_TTS_PACE` | `1` | Speed of the voice, 0.5 to 2. Restart to hear a change. |
+| `SARVAM_TTS_PITCH` | `0` | Pitch, set once for every reply: -0.5 (lower) to 0.5 (higher). Only `bulbul:v4-flash` applies it. Temperature is not a setting: v4-flash fixes it at 0.6 itself. A change in either makes new voice clips (the old ones stay for going back). |
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
 | `PUBLIC_BASE_URL` | `http://localhost:8080` | Where the call-link server is reachable; the dashboard builds each clinic's link from it. Your tunnel's https address for a demo from outside. |
 | `MAX_CALL_MINUTES` | `10` | Longest a call may last before a goodbye and hang-up. Guards against forgotten or abused calls spending minutes. |
@@ -755,6 +798,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `API_HOST` / `API_PORT` | `127.0.0.1` / `8080` | Where the call-link server listens. `0.0.0.0` inside a container. |
 | `CLIENT_IP_HEADER` | blank | The header carrying the caller's IP behind a tunnel/proxy (`CF-Connecting-IP`, `X-Forwarded-For`), so rate limits stay per caller. Never trusted unless set. |
 | `MIN_ENDPOINTING_DELAY` | `0.2` | Raise if it cuts you off mid-sentence, lower if replies feel slow. |
+| `NUMBER_ENDPOINTING_DELAY` | `1.5` | The same wait as `MIN_ENDPOINTING_DELAY`, used only from the moment the receptionist asks for a number until the caller's next turn ends: callers read a mobile number in groups with small pauses, and at 0.2 s each group was its own turn. Max 3. Raise if numbers still arrive in pieces; lower if replies after a number feel slow. |
 | `VAD_MIN_SILENCE` | `0.6` | Pause that ends an utterance for the VAD. At LiveKit's 0.25 s a comma pause ended the caller's turn mid-sentence (seen with a batch STT, which sends each VAD-cut utterance alone). Lower for faster replies, raise if it still cuts callers off. |
 | `INTERRUPT_MIN_SPEECH` | `0.3` | Seconds of caller speech that stop the agent mid-reply. Lower if it talks over you, raise if coughs or background noise cut it off. |
 
@@ -774,8 +818,8 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.sarvam.ai/text-to-s
 `200` means the key works; `403` means get a new one from the dashboard.
 
 **`RuntimeWarning: coroutine 'AgentServer.aclose' was never awaited` on
-Ctrl+C in `console`** — harmless, and a LiveKit bug (1.8.2, the latest
-release). Ctrl+C schedules the shutdown; when the worker finishes it raises
+Ctrl+C in `console`** — harmless, and a LiveKit bug (seen on 1.8.2; not
+re-checked since the 1.8.11 upgrade). Ctrl+C schedules the shutdown; when the worker finishes it raises
 SIGTERM, whose handler schedules a second `aclose()` onto an event loop that
 has already stopped. The first shutdown has completed by then. Nothing to fix
 on our side.

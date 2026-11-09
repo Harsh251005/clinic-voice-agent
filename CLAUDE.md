@@ -24,7 +24,8 @@ cancel/reschedule tools with code-enforced confirmation, end-call tool,
 `console --text`, one worker for all clinics (dispatch), browser call links
 (`api/`), Google sign-in, the **Next.js dashboard** (`frontend/`: Today,
 diary, calls, settings), call records and transcripts, the admin panel, and
-problems flagged on every page. Not yet: a server deployment, telephony (identity is
+problems flagged on every page, and the fixed phrases (greeting, fillers,
+goodbyes) played from admin-made recordings, live when there are none. Not yet: a server deployment, telephony (identity is
 by spoken mobile number until caller ID exists), vendor fallback, the
 patient front door. Plans: `~/.claude/plans/` (current:
 `per-clinic-agent-and-language-lines.md`; also `portfolio-ready.md`,
@@ -86,7 +87,20 @@ The pipeline is split so each concern lives in exactly one module:
   the clinic (`context.load_clinic`, off the event loop), builds instructions,
   builds a session and starts `ClinicAgent` in the room, then starts
   `call_limit.end_after` (`MAX_CALL_MINUTES`), cancelled on job shutdown.
-  The prompt's opening rule makes the agent say it is an automated assistant.
+  The fixed greeting (`voice_clips`, said in `on_enter`, uninterruptible,
+  never model-written; its words are the admin's, nothing required) opens
+  the call; the prompt's Opening rule tells the model it was said.
+- `clinic_agent/voice_clips.py` — the **fixed phrases** (greeting, fillers,
+  fixed goodbyes): `for_call` loads them once per call with any recording
+  for the call's exact voice + words (`clip_key`); `say` plays the
+  recording or speaks the words live. **Any clip problem = said live**
+  (Harsh, 2026-11-09: reliability over savings); unreadable phrases fall
+  back to `BUILT_IN` (must equal migration 0014's seeds) and open
+  `voice_clips_unread`. Nothing records itself: `record` runs only on an
+  admin's click, from `api/dashboard/voice.py` (page `/admin/voice`: edit in
+  English, Hindi suggested by `providers/hindi.translate_phrase`, Record /
+  Play). No required wording in a greeting (Harsh, 2026-11-09: he handles
+  what callers are told); don't add checks back.
 - `api/` — FastAPI call-link server (browser calls until telephony).
   `/call/<slug>` page (no language choice: every call is Hindi); `POST
   /call/<slug>/pass` (no body; an old tab's is ignored) signs a LiveKit token for a
@@ -241,7 +255,8 @@ with `Session` / `Sessions` from `store/db.py`.
 - **Instructions are one set per line** (`prompts.RULES["hi"]`). The fillers
   and fallback goodbye follow the call's line, not the caller's last words.
   A caller asking for English is told kindly the receptionist speaks Hindi
-  only: never promise an English line.
+  only: never promise an English line. The rules stay **under 500 words**
+  (Harsh, 2026-10-24; `test_the_rules_stay_short`).
 - **Hindi replies are written in Devanagari** (prompt rule). The TTS pronounces
   by script; romanised Hindi ("aap kaise hain") is read with English spelling
   rules. Don't switch the prompt or `SARVAM_STT_MODE` to romanised output.

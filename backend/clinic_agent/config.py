@@ -42,9 +42,12 @@ class Settings:
     sarvam_tts_language: str | None
     sarvam_tts_sample_rate: int | None
     sarvam_tts_codec: str | None
+    sarvam_tts_pace: float | None  # speed, 0.5-2.0 on bulbul:v4-flash
+    sarvam_tts_pitch: float | None  # -0.5-0.5, applied by bulbul:v4-flash only
 
     # --- turn taking ---
     min_endpointing_delay: float
+    number_endpointing_delay: float  # the same, while the caller reads out a number
     interrupt_min_speech: float  # seconds of caller speech that stop the agent
     vad_min_silence: float  # seconds of pause that end an utterance
 
@@ -101,6 +104,14 @@ def _number(name: str, default: float | None = None) -> float | None:
         raise ConfigError(f"{name} must be a number, got {raw!r}") from None
 
 
+def _within(name: str, low: float, high: float) -> float | None:
+    """A number between low and high, or None when blank."""
+    value = _number(name)
+    if value is not None and not low <= value <= high:
+        raise ConfigError(f"{name} must be between {low} and {high}, got {value}")
+    return value
+
+
 def _choice(name: str, allowed: tuple[str, ...]) -> str:
     """One of `allowed`; the first is the default."""
     value = _text(name, allowed[0]).lower()
@@ -114,7 +125,7 @@ VENDOR_SETTINGS = (
     "SARVAM_STT_MODEL", "SARVAM_STT_LANGUAGE", "SARVAM_STT_MODE",
     "SARVAM_LLM_MODEL", "OPENAI_LLM_MODEL",
     "SARVAM_TTS_MODEL", "SARVAM_TTS_SPEAKER", "SARVAM_TTS_LANGUAGE",
-    "SARVAM_TTS_SAMPLE_RATE", "SARVAM_TTS_CODEC",
+    "SARVAM_TTS_SAMPLE_RATE", "SARVAM_TTS_CODEC", "SARVAM_TTS_PACE", "SARVAM_TTS_PITCH",
 )
 
 # Settings that used to be shared by every vendor. Each vendor now has its
@@ -188,7 +199,10 @@ def load_settings() -> Settings:
         sarvam_tts_language=_text("SARVAM_TTS_LANGUAGE"),
         sarvam_tts_sample_rate=int(tts_rate) if tts_rate is not None else None,
         sarvam_tts_codec=_text("SARVAM_TTS_CODEC"),
+        sarvam_tts_pace=_within("SARVAM_TTS_PACE", 0.5, 2.0),
+        sarvam_tts_pitch=_within("SARVAM_TTS_PITCH", -0.5, 0.5),
         min_endpointing_delay=_number("MIN_ENDPOINTING_DELAY", 0.2),
+        number_endpointing_delay=_number("NUMBER_ENDPOINTING_DELAY", 1.5),
         interrupt_min_speech=_number("INTERRUPT_MIN_SPEECH", 0.3),
         vad_min_silence=_number("VAD_MIN_SILENCE", 0.6),
         max_call_minutes=_number("MAX_CALL_MINUTES", 10),

@@ -31,7 +31,7 @@ PART_LABELS = {
     "thinking": "Thinking (language model)",
     "speaking": "Speaking (text to speech)",
     "call_line": "Call line (LiveKit)",
-    "other": "Other (Hindi name suggestions)",
+    "other": "Other (Hindi names, voice clips)",
 }
 VENDOR_LABELS = {"sarvam": "Sarvam", "openai": "OpenAI", "livekit": "LiveKit"}
 LANGUAGE_LABELS = {"hi": "Hindi", "": "Other costs"}

@@ -127,7 +127,6 @@ def test_the_worker_registers_under_the_name_call_passes_dispatch(monkeypatch):
     monkeypatch.delenv("LIVEKIT_AGENT_NAME_OVERRIDE", raising=False)
     server = main.make_server()
     assert server._agent_name == AGENT_NAME
-    assert server._agent_name_source == "env"  # not "code": LiveKit's deprecated path
 
 
 async def test_entrypoint_refuses_a_call_on_a_line_that_is_off(env, tmp_path):

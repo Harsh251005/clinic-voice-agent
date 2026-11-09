@@ -24,6 +24,10 @@ def _sarvam(cfg: Settings) -> tts.TTS:
         target_language_code=cfg.sarvam_tts_language or "hi-IN",
         speech_sample_rate=cfg.sarvam_tts_sample_rate or 24000,
         output_audio_codec=cfg.sarvam_tts_codec or "linear16",
+        # Blank = Sarvam's own 1.0 and 0.0. Pitch is a fixed setting, applied
+        # by bulbul:v4-flash only (the plugin sends it for no other model).
+        pace=cfg.sarvam_tts_pace if cfg.sarvam_tts_pace is not None else 1.0,
+        pitch=cfg.sarvam_tts_pitch,
         # Sarvam re-cuts any text longer than this, wherever the count lands,
         # and voices each part as a new take. Ours arrive already cut at
         # sentence ends (sentences.py), so it must never cut them again.
@@ -34,6 +38,21 @@ def _sarvam(cfg: Settings) -> tts.TTS:
     # which doesn't know the Hindi full stop "।". test_providers guards this.
     voice._opts.word_tokenizer = SentenceTokenizer()
     return voice
+
+
+def identity(voice: tts.TTS) -> dict:
+    """Everything about `voice` that changes how a phrase sounds, read from the
+    built object so the builders stay the one home of the defaults: a recorded
+    clip is only reused while all of it is the same (clinic_agent/voice_clips.py)."""
+    if isinstance(voice, sarvam.TTS):
+        opts = voice._opts
+        return {
+            "vendor": "sarvam", "model": opts.model, "voice": opts.speaker,
+            "language_code": str(opts.target_language_code),
+            "sample_rate": opts.speech_sample_rate, "codec": opts.output_audio_codec,
+            "pace": opts.pace, "pitch": opts.pitch,
+        }
+    raise TypeError(f"unknown voice {type(voice).__name__}: add it to providers/tts.py identity")
 
 
 # Sarvam is the only allowed TTS vendor (the Hindi line). Don't add others.

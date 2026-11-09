@@ -107,6 +107,18 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
             words = costs.UNITS.get(unit, unit)
             return (f"Costs are incomplete: {provider} {model} has no price for {words} (used since {inc.detail}).",
                     "Add its price in Costs, Prices: the vendor's pricing page has it.", "/admin/costs/prices")
+        case "voice_clip_failed":
+            return (f"Recording a voice clip failed ({inc.detail}), {_plural(inc.count, 'time')}.",
+                    "Calls say those phrases live meanwhile. Try Record again; if it keeps failing, check the "
+                    "voice vendor's status and credits.", "/admin/voice")
+        case "phrase_translation_failing":
+            return (f"Turning a phrase into Hindi failed, {_plural(inc.count, 'time')} ({inc.detail}).",
+                    "Type the Hindi yourself on Voice & phrases, or try again. Check OPENAI_API_KEY and the API log.",
+                    "/admin/voice")
+        case "voice_clips_unread":
+            return (f"{at}A call could not read its fixed phrases ({inc.detail}), {_plural(inc.count, 'time')}.",
+                    "Those calls said the greeting, fillers and goodbyes live, in the built-in words (any edited "
+                    "wording was not used). Check the worker log and the database.", None)
         case "purge_failed":
             return ("Deleting expired transcripts failed.",
                     "Transcripts older than 30 days may still be stored: check the API log.", None)

@@ -104,3 +104,13 @@ def test_dashboard_login_defaults_to_google_and_rejects_typos(env):
 def test_admin_emails_are_a_lowercased_set(env):
     env.setenv("ADMIN_EMAILS", " Harsh@Example.com, ,owner@clinic.in ")
     assert load_settings().admin_emails == {"harsh@example.com", "owner@clinic.in"}
+
+
+@pytest.mark.parametrize(("name", "bad"), [
+    ("SARVAM_TTS_PACE", "0.4"), ("SARVAM_TTS_PACE", "2.5"),
+    ("SARVAM_TTS_PITCH", "-0.6"), ("SARVAM_TTS_PITCH", "0.75"),
+])
+def test_voice_speed_and_pitch_outside_sarvams_range_stop_startup(env, name, bad):
+    env.setenv(name, bad)
+    with pytest.raises(ConfigError, match=name):
+        load_settings()

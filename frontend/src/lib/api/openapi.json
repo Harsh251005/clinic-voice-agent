@@ -2551,6 +2551,96 @@
         "title": "Pattern",
         "type": "object"
       },
+      "PhraseIn": {
+        "properties": {
+          "source": {
+            "maxLength": 500,
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 500,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "text"
+        ],
+        "title": "PhraseIn",
+        "type": "object"
+      },
+      "PhraseOut": {
+        "properties": {
+          "clinic_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clinic Id"
+          },
+          "clinic_name": {
+            "title": "Clinic Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "greeting",
+              "filler",
+              "goodbye_fallback",
+              "goodbye_time_limit"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "language": {
+            "const": "hi",
+            "title": "Language",
+            "type": "string"
+          },
+          "slot": {
+            "title": "Slot",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "takes": {
+            "items": {
+              "$ref": "#/components/schemas/Take"
+            },
+            "title": "Takes",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "language",
+          "slot",
+          "clinic_id",
+          "clinic_name",
+          "source",
+          "text",
+          "takes"
+        ],
+        "title": "PhraseOut",
+        "type": "object"
+      },
       "PriceIn": {
         "properties": {
           "amount": {
@@ -2886,6 +2976,46 @@
         "title": "RateRow",
         "type": "object"
       },
+      "RecordIn": {
+        "properties": {
+          "takes": {
+            "items": {
+              "$ref": "#/components/schemas/TakeRef"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Takes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "takes"
+        ],
+        "title": "RecordIn",
+        "type": "object"
+      },
+      "RecordOut": {
+        "properties": {
+          "failed": {
+            "title": "Failed",
+            "type": "string"
+          },
+          "page": {
+            "$ref": "#/components/schemas/VoicePage"
+          },
+          "recorded": {
+            "title": "Recorded",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "recorded",
+          "failed",
+          "page"
+        ],
+        "title": "RecordOut",
+        "type": "object"
+      },
       "Sitting": {
         "properties": {
           "end": {
@@ -3030,6 +3160,98 @@
           "at"
         ],
         "title": "SupportView",
+        "type": "object"
+      },
+      "Take": {
+        "description": "A phrase as one clinic's calls say it (the shared greeting names each\nclinic, so it has one take per clinic; every other phrase has one).",
+        "properties": {
+          "clinic_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clinic Id"
+          },
+          "clinic_name": {
+            "title": "Clinic Name",
+            "type": "string"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          },
+          "spoken": {
+            "title": "Spoken",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clinic_id",
+          "clinic_name",
+          "spoken",
+          "key",
+          "recorded_at",
+          "duration_s"
+        ],
+        "title": "Take",
+        "type": "object"
+      },
+      "TakeRef": {
+        "properties": {
+          "clinic_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clinic Id"
+          },
+          "phrase_id": {
+            "title": "Phrase Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "phrase_id"
+        ],
+        "title": "TakeRef",
         "type": "object"
       },
       "TestCallPass": {
@@ -3368,6 +3590,44 @@
         "title": "TranscriptReason",
         "type": "object"
       },
+      "TranslateIn": {
+        "properties": {
+          "clinic_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clinic Id"
+          },
+          "english": {
+            "maxLength": 500,
+            "title": "English",
+            "type": "string"
+          }
+        },
+        "required": [
+          "english"
+        ],
+        "title": "TranslateIn",
+        "type": "object"
+      },
+      "Translated": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "Translated",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -3454,6 +3714,144 @@
           "visit"
         ],
         "title": "VisitIn",
+        "type": "object"
+      },
+      "VoiceClinic": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "own_greeting": {
+            "title": "Own Greeting",
+            "type": "boolean"
+          },
+          "spoken_name": {
+            "title": "Spoken Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "spoken_name",
+          "own_greeting"
+        ],
+        "title": "VoiceClinic",
+        "type": "object"
+      },
+      "VoiceOut": {
+        "description": "The voice calls use now: recordings are kept per voice.",
+        "properties": {
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "pace": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pace"
+          },
+          "pitch": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pitch"
+          },
+          "sample_rate": {
+            "title": "Sample Rate",
+            "type": "integer"
+          },
+          "vendor": {
+            "title": "Vendor",
+            "type": "string"
+          },
+          "voice": {
+            "title": "Voice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "model",
+          "voice",
+          "pace",
+          "pitch",
+          "sample_rate"
+        ],
+        "title": "VoiceOut",
+        "type": "object"
+      },
+      "VoicePage": {
+        "properties": {
+          "clinics": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceClinic"
+            },
+            "title": "Clinics",
+            "type": "array"
+          },
+          "max_chars": {
+            "title": "Max Chars",
+            "type": "integer"
+          },
+          "phrases": {
+            "items": {
+              "$ref": "#/components/schemas/PhraseOut"
+            },
+            "title": "Phrases",
+            "type": "array"
+          },
+          "rupees_per_1000_chars": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rupees Per 1000 Chars"
+          },
+          "voice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VoiceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "voice_problem": {
+            "title": "Voice Problem",
+            "type": "string"
+          }
+        },
+        "required": [
+          "voice",
+          "voice_problem",
+          "rupees_per_1000_chars",
+          "max_chars",
+          "phrases",
+          "clinics"
+        ],
+        "title": "VoicePage",
         "type": "object"
       },
       "Week": {
@@ -4803,6 +5201,278 @@
           }
         },
         "summary": "Admin Seen"
+      }
+    },
+    "/api/admin/voice": {
+      "get": {
+        "operationId": "voice_page_api_admin_voice_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoicePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Voice Page"
+      }
+    },
+    "/api/admin/voice/clinics/{clinic_id}/greeting": {
+      "delete": {
+        "description": "Back to the shared greeting for this clinic.",
+        "operationId": "shared_greeting_api_admin_voice_clinics__clinic_id__greeting_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoicePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Shared Greeting"
+      },
+      "put": {
+        "description": "This clinic's own greeting, in place of the shared one.",
+        "operationId": "own_greeting_api_admin_voice_clinics__clinic_id__greeting_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhraseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoicePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Own Greeting"
+      }
+    },
+    "/api/admin/voice/clips/{key}.wav": {
+      "get": {
+        "description": "A recording as WAV, for the page's Play button.",
+        "operationId": "play_api_admin_voice_clips__key__wav_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Play"
+      }
+    },
+    "/api/admin/voice/phrases/{phrase_id}": {
+      "put": {
+        "description": "New words for a phrase. Its old recording stays (for going back) but no\nlonger plays: the phrase is said live until it is recorded again.",
+        "operationId": "edit_phrase_api_admin_voice_phrases__phrase_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phrase_id",
+            "required": true,
+            "schema": {
+              "title": "Phrase Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhraseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoicePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Edit Phrase"
+      }
+    },
+    "/api/admin/voice/record": {
+      "post": {
+        "description": "Record the asked takes in the current voice, one after another (a take\nalready recorded is recorded again: a new take). Stops at the first\nfailure: a vendor out of credits would fail them all.",
+        "operationId": "record_api_admin_voice_record_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record"
+      }
+    },
+    "/api/admin/voice/translate": {
+      "post": {
+        "description": "The Hindi for the admin's English, for them to read and edit before\nsaving. Its tokens are counted on the Costs page (Other).",
+        "operationId": "translate_api_admin_voice_translate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranslateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Translated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Translate"
       }
     },
     "/api/auth/logout": {

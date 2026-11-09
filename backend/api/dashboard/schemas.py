@@ -688,3 +688,86 @@ class CostSettings(BaseModel):
     fixed: list[FixedRow]
     bills: list[BillRow]
     units: dict[str, str]  # unit -> plain words
+
+
+# ---------- voice & phrases (admin) ----------
+
+PhraseKind = Literal["greeting", "filler", "goodbye_fallback", "goodbye_time_limit"]
+
+
+class VoiceOut(BaseModel):
+    """The voice calls use now: recordings are kept per voice."""
+    vendor: str
+    model: str
+    voice: str
+    pace: float | None
+    pitch: float | None
+    sample_rate: int
+
+
+class Take(BaseModel):
+    """A phrase as one clinic's calls say it (the shared greeting names each
+    clinic, so it has one take per clinic; every other phrase has one)."""
+    clinic_id: int | None
+    clinic_name: str  # "" for a phrase every clinic shares
+    spoken: str  # the exact words said, {clinic} filled in
+    key: str | None  # its recording's name for the current voice; None without a voice
+    recorded_at: datetime | None  # None: not recorded for this voice and these words
+    duration_s: float | None
+
+
+class PhraseOut(BaseModel):
+    id: int
+    kind: PhraseKind
+    language: Literal["hi"]
+    slot: int
+    clinic_id: int | None  # a clinic's own greeting; None for the shared phrases
+    clinic_name: str
+    source: str  # the English the admin wrote
+    text: str  # the Hindi that is spoken
+    takes: list[Take]
+
+
+class VoiceClinic(BaseModel):
+    id: int
+    name: str
+    spoken_name: str
+    own_greeting: bool
+
+
+class VoicePage(BaseModel):
+    voice: VoiceOut | None
+    voice_problem: str  # why there is no voice (no key...); "" when there is one
+    rupees_per_1000_chars: float | None  # the voice's price today; None when no price is set
+    max_chars: int
+    phrases: list[PhraseOut]
+    clinics: list[VoiceClinic]
+
+
+class PhraseIn(BaseModel):
+    source: str = Field(max_length=500)
+    text: str = Field(max_length=500)
+
+
+class TranslateIn(BaseModel):
+    english: str = Field(max_length=500)
+    clinic_id: int | None = None  # spell the words this clinic already spells (its names)
+
+
+class Translated(BaseModel):
+    text: str
+
+
+class TakeRef(BaseModel):
+    phrase_id: int
+    clinic_id: int | None = None  # which clinic's take of the shared greeting
+
+
+class RecordIn(BaseModel):
+    takes: list[TakeRef] = Field(min_length=1, max_length=50)
+
+
+class RecordOut(BaseModel):
+    recorded: int
+    failed: str  # "" when every take was recorded; else why it stopped
+    page: VoicePage

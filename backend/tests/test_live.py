@@ -20,6 +20,7 @@ import pytest
 from livekit.agents import AgentSession
 from livekit.agents.utils import http_context
 
+from clinic_agent import voice_clips
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.config import VENDOR_SETTINGS, load_settings
 from clinic_agent.prompts import build_instructions
@@ -52,8 +53,11 @@ def agent(db):
     s, clinic_id = db
     # Real tool schemas; the booking evals below swap in mocks for execution,
     # so the LLM's decisions are graded without a real clock or database.
-    tools = [*booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions=None, language="hi")), end_call_tool("hi")]
-    return ClinicAgent(build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi"), tools)
+    clinic = repo.get_clinic(s, clinic_id)
+    phrases = voice_clips.load(s, clinic, ["hi"], lambda language: None)  # the fixed words, said live
+    tools = [*booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions=None, language="hi", phrases=phrases)),
+             end_call_tool("hi", phrases)]
+    return ClinicAgent(build_instructions(clinic, [], NOW, "hi"), tools, phrases)
 
 
 @pytest.fixture
@@ -66,13 +70,12 @@ async def session(agent):
 
 
 async def test_speaks_first(agent):
+    # The greeting is fixed text (voice_clips), not written by the model: nothing to judge.
     llm = build_llm(load_settings(), BRAIN)
     async with http_context.open(), AgentSession(llm=llm) as s:
         result = await s.start(agent, capture_run=True)
-        await (
-            result.expect.next_event(type="message")
-            .judge(_judge(), intent="greets the caller, names Demo Family Clinic, says it is an automated assistant, and offers help")
-        )
+        greeting = result.expect.next_event(type="message").event().item.text_content
+        assert "Demo Family Clinic" in greeting and "ऑटोमेटेड असिस्टेंट" in greeting
 
 
 @pytest.mark.parametrize(
@@ -355,3 +358,14 @@ async def test_cancel_flow_looks_up_reads_back_then_cancels(session):
         r2 = await session.run(user_input="हाँ, कैंसल कर दीजिए")
         assert [c["appointment_id"] for c in _calls(r2, "cancel_appointment")][-1:] == [7]
         assert len(_calls(r1, "cancel_appointment")) + len(_calls(r2, "cancel_appointment")) == 2
+
+
+def test_a_fixed_phrase_is_translated_feminine_with_its_placeholder():
+    # Voice clips: an admin types English, OpenAI writes the Hindi she says.
+    from clinic_agent.providers import hindi
+
+    hindi._cache.clear()
+    text = hindi.translate_phrase(load_settings(), "Hello, welcome to {clinic}. I am its automated assistant, "
+                                  "and I can help you book an appointment. How can I help you?")
+    assert text.count("{clinic}") == 1 and not re.search(r"[A-Za-z]", text.replace("{clinic}", ""))
+    assert not re.search(r"सकता|रहा हूँ|बताता|दूँगा|का असिस्टेंट", text), text  # never masculine

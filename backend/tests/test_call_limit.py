@@ -3,15 +3,18 @@
 import asyncio
 from types import SimpleNamespace
 
-from clinic_agent.call_limit import GOODBYE, end_after
+from clinic_agent.call_limit import end_after
+from clinic_agent.voice_clips import Said
+
+GOODBYE = Said("माफ़ कीजिए जी, इस कॉल का समय पूरा हो गया है।")
 
 
 class FakeSession:
     def __init__(self):
         self.replies = []
 
-    def generate_reply(self, **kwargs):
-        self.replies.append(kwargs)
+    def say(self, text, **kwargs):
+        self.replies.append((text, kwargs))
         done = asyncio.get_running_loop().create_future()
         done.set_result(None)  # the goodbye "plays out" at once
         return done
@@ -34,20 +37,21 @@ class FakeCall:
 
 async def test_goodbye_then_the_room_is_closed():
     session, call = FakeSession(), FakeCall()
-    await end_after(session, call, 0)
-    assert session.replies == [{"instructions": GOODBYE, "allow_interruptions": False}]
+    await end_after(session, call, 0, GOODBYE)
+    # the fixed goodbye: no model round, and the caller can't cut it off
+    assert session.replies == [(GOODBYE.text, {"allow_interruptions": False})]
     assert call.events == ["room deleted", "shutdown: call time limit"]
 
 
 async def test_the_call_ends_even_if_the_room_cannot_be_deleted():
     call = FakeCall(delete_fails=True)
-    await end_after(FakeSession(), call, 0)
+    await end_after(FakeSession(), call, 0, GOODBYE)
     assert call.events == ["shutdown: call time limit"]
 
 
 async def test_a_call_that_ends_first_is_left_alone():
     session, call = FakeSession(), FakeCall()
-    task = asyncio.create_task(end_after(session, call, 60))
+    task = asyncio.create_task(end_after(session, call, 60, GOODBYE))
     await asyncio.sleep(0)
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)

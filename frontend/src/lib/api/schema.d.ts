@@ -414,6 +414,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/voice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Voice Page */
+        get: operations["voice_page_api_admin_voice_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/clinics/{clinic_id}/greeting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Own Greeting
+         * @description This clinic's own greeting, in place of the shared one.
+         */
+        put: operations["own_greeting_api_admin_voice_clinics__clinic_id__greeting_put"];
+        post?: never;
+        /**
+         * Shared Greeting
+         * @description Back to the shared greeting for this clinic.
+         */
+        delete: operations["shared_greeting_api_admin_voice_clinics__clinic_id__greeting_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/clips/{key}.wav": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Play
+         * @description A recording as WAV, for the page's Play button.
+         */
+        get: operations["play_api_admin_voice_clips__key__wav_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/phrases/{phrase_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Phrase
+         * @description New words for a phrase. Its old recording stays (for going back) but no
+         *     longer plays: the phrase is said live until it is recorded again.
+         */
+        put: operations["edit_phrase_api_admin_voice_phrases__phrase_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record
+         * @description Record the asked takes in the current voice, one after another (a take
+         *     already recorded is recorded again: a new take). Stops at the first
+         *     failure: a vendor out of credits would fail them all.
+         */
+        post: operations["record_api_admin_voice_record_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/translate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Translate
+         * @description The Hindi for the admin's English, for them to read and edit before
+         *     saving. Its tokens are counted on the Costs page (Other).
+         */
+        post: operations["translate_api_admin_voice_translate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/logout": {
         parameters: {
             query?: never;
@@ -2027,6 +2152,40 @@ export interface components {
             /** Sittings */
             sittings: components["schemas"]["Sitting"][];
         };
+        /** PhraseIn */
+        PhraseIn: {
+            /** Source */
+            source: string;
+            /** Text */
+            text: string;
+        };
+        /** PhraseOut */
+        PhraseOut: {
+            /** Clinic Id */
+            clinic_id: number | null;
+            /** Clinic Name */
+            clinic_name: string;
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "greeting" | "filler" | "goodbye_fallback" | "goodbye_time_limit";
+            /**
+             * Language
+             * @constant
+             */
+            language: "hi";
+            /** Slot */
+            slot: number;
+            /** Source */
+            source: string;
+            /** Takes */
+            takes: components["schemas"]["Take"][];
+            /** Text */
+            text: string;
+        };
         /** PriceIn */
         PriceIn: {
             /** Amount */
@@ -2180,6 +2339,19 @@ export interface components {
              */
             valid_from: string;
         };
+        /** RecordIn */
+        RecordIn: {
+            /** Takes */
+            takes: components["schemas"]["TakeRef"][];
+        };
+        /** RecordOut */
+        RecordOut: {
+            /** Failed */
+            failed: string;
+            page: components["schemas"]["VoicePage"];
+            /** Recorded */
+            recorded: number;
+        };
         /** Sitting */
         Sitting: {
             /**
@@ -2259,6 +2431,32 @@ export interface components {
             at: string;
             /** Reason */
             reason: string;
+        };
+        /**
+         * Take
+         * @description A phrase as one clinic's calls say it (the shared greeting names each
+         *     clinic, so it has one take per clinic; every other phrase has one).
+         */
+        Take: {
+            /** Clinic Id */
+            clinic_id: number | null;
+            /** Clinic Name */
+            clinic_name: string;
+            /** Duration S */
+            duration_s: number | null;
+            /** Key */
+            key: string | null;
+            /** Recorded At */
+            recorded_at: string | null;
+            /** Spoken */
+            spoken: string;
+        };
+        /** TakeRef */
+        TakeRef: {
+            /** Clinic Id */
+            clinic_id?: number | null;
+            /** Phrase Id */
+            phrase_id: number;
         };
         /**
          * TestCallPass
@@ -2402,6 +2600,18 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** TranslateIn */
+        TranslateIn: {
+            /** Clinic Id */
+            clinic_id?: number | null;
+            /** English */
+            english: string;
+        };
+        /** Translated */
+        Translated: {
+            /** Text */
+            text: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -2428,6 +2638,49 @@ export interface components {
         VisitIn: {
             /** Visit */
             visit: ("arrived" | "done" | "no_show") | null;
+        };
+        /** VoiceClinic */
+        VoiceClinic: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Own Greeting */
+            own_greeting: boolean;
+            /** Spoken Name */
+            spoken_name: string;
+        };
+        /**
+         * VoiceOut
+         * @description The voice calls use now: recordings are kept per voice.
+         */
+        VoiceOut: {
+            /** Model */
+            model: string;
+            /** Pace */
+            pace: number | null;
+            /** Pitch */
+            pitch: number | null;
+            /** Sample Rate */
+            sample_rate: number;
+            /** Vendor */
+            vendor: string;
+            /** Voice */
+            voice: string;
+        };
+        /** VoicePage */
+        VoicePage: {
+            /** Clinics */
+            clinics: components["schemas"]["VoiceClinic"][];
+            /** Max Chars */
+            max_chars: number;
+            /** Phrases */
+            phrases: components["schemas"]["PhraseOut"][];
+            /** Rupees Per 1000 Chars */
+            rupees_per_1000_chars: number | null;
+            voice: components["schemas"]["VoiceOut"] | null;
+            /** Voice Problem */
+            voice_problem: string;
         };
         /** Week */
         Week: {
@@ -3388,6 +3641,224 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    voice_page_api_admin_voice_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoicePage"];
+                };
+            };
+        };
+    };
+    own_greeting_api_admin_voice_clinics__clinic_id__greeting_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhraseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoicePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    shared_greeting_api_admin_voice_clinics__clinic_id__greeting_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoicePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    play_api_admin_voice_clips__key__wav_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_phrase_api_admin_voice_phrases__phrase_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                phrase_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhraseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoicePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_api_admin_voice_record_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    translate_api_admin_voice_translate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TranslateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Translated"];
                 };
             };
             /** @description Validation Error */

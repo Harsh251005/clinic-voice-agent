@@ -50,6 +50,12 @@ KINDS = {
     "purge_failed": Kind("warning", clinic_sees=False, quiet_minutes=24 * 60),
     "hindi_names_failing": Kind("warning", clinic_sees=False, quiet_minutes=60),
     "price_missing": Kind("warning", clinic_sees=False),
+    # An admin's Record click failed; calls say the phrase live meanwhile.
+    "voice_clip_failed": Kind("warning", clinic_sees=False, quiet_minutes=24 * 60),
+    # The admin's English phrase could not be turned into Hindi (OpenAI).
+    "phrase_translation_failing": Kind("warning", clinic_sees=False, quiet_minutes=60),
+    # A call could not read its phrases or recordings; it said them all live.
+    "voice_clips_unread": Kind("warning", clinic_sees=False, quiet_minutes=60),
 }
 
 def clinic_sees(kind: str) -> bool:

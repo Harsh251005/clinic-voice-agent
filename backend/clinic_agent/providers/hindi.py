@@ -1,6 +1,7 @@
-"""Names in Hindi: how the Hindi line should say a clinic's or doctor's name,
-suggested from the English one (Harsh, 2026-10-12: typing Devanagari by hand
-is a hassle). Staff see the suggestion in the settings box and can change it.
+"""Hindi from English, so nobody types Devanagari (Harsh, 2026-10-12 and
+2026-10-27): how the Hindi line should say a clinic's or doctor's name
+(`suggest`), and the receptionist's fixed phrases (`translate_phrase`: the
+greeting, "one moment" lines, goodbyes). Staff see the Hindi and can change it.
 
 One short text request to OpenAI (an allowed LLM vendor; no speech, no
 Sarvam credits), a fast model since staff wait on it while typing.
@@ -33,7 +34,20 @@ INSTRUCTIONS = (
     "their usual Hindi spelling (Mehta -> मेहता). Reply with only the Devanagari name."
 )
 
+PHRASE_INSTRUCTIONS = (
+    "You turn a clinic phone receptionist's English line into the Hindi she says aloud. She is a "
+    "woman: every word about herself is feminine (मैं देखती हूँ, बताती हूँ, कर सकती हूँ, असिस्टेंट हूँ), "
+    "never masculine. She speaks to the caller with the respectful आप and जी, never assuming their "
+    "gender. Everyday spoken Hindi of a city clinic, never bookish: ज़रा not कृपया, खाली not उपलब्ध. "
+    "Keep the English words people say every day, written in Devanagari (अपॉइंटमेंट, क्लिनिक, "
+    "ऑटोमेटेड असिस्टेंट, टेक्स्ट). Write numbers as Hindi words. Use only । ? and , as punctuation. "
+    "Keep every {placeholder} such as {clinic} exactly as written, in English letters. "
+    "Write everything else in Devanagari. Reply with only the Hindi line."
+)
+PHRASE_TOKENS = 400  # a 500-character English line comes back well under this
+
 _DEVANAGARI = re.compile(r"[ऀ-ॿ]")
+_PLACEHOLDER = re.compile(r"\{[a-z_]+\}")
 
 
 class NoSuggestion(RuntimeError):
@@ -53,34 +67,73 @@ def suggest(cfg: Settings, name: str, known: Mapping[str, str] | None = None, on
     words = {w.lower() for w in re.findall(r"[A-Za-z]+", name)}
     used = tuple(sorted((k, v) for k, v in (known or {}).items() if k.lower() in words))
     key = (require_key(cfg.openai_api_key, "OPENAI_API_KEY"), name, used)
+    asked = _with_spellings(name, used)
+    return _cached(key, lambda: _name_or_none(_ask(key[0], INSTRUCTIONS, asked, 80, on_usage)))
+
+
+def translate_phrase(cfg: Settings, english: str, known: Mapping[str, str] | None = None,
+                     on_usage: OnUsage | None = None) -> str:
+    """A fixed phrase the receptionist says (greeting, "one moment", goodbye),
+    from the English an admin typed into the Hindi she speaks. Placeholders
+    such as {clinic} come back unchanged. `known`: the clinic's own Hindi
+    spellings of words in it. Raises like `suggest`."""
+    english = " ".join(english.split())
+    if not english:
+        return ""
+    words = {w.lower() for w in re.findall(r"[A-Za-z]+", _PLACEHOLDER.sub("", english))}
+    used = tuple(sorted((k, v) for k, v in (known or {}).items() if k.lower() in words))
+    key = (require_key(cfg.openai_api_key, "OPENAI_API_KEY"), "phrase", english, used)
+    asked = _with_spellings(english, used)
+    return _cached(key, lambda: _phrase_or_none(english, _ask(key[0], PHRASE_INSTRUCTIONS, asked, PHRASE_TOKENS, on_usage)))
+
+
+def _with_spellings(text: str, used: tuple[tuple[str, str], ...]) -> str:
+    if not used:
+        return text
+    return text + "\nSpell these words exactly as the clinic already does: " + "; ".join(f"{w} = {h}" for w, h in used)
+
+
+def _cached(key: tuple, make: Callable[[], str]) -> str:
+    """The same question always gets the same answer, and costs once."""
     if key in _cache:
         _cache.move_to_end(key)
         return _cache[key]
-    text = _suggest(*key, on_usage)
+    text = make()
     _cache[key] = text
     if len(_cache) > CACHE_SIZE:
         _cache.popitem(last=False)
     return text
 
 
-def _suggest(api_key: str, name: str, known: tuple[tuple[str, str], ...], on_usage: OnUsage | None) -> str:
-    asked = name if not known else (
-        name + "\nSpell these words exactly as the clinic already does: "
-        + "; ".join(f"{word} = {hindi_word}" for word, hindi_word in known)
-    )
+def _ask(api_key: str, instructions: str, asked: str, max_tokens: int, on_usage: OnUsage | None) -> str:
+    """One request to OpenAI; its answer on one line, quotes trimmed."""
     try:
         reply = openai.OpenAI(api_key=api_key, timeout=TIMEOUT, max_retries=1).chat.completions.create(
-            model=MODEL, temperature=0, max_tokens=80,
-            messages=[{"role": "system", "content": INSTRUCTIONS}, {"role": "user", "content": asked}],
+            model=MODEL, temperature=0, max_tokens=max_tokens,
+            messages=[{"role": "system", "content": instructions}, {"role": "user", "content": asked}],
         )
     except openai.OpenAIError as err:
         raise NoSuggestion(type(err).__name__) from None
     if on_usage is not None and (used := getattr(reply, "usage", None)) is not None:
         details = getattr(used, "prompt_tokens_details", None)
         on_usage(MODEL, used.prompt_tokens, (getattr(details, "cached_tokens", 0) or 0), used.completion_tokens)
-    text = " ".join((reply.choices[0].message.content or "").strip().strip('"\'`').split())
+    return " ".join((reply.choices[0].message.content or "").strip().strip('"\'`').split())
+
+
+def _name_or_none(text: str) -> str:
     if not _DEVANAGARI.search(text) or re.search(r"[A-Za-z]", text) or len(text) > 200:
         raise NoSuggestion("not a Devanagari name")
+    return text
+
+
+def _phrase_or_none(english: str, text: str) -> str:
+    """Devanagari with the same placeholders as the English, and no other
+    English letters: the voice reads Roman letters with English spelling rules."""
+    if sorted(_PLACEHOLDER.findall(text)) != sorted(_PLACEHOLDER.findall(english)):
+        raise NoSuggestion("placeholders changed")
+    rest = _PLACEHOLDER.sub("", text)
+    if not _DEVANAGARI.search(rest) or re.search(r"[A-Za-z]", rest) or len(text) > 500:
+        raise NoSuggestion("not a Devanagari phrase")
     return text
 
 
