@@ -151,13 +151,13 @@ def test_elevenlabs_and_the_english_line_leave_no_trace(tmp_path):
     from datetime import date
 
     from alembic import command
-    from sqlalchemy import func, select
+    from sqlalchemy import func, select, text
 
     from clinic_agent.store import models as m
 
     engine = make_engine(f"sqlite:///{tmp_path}/old.db")
     with engine.begin() as conn:
-        command.upgrade(migrations._config(conn), "0012")  # 0013 changes no schema: today's models fit
+        command.upgrade(migrations._config(conn), "0012")  # 0013 changes no schema: today's models fit (bar incidents, below)
     now = utc_now()
     with session_factory(engine)() as s:
         clinic = m.Clinic(name="Cure", slug="cure")
@@ -197,12 +197,14 @@ def test_elevenlabs_and_the_english_line_leave_no_trace(tmp_path):
             m.Usage(at=now, language="en", source="call", part="speaking", provider="elevenlabs",
                     model="eleven_v3", unit="characters", quantity=9),  # its call already deleted
             m.FixedCost(name="Starter", provider="elevenlabs", amount=5, currency="USD", valid_from=date(2026, 10, 1)),
-            m.Incident(key="a", kind="vendor_errors", subject="ElevenLabs/eleven_v3", severity="warning",
-                       opened_at=now, last_seen_at=now),
-            m.Incident(key="b", kind="language_off", subject="en", severity="warning", opened_at=now, last_seen_at=now),
-            m.Incident(key="c", kind="language_off", subject="hi", severity="critical", opened_at=now, last_seen_at=now),
             m.WorkerHeartbeat(worker="AW_1", host="h", languages="en,hi", started_at=now, last_seen=now),
         ])
+        # Written as 0012 had them: resolved_how (0015) did not exist yet.
+        for key, kind, subject, severity in [("a", "vendor_errors", "ElevenLabs/eleven_v3", "warning"),
+                                             ("b", "language_off", "en", "warning"), ("c", "language_off", "hi", "critical")]:
+            s.execute(text("INSERT INTO incidents (key, kind, subject, clinic_id, severity, detail, count, opened_at, last_seen_at)"
+                           " VALUES (:key, :kind, :subject, NULL, :severity, '', 1, :now, :now)"),
+                      {"key": key, "kind": kind, "subject": subject, "severity": severity, "now": now.isoformat(" ")})
         s.commit()
 
     migrations.upgrade(engine)

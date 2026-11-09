@@ -12,7 +12,7 @@ import hashlib
 import logging
 import random
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 
 from livekit import rtc
 from livekit.agents import tts as lk_tts
@@ -58,6 +58,9 @@ class Said:
     text: str
     pcm: bytes | None = None
     sample_rate: int = 0
+    kind: str = field(default="", compare=False)  # greeting, filler, goodbye_fallback, goodbye_time_limit
+    # Told the kind when its recording plays (the call's trace notes it: no voice cost).
+    heard: Callable[[str], None] | None = field(default=None, compare=False, repr=False)
 
 
 class Phrasebook:
@@ -68,16 +71,17 @@ class Phrasebook:
         self._said = said or {}
         self._clinic = clinic_name
         self._last: dict[str, Said] = {}
+        self.on_play: Callable[[str], None] | None = None  # told each time a recording plays
 
     def one(self, kind: str, language: str) -> Said:
         """The phrase of `kind` in `language`; a set of fillers gives one at
         random, never the one said last. A kind the database lacks is said
         live in its built-in words."""
         options = self._said.get((kind, language)) or [
-            Said(t.replace("{clinic}", self._clinic)) for t in BUILT_IN[(kind, language)]]
+            Said(t.replace("{clinic}", self._clinic), kind=kind) for t in BUILT_IN[(kind, language)]]
         fresh = [o for o in options if o != self._last.get(kind + language)] or options
         self._last[kind + language] = choice = random.choice(fresh)
-        return choice
+        return replace(choice, heard=self.on_play) if self.on_play else choice
 
 
 def load(s: Session, clinic, languages: Iterable[str], voice_of: Callable[[str], dict | None]) -> Phrasebook:
@@ -95,7 +99,7 @@ def load(s: Session, clinic, languages: Iterable[str], voice_of: Callable[[str],
         for row, text in zip(rows, texts):
             clip = clips.get(clip_key(voice, text)) if voice else None
             said.setdefault((row.kind, language), []).append(
-                Said(text, clip.pcm, clip.sample_rate) if clip and _playable(clip) else Said(text))
+                Said(text, clip.pcm, clip.sample_rate, kind=row.kind) if clip and _playable(clip) else Said(text, kind=row.kind))
     return Phrasebook(said, name)
 
 
@@ -122,7 +126,9 @@ def for_call(sessions: Sessions, clinic, language: str, voice: lk_tts.TTS | None
     the phrases are said live in their built-in words, and the admin is told."""
     try:
         with sessions() as s:
-            return load(s, clinic, [language], lambda _: voice_identity(voice) if voice is not None else None)
+            book = load(s, clinic, [language], lambda _: voice_identity(voice) if voice is not None else None)
+            incidents.clear(s, "voice_clips_unread", utc_now(), clinic_id=clinic.id)  # read fine: closes as fixed
+            return book
     except Exception as err:  # noqa: BLE001 - the call goes on with live speech
         logger.exception("could not load the voice clips; saying every phrase live")
         try:
@@ -138,6 +144,11 @@ def say(session, said: Said, **kwargs):
     else the voice says the words live. Either way the words are what the
     transcript and the model see. Returns LiveKit's SpeechHandle."""
     if said.pcm:
+        if said.heard:
+            try:
+                said.heard(said.kind)
+            except Exception:  # noqa: BLE001 - noting it must never stop the line
+                logger.exception("could not note a played recording")
         return session.say(said.text, audio=_frames(said), **kwargs)
     return session.say(said.text, **kwargs)
 

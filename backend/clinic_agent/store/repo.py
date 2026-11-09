@@ -762,6 +762,14 @@ def usage_between(s: Session, start: datetime, end: datetime) -> list[Usage]:
     return list(s.scalars(select(Usage).where(Usage.at >= start, Usage.at < end).order_by(Usage.at, Usage.id)))
 
 
+def usage_kinds(s: Session) -> list[tuple[str, str, str, datetime, datetime]]:
+    """Every (vendor, model, unit) usage was ever counted in, with its first
+    and last use: what a price must name to cover it."""
+    rows = s.execute(select(Usage.provider, Usage.model, Usage.unit, func.min(Usage.at), func.max(Usage.at))
+                     .group_by(Usage.provider, Usage.model, Usage.unit).order_by(Usage.provider, Usage.model, Usage.unit))
+    return [tuple(r) for r in rows]
+
+
 def usage_for_calls(s: Session, call_ids: Iterable[int]) -> list[Usage]:
     ids = list(call_ids)
     if not ids:
@@ -920,10 +928,12 @@ def open_incidents(s: Session) -> list[Incident]:
     return list(s.scalars(select(Incident).where(Incident.resolved_at.is_(None))))
 
 
-def resolve_incident(s: Session, incident_id: int, now: datetime) -> None:
+def resolve_incident(s: Session, incident_id: int, now: datetime, how: str = "fixed") -> None:
+    """Close it: "fixed" (proof it works again) or "quiet" (nothing new for a
+    while, and nothing retried it)."""
     row = _get(s, Incident, incident_id)
     if row.resolved_at is None:
-        row.resolved_at = now
+        row.resolved_at, row.resolved_how = now, how
         s.commit()
 
 
@@ -949,6 +959,12 @@ def delete_old_incidents(s: Session, before: datetime) -> int:
     n = s.execute(delete(Incident).where(Incident.resolved_at < before)).rowcount
     s.commit()
     return n
+
+
+def calls_started_since(s: Session, since: datetime) -> list[Call]:
+    """Every call started since then, console and staff tests included: any
+    of them can show a vendor working again."""
+    return list(s.scalars(select(Call).where(Call.started_at >= since)))
 
 
 def patient_calls_since(s: Session, since: datetime, *, with_tests: bool = False) -> list[Call]:

@@ -289,7 +289,14 @@ Hindi-name suggestions are counted too, as *other costs*.
   dollar-to-rupee rate (set by hand to what your card is charged, dated),
   free monthly allowances (LiveKit minutes: the LiveKit-minutes problem uses
   this allowance), monthly fees (plan subscriptions) and each month's real
-  bills.
+  bills. **A price must match how calls are counted**: Sarvam in seconds
+  heard, characters or tokens, OpenAI in tokens, LiveKit in call minutes
+  (`costs.COUNTED_IN`); the form offers only those units, the API refuses
+  others, and the model box suggests the names calls actually used. A row
+  that can never match says so in amber; one priced ahead of use says "No
+  call has used this model yet". A "price missing" problem's **Open** goes
+  straight to the Add form, filled in (vendor, model, unit, first day used):
+  only the amount is left to type.
 - Starts with the official prices as checked on 2026-10-13 (migration
   0012). Migration 0013 (Hindi only, 2026-11-08) then deletes everything
   ElevenLabs and the English line left behind: their prices and allowance,
@@ -308,26 +315,36 @@ Hindi-name suggestions are counted too, as *other costs*.
 
 Nothing is only in a log. `clinic_agent/incidents.py` decides what counts
 and `api/dashboard/problems.py` words it twice: plain words and what to do
-for the clinic, technical detail for the operator.
+for the clinic, technical detail for the operator. **A problem closes on
+proof that it's fixed** (Harsh, 2026-11-09), never because someone clicked:
+the same thing working again closes it. Only what nothing retries closes
+after a quiet spell, and the bell's history says so ("Last happened 3:12 PM,
+not tried again since") instead of "fixed".
 
 | Problem | Opens when | Clinic sees | Closes when |
 |---|---|---|---|
 | Receptionist offline (urgent) | no worker has checked in for 90 s | yes | a worker checks in |
 | Hindi line off (urgent) | the live worker can't answer Hindi (a key missing): no calls at all | yes | it checks in able to |
-| A vendor failing | 3+ errors from one vendor in 15 minutes | no | it drops below that |
-| Calls failing | 2+ failed or dropped patient calls in an hour | yes | an hour without |
-| Patients couldn't get through | the call page reports it (by reason) | yes | 2 hours without a report |
-| Server error | an unhandled API error (route and error type only) | no | 15 quiet minutes |
+| A vendor failing | 3+ errors from one vendor in 15 minutes; the operator reads what the error means and what to do (401/403 key rejected, 402 out of credits, 429 rate limited, 5xx the vendor's outage, timeout, unreachable) and which part (hearing, thinking, voice) | yes, in plain words ("trouble speaking to callers"), no vendor names; it can't be put away | a later call shows it working (it heard, replied or spoke with no error from it; a staff test call counts) |
+| Calls failing | 2+ failed or dropped patient calls in an hour, with their times in the clinic's time ("1:12 PM and 1:20 PM") | yes | the clinic's next call ends well (a staff test call counts), or an hour without |
+| Patients couldn't get through | the call page reports it (by reason) | yes | a call connects at that clinic, or 2 quiet hours |
+| Server error | an unhandled API error (route and error type only) | no | that same page answers without an error, or 15 quiet minutes |
 | Callers can't book | no active doctor, or one without weekly hours | yes | it's fixed |
 | Clinic paused | paused in the admin panel | yes | turned back on |
 | Bookings need a call | upcoming bookings flagged (leave, holiday...) | yes | none left |
 | LiveKit minutes | 80% (urgent at 95%) of the monthly allowance (Prices page; 1,000 by default) | no | next month |
-| Price missing | a call in the last 35 days used a model with no price that day, or a dollar price with no rate | no | the price or rate is added |
+| Price missing | a call in the last 35 days used a model with no price that day, or a dollar price with no rate; Open fills in the missing price | no | the price or rate is added (at once: the save re-checks) |
 | Expired transcripts not deleted | the purge fails | no | the next purge works |
 | Recording a voice clip failed | an admin's Record fails (vendor error, timeout) | no | a recording works, or a quiet day |
+| Hindi name suggestions failing | a name's Hindi suggestion fails (OpenAI) | no | the next suggestion works, or a quiet hour |
 | Phrase translation failing | Suggest Hindi fails (OpenAI) | no | a suggestion works, or a quiet hour |
-| Fixed phrases unreadable | a call can't read its phrases: it says the built-in words live | no | a quiet hour |
+| Fixed phrases unreadable | a call can't read its phrases: it says the built-in words live | no | the clinic's next call reads them, or a quiet hour |
 
+- **A fix made in the dashboard shows at once.** Every change the API
+  accepts (adding a price, setting hours, adding or turning on a doctor,
+  resuming a clinic...) re-checks problems before it answers, and the
+  dashboard asks for them again right after: the problem is gone (or
+  there) within about a second, not at the next half-minute check.
 - **The worker checks in** every 30 s (`clinic_agent/heartbeat.py`), from
   the moment LiveKit registers it (connected and ready for calls). Console
   doesn't. The API re-checks every condition every 30 s.
@@ -632,7 +649,11 @@ write the same tables through `store/repo.py`.
   made only when an admin asks (admin page: coming). If the phrases can't
   be read at all, the call says them live in their built-in words and the
   admin sees a "could not read its fixed phrases" problem. The model's own
-  goodbye is always live.
+  goodbye is always live. **A line played from its recording costs
+  nothing:** the voice isn't asked, so LiveKit counts no characters for it
+  and Costs never charges it; the call's trace lists it as a step ("Greeting,
+  from its recording") and its cost box as "Played from recordings, ₹0".
+  Only making a recording (Record) is charged, once, under Other costs.
 - **The voice gets whole sentences.** The reply streams from the model a few
   words at a time; Sarvam voices each piece it is handed as one take, so a
   piece cut mid-sentence changed the tone halfway through. LiveKit's own

@@ -4,7 +4,8 @@
 // API; speech and call-minute prices are a row each. Dated: a new price
 // applies from its day on, so past calls keep what they cost.
 import { useState } from "react";
-import { CalendarPlus } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CalendarPlus, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { money, perText, useCostRow, useModelPrices, VENDORS } from "@/lib/costs";
 import type { Schemas } from "@/lib/api/client";
@@ -12,6 +13,7 @@ import { RemoveDialog, RowButtons, SectionShell } from "./cost-section";
 import { day, RowForm, today, type Field, type Units, type Values } from "./row-form";
 
 type PriceRow = Schemas["PriceRow"];
+type Used = Schemas["UsedKind"];
 const TOKENS = ["tokens_in", "tokens_cached", "tokens_out"] as const;
 type TokenUnit = (typeof TOKENS)[number];
 const MODEL = "model"; // the form's "Charged for" choice that means a language model's tokens
@@ -48,10 +50,63 @@ function items(rows: PriceRow[]): Item[] {
   return out.sort((a, b) => a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name) || from(a).localeCompare(from(b)));
 }
 
-const COMMON: Field[] = [
-  { name: "provider", label: "Vendor", kind: "vendor" },
-  { name: "model", label: "Model", kind: "text", optional: true, hint: "Exactly as the call's vendors show it, e.g. gpt-4.1-mini. Blank: any model." },
-];
+/** How a price meets the calls: "covers" some; "unused" (right unit, but no call
+ *  used that model yet: priced ahead, say); "never" (the vendor is never
+ *  counted in that unit, so it can't price anything: a wrong unit). */
+function fit(used: Used[], countedIn: Record<string, string[]>, provider: string, model: string,
+  units: readonly string[]): "covers" | "unused" | "never" {
+  if (!units.some((u) => countedIn[provider]?.includes(u))) return "never";
+  const mine = used.filter((u) => u.provider === provider && units.includes(u.unit));
+  return mine.some((u) => model === "" || u.model === model) ? "covers" : "unused";
+}
+
+/** "seconds heard, characters spoken or tokens": the units a vendor's calls are counted in. */
+function unitsOf(countedIn: Record<string, string[]>, provider: string, units: Units) {
+  const words = [...new Set((countedIn[provider] ?? []).map((u) => (isToken(u) ? "tokens" : units[u] ?? u)))];
+  return words.length > 1 ? `${words.slice(0, -1).join(", ")} or ${words.at(-1)}` : words[0] ?? "nothing yet";
+}
+
+/** "saaras:v3 (seconds heard) · bulbul:v4-flash (characters)": what calls count this vendor as. */
+function countedAs(used: Used[], provider: string, units: Units) {
+  const named = new Map<string, Set<string>>();
+  for (const u of used.filter((x) => x.provider === provider)) {
+    const unit = isToken(u.unit) ? "tokens" : units[u.unit] ?? u.unit;
+    named.set(u.model || "(no model)", (named.get(u.model || "(no model)") ?? new Set()).add(unit));
+  }
+  return [...named].map(([m, us]) => `${m} (${[...us].join(", ")})`).join(" · ");
+}
+
+function common(used: Used[], units: Units) {
+  return (v: Values): Field[] => {
+    const provider = String(v.provider ?? "");
+    const seen = countedAs(used, provider, units);
+    return [
+      { name: "provider", label: "Vendor", kind: "vendor" },
+      {
+        name: "model", label: "Model", kind: "text", optional: true,
+        suggest: [...new Set(used.filter((u) => u.provider === provider).map((u) => u.model).filter(Boolean))],
+        hint: seen
+          ? `Calls count ${VENDORS[provider] ?? provider} as: ${seen}. Name one of these exactly, or leave blank for any model.`
+          : "Exactly as the call's vendors show it, e.g. gpt-4.1-mini. Blank: any model.",
+      },
+    ];
+  };
+}
+
+/** The Add form a problem's Open link asks for: ?add=vendor/model/unit&from=YYYY-MM-DD. */
+function askedFor(add: string | null, from: string | null): Values | null {
+  if (!add) return null;
+  const [provider, model = "", unit = ""] = add.split("/");
+  if (!provider || !unit) return null;
+  const tokens = isToken(unit);
+  return {
+    provider, model: model === "*" ? "" : model, unit: tokens ? MODEL : unit,
+    currency: provider === "sarvam" ? "INR" : "USD", amount: 0,
+    per: unit === "characters" && provider === "sarvam" ? 10_000 : unit === "seconds_heard" ? 3600 : unit === "minutes" ? 1 : 1000,
+    valid_from: from && /^\d{4}-\d{2}-\d{2}$/.test(from) ? from : today(), note: "",
+    ...(tokens ? { tokens_in: "", tokens_cached: "", tokens_out: "" } : {}),
+  };
+}
 const MODEL_FIELDS: Field[] = [
   { name: "currency", label: "Currency", kind: "currency" },
   ...TOKENS.map((u): Field => ({ name: u, label: `${TOKEN_SHORT[u]} per 1M tokens`, kind: "number" })),
@@ -69,17 +124,36 @@ const UNIT_FIELD: Field = { name: "unit", label: "Charged for", kind: "unit" };
 
 type Editing = { title: string; body: Values; id?: number; replace?: number[]; fixedKind?: boolean };
 
-export function PriceSection({ rows, units }: { rows: PriceRow[]; units: Units }) {
+export function PriceSection({ rows, units, used, countedIn }: {
+  rows: PriceRow[]; units: Units; used: Used[]; countedIn: Record<string, string[]>;
+}) {
   const one = useCostRow("prices");
   const model = useModelPrices();
-  const [editing, setEditing] = useState<Editing | null>(null);
+  const search = useSearchParams();
+  const router = useRouter();
+  // Opened from a "price missing" problem: its Add form, already filled in.
+  const [editing, setEditingState] = useState<Editing | null>(() => {
+    const body = askedFor(search.get("add"), search.get("from"));
+    return body ? { title: "Add the missing price", body } : null;
+  });
+  const setEditing = (e: Editing | null) => {
+    if (!e && search.get("add")) router.replace("/admin/costs/prices", { scroll: false });
+    setEditingState(e);
+  };
   const [deleting, setDeleting] = useState<Item | null>(null);
 
   // Speech and minutes keep their own units; the three token units become one choice.
   const choices: Units = { [MODEL]: "Language model: input, cached and output tokens" };
   for (const [u, label] of Object.entries(units)) if (!isToken(u)) choices[u] = label;
+  // Only the units this vendor's calls are counted in: a price in another could never match a call.
+  const unitField = (provider: string): Field => ({
+    ...UNIT_FIELD,
+    options: Object.fromEntries(Object.entries(choices).filter(([u]) =>
+      u === MODEL ? TOKENS.some((t) => countedIn[provider]?.includes(t)) : countedIn[provider]?.includes(u))),
+  });
   const fields = (fixedKind?: boolean) => (v: Values) =>
-    [...COMMON, ...(fixedKind ? [] : [UNIT_FIELD]), ...(v.unit === MODEL ? MODEL_FIELDS : ONE_FIELDS)];
+    [...common(used, units)(v), ...(fixedKind ? [] : [unitField(String(v.provider ?? ""))]),
+      ...(v.unit === MODEL ? MODEL_FIELDS : ONE_FIELDS)];
 
   const bodyOf = (i: Item, valid_from?: string): Values =>
     i.kind === "one"
@@ -144,6 +218,21 @@ export function PriceSection({ rows, units }: { rows: PriceRow[]; units: Units }
                       <span className="text-muted-foreground">per million tokens, from {day(i.valid_from)}</span>
                     </span>
                   )}
+                  {(() => {
+                    const how = fit(used, countedIn, i.provider, i.name, i.kind === "one" ? [i.row.unit] : TOKENS);
+                    if (how === "covers") return null;
+                    if (how === "unused") return <p className="text-xs text-muted-foreground">No call has used this model yet.</p>;
+                    return (
+                      <p className="mt-0.5 flex items-start gap-1.5 text-xs text-warning-foreground dark:text-warning">
+                        <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
+                        <span>
+                          Can&apos;t price any call: {VENDORS[i.provider] ?? i.provider} calls are never counted
+                          in {i.kind === "one" ? units[i.row.unit] ?? i.row.unit : "tokens"}, only in {unitsOf(countedIn, i.provider, units)}.
+                          {countedAs(used, i.provider, units) && <> Calls so far: {countedAs(used, i.provider, units)}.</>}
+                        </span>
+                      </p>
+                    );
+                  })()}
                   {(i.kind === "one" ? i.row.note : i.note) && (
                     <p className="text-xs text-muted-foreground">{i.kind === "one" ? i.row.note : i.note}</p>
                   )}

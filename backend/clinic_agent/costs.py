@@ -24,6 +24,17 @@ UNITS = {  # unit -> how the admin panel says it
     "characters": "characters spoken",
     "minutes": "call minutes",
 }
+TOKENS = ("tokens_in", "tokens_cached", "tokens_out")
+VENDOR_NAMES = {"sarvam": "Sarvam", "openai": "OpenAI", "livekit": "LiveKit"}
+# What calls count each vendor in (call_record.py): hearing in seconds heard,
+# the voice in characters, a language model in tokens, the call line in minutes.
+# A price in any other unit can never match a call. test_costs keeps this in
+# step with the registered vendors.
+COUNTED_IN = {
+    "sarvam": ("seconds_heard", "characters", *TOKENS),  # hearing, voice and a language model
+    "openai": TOKENS,  # a language model (and Hindi suggestions)
+    "livekit": ("minutes",),  # the call line
+}
 SINGULAR = {"seconds_heard": "second heard", "characters": "character spoken", "minutes": "call minute"}
 
 

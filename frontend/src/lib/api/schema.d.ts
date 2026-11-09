@@ -1755,6 +1755,10 @@ export interface components {
             allowances: components["schemas"]["AllowanceRow"][];
             /** Bills */
             bills: components["schemas"]["BillRow"][];
+            /** Counted In */
+            counted_in: {
+                [key: string]: string[];
+            };
             /** Fixed */
             fixed: components["schemas"]["FixedRow"][];
             /** Prices */
@@ -1765,6 +1769,8 @@ export interface components {
             units: {
                 [key: string]: string;
             };
+            /** Used */
+            used: components["schemas"]["UsedKind"][];
         };
         /** CostSlice */
         CostSlice: {
@@ -2266,6 +2272,8 @@ export interface components {
         Problem: {
             /** Action */
             action: string;
+            /** Can Mark Seen */
+            can_mark_seen: boolean;
             /** Clinic Id */
             clinic_id: number | null;
             /** Clinic Name */
@@ -2285,6 +2293,11 @@ export interface components {
             link: string | null;
             /** Resolved At */
             resolved_at: string | null;
+            /**
+             * Resolved How
+             * @enum {string}
+             */
+            resolved_how: "" | "fixed" | "quiet";
             /** Seen */
             seen: boolean;
             /**
@@ -2611,6 +2624,29 @@ export interface components {
         Translated: {
             /** Text */
             text: string;
+        };
+        /**
+         * UsedKind
+         * @description What calls were counted in: a price must name this vendor, model and unit
+         *     (or leave the model blank) to cover them.
+         */
+        UsedKind: {
+            /**
+             * First Used
+             * Format: date
+             */
+            first_used: string;
+            /**
+             * Last Used
+             * Format: date
+             */
+            last_used: string;
+            /** Model */
+            model: string;
+            /** Provider */
+            provider: string;
+            /** Unit */
+            unit: string;
         };
         /** ValidationError */
         ValidationError: {

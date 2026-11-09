@@ -20,6 +20,8 @@ test("a call's trace has every step and none of the words", async ({ page }) => 
   await expect(page.getByText("check_booking")).toBeVisible();
   await expect(page.getByText("book_appointment")).toBeVisible();
   await expect(page.getByText(/Appointment #\d+ booked/)).toBeVisible();
+  await expect(page.getByText("Greeting, from its recording")).toBeVisible();  // a step, by kind only
+  await expect(page.getByText("Played from recordings")).toBeVisible();  // in the cost box, at ₹0
   await expect(page.getByText("कल सुबह डॉक्टर आशा का टाइम है?")).toHaveCount(0);
 });
 
@@ -50,9 +52,13 @@ test("a clinic can be paused, which closes its call link, and resumed", async ({
   await expect(page.getByRole("button", { name: "Delete clinic" })).toBeDisabled();
   await answers.click();
   await expect(page.getByText("Paused").first()).toBeVisible();
+  // The save re-checks problems: the alert is there at once, not at the next half-minute refresh.
+  const pausedAlert = page.getByText(/Demo Family Clinic: Your receptionist is paused/).first();
+  await expect(pausedAlert).toBeVisible({ timeout: 5_000 });
   const paused = await request.get("http://127.0.0.1:8095/call/demo-family-clinic");
   expect(paused.status()).toBe(503);
   await answers.click();
   await expect(page.getByText("Taking calls").first()).toBeVisible();
+  await expect(pausedAlert).toHaveCount(0, { timeout: 5_000 });  // fixed: gone at once, no click
   expect((await request.get("http://127.0.0.1:8095/call/demo-family-clinic")).status()).toBe(200);
 });

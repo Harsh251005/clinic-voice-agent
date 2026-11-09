@@ -203,6 +203,7 @@ def test_a_call_whose_phrases_cannot_be_read_says_them_live_and_tells_the_admin(
     def broken(*args):
         raise RuntimeError("database gone")
 
+    real = voice_clips.load
     monkeypatch.setattr(voice_clips, "load", broken)
     book = for_call(sessions, clinic, "hi", None)
     greeting = book.one("greeting", "hi")
@@ -212,6 +213,10 @@ def test_a_call_whose_phrases_cannot_be_read_says_them_live_and_tells_the_admin(
         (inc,) = [i for i in repo.open_incidents(s) if i.kind == "voice_clips_unread"]
         assert inc.clinic_id == clinic.id and inc.detail == "RuntimeError"
         assert "could not read its fixed phrases" in admin_words(inc, "Demo")[0]
+    monkeypatch.setattr(voice_clips, "load", real)
+    for_call(sessions, clinic, "hi", None)  # the next call reads them fine: the problem closes as fixed
+    with sessions() as s:
+        assert not [i for i in repo.open_incidents(s) if i.kind == "voice_clips_unread"]
 
 
 def test_for_call_finds_the_recordings_of_the_calls_own_voice(sessions, env):
@@ -239,6 +244,14 @@ class SaySession:
 
 async def test_a_recorded_phrase_plays_its_audio_and_an_unrecorded_one_is_said_live():
     session = SaySession()
+    heard = []
+    book = Phrasebook({("filler", "hi"): [Said("जी", b"\x00\x00", 24000, kind="filler")],
+                       ("greeting", "hi"): [Said("नमस्ते", kind="greeting")]})
+    book.on_play = heard.append
+    say(session, book.one("filler", "hi"))
+    say(session, book.one("greeting", "hi"))
+    assert heard == ["filler"]  # only a recording is noted: live speech is what usage counts
+    session.said.clear()
     pcm = bytes(range(256)) * 25  # 6,400 bytes = 3,200 samples at 24 kHz: two 100 ms frames
     say(session, Said("जी, बस एक सेकंड।", pcm, 24000), add_to_chat_ctx=False)
     say(session, Said("नमस्ते"), allow_interruptions=False)
@@ -248,3 +261,13 @@ async def test_a_recorded_phrase_plays_its_audio_and_an_unrecorded_one_is_said_l
     assert [f.samples_per_channel for f in frames] == [2400, 800] and all(f.sample_rate == 24000 for f in frames)
     assert b"".join(bytes(f.data) for f in frames) == pcm
     assert (live_text, live_kwargs) == ("नमस्ते", {"allow_interruptions": False})
+
+
+def test_a_played_recording_is_a_step_in_the_trace_by_kind_only():
+    from clinic_agent.call_record import CallRecorder
+
+    rec = CallRecorder.__new__(CallRecorder)
+    rec.events, rec.t0 = [], __import__("time").time()
+    rec.clip_played("greeting")
+    (event,) = rec.events
+    assert (event["kind"], event["name"], event["ok"], event["duration_ms"]) == ("clip", "greeting", True, None)

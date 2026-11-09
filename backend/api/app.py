@@ -93,9 +93,13 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
+        try:
+            app.state.failing_routes = await asyncio.to_thread(_failing_routes, sessions)
+        except Exception:  # noqa: BLE001 - they still close after a quiet spell
+            logger.exception("could not read the routes with open server errors")
         tasks = [
             asyncio.create_task(_purge_forever(sessions)),
-            asyncio.create_task(_watch_forever(sessions, cfg.max_call_minutes)),
+            asyncio.create_task(_watch_forever(app, cfg.max_call_minutes)),
         ]
         yield
         for task in tasks:
@@ -103,6 +107,11 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.cfg, app.state.sessions = cfg, sessions
+    # "GET /api/x" of every route with an open server error: when one answers
+    # again without one, its problem closes (incidents.route_works).
+    app.state.failing_routes = set()
+    # One problem check at a time: the half-minute one and those after a change.
+    app.state.sync_lock = asyncio.Lock()
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     app.add_middleware(
         SessionMiddleware,
@@ -122,6 +131,7 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
         (either can hold patient data). The traceback still goes to the log."""
         route = getattr(request.scope.get("route"), "path", "?")
         subject = f"{request.method} {route} · {type(exc).__name__}"
+        app.state.failing_routes.add(incidents.route_of(subject))
         try:
             await asyncio.to_thread(_report, sessions, "server_error", subject=subject)
         except Exception:  # noqa: BLE001 - reporting must not mask the original error
@@ -131,6 +141,18 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
         response = await call_next(request)
+        if request.method in CHANGES and response.status_code < 400 and request.url.path.startswith("/api/"):
+            # A saved change may have fixed a problem (a price added, hours
+            # set, a clinic resumed): check now, so it's gone by the time the
+            # dashboard asks again, not half a minute later.
+            await check_problems(app, cfg.max_call_minutes)
+        route = f"{request.method} {getattr(request.scope.get('route'), 'path', '?')}"
+        if response.status_code < 500 and route in app.state.failing_routes:
+            app.state.failing_routes.discard(route)
+            try:
+                await asyncio.to_thread(_route_works, sessions, route)
+            except Exception:  # noqa: BLE001 - it closes after a quiet spell instead
+                logger.exception("could not close a fixed server error")
         response.headers["Content-Security-Policy"] = csp
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
@@ -249,19 +271,39 @@ async def _purge_forever(sessions: Sessions) -> None:
         await asyncio.sleep(PURGE_EVERY)
 
 
-async def _watch_forever(sessions: Sessions, max_call_minutes: int) -> None:
-    """Re-check every problem condition (incidents.sync) every half minute."""
-    while True:
+CHANGES = ("POST", "PUT", "PATCH", "DELETE")
+
+
+async def check_problems(app: FastAPI, max_call_minutes: int) -> None:
+    """Re-check every problem condition (incidents.sync), one check at a time.
+    A failed check is logged and never fails the request that asked for it."""
+    async with app.state.sync_lock:
         try:
-            await asyncio.to_thread(_sync, sessions, max_call_minutes)
-        except Exception:  # noqa: BLE001 - try again next round
+            await asyncio.to_thread(_sync, app.state.sessions, max_call_minutes)
+        except Exception:  # noqa: BLE001 - the next check tries again
             logger.exception("checking for problems failed")
+
+
+async def _watch_forever(app: FastAPI, max_call_minutes: int) -> None:
+    """Re-check every problem condition every half minute."""
+    while True:
+        await check_problems(app, max_call_minutes)
         await asyncio.sleep(WATCH_EVERY)
 
 
 def _sync(sessions: Sessions, max_call_minutes: int) -> None:
     with sessions() as s:
         incidents.sync(s, utc_now(), max_call_minutes=max_call_minutes)
+
+
+def _failing_routes(sessions: Sessions) -> set[str]:
+    with sessions() as s:
+        return incidents.failing_routes(s)
+
+
+def _route_works(sessions: Sessions, route: str) -> None:
+    with sessions() as s:
+        incidents.route_works(s, route, utc_now())
 
 
 def _report(sessions: Sessions, kind: str, **where) -> None:

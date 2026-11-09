@@ -18,6 +18,8 @@ export type Field = {
   kind: "text" | "number" | "date" | "month" | "vendor" | "unit" | "currency";
   hint?: string;
   optional?: boolean;
+  suggest?: string[]; // text fields: values to pick from (still free to type)
+  options?: Units; // unit fields: only these choices (default: every unit)
 };
 
 export const today = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local
@@ -92,7 +94,7 @@ function FieldInput({ f, value, units, onChange }: { f: Field; value: unknown; u
   );
   switch (f.kind) {
     case "vendor": return choose(Object.entries(VENDORS));
-    case "unit": return choose(Object.entries(units));
+    case "unit": return choose(Object.entries(f.options ?? units));
     case "currency": return choose([["INR", "Rupees (₹)"], ["USD", "Dollars ($)"]]);
     case "number":
       return <Input id={id} type="number" inputMode="decimal" step="any" min={0} required value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} />;
@@ -101,6 +103,14 @@ function FieldInput({ f, value, units, onChange }: { f: Field; value: unknown; u
     case "month":
       return <Input id={id} type="month" required value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} />;
     default:
-      return <Input id={id} required={!f.optional} value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} />;
+      return (
+        <>
+          <Input id={id} required={!f.optional} value={String(value ?? "")} onChange={(e) => onChange(e.target.value)}
+            list={f.suggest?.length ? `${id}-list` : undefined} autoComplete="off" />
+          {!!f.suggest?.length && (
+            <datalist id={`${id}-list`}>{f.suggest.map((s) => <option key={s} value={s} />)}</datalist>
+          )}
+        </>
+      );
   }
 }

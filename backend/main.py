@@ -130,6 +130,7 @@ async def entrypoint(ctx: JobContext) -> None:
     # voice when an admin has recorded one; anything missing is said live.
     phrases = await asyncio.to_thread(
         voice_clips.for_call, sessions, clinic, call.language, None if TEXT_ONLY else session.tts)
+    phrases.on_play = record.clip_played  # the trace notes each line played from a recording
     link = ClinicLink(clinic.id, clinic.timezone, sessions, call.language, phrases, on_change=record.on_change)
     tools = [*booking_tools(link), end_call_tool(call.language, phrases)]
     logger.info("starting session: %s", stack)

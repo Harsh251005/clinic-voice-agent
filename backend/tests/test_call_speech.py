@@ -87,11 +87,14 @@ async def test_a_hindi_call_keeps_its_hindi_filler_when_the_caller_speaks_englis
 async def test_a_recorded_filler_plays_its_recording(link):
     from clinic_agent.voice_clips import Phrasebook, Said
 
-    book = Phrasebook({("filler", "hi"): [Said("जी, बस एक सेकंड।", b"\x00\x00" * 2400, 24000)]})
+    book = Phrasebook({("filler", "hi"): [Said("जी, बस एक सेकंड।", b"\x00\x00" * 2400, 24000, kind="filler")]})
+    played = []
+    book.on_play = played.append  # what the call's trace is told
     recorded = dataclasses.replace(link, phrases=book)
     spoken, fake, _ = await call(recorded, [Reply(calls=[FIND]), Reply("दस बजे खाली है।")], "कल आशा जी का टाइम?")
     (text, kwargs), = spoken
     assert text == "जी, बस एक सेकंड।" and kwargs["add_to_chat_ctx"] is False and "audio" in kwargs
+    assert played == ["filler"]  # the trace notes it came from a recording (no voice cost)
     assert "free start times" in fake.requests[-1].items[-1].output
 
 

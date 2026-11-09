@@ -35,7 +35,7 @@ test("the receptionist being offline is flagged on every clinic page, and clears
   await until(page, async () => (await offline.count()) === 0);
   await expect(page).not.toHaveTitle(/^\(!\) /);
   await page.getByRole("button", { name: "Problems: none open" }).first().click();
-  await expect(page.getByRole("dialog")).toContainText("Fixed in the last 7 days");
+  await expect(page.getByRole("dialog")).toContainText("Closed in the last 7 days");
 });
 
 test("a patient who couldn't get through is flagged to the clinic, who can mark it seen", async ({ page, request }) => {

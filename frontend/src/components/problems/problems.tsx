@@ -24,16 +24,28 @@ const TONE = {
 } as const;
 
 /** "since 10:42 am" today, "since 27 Sept, 10:42 am" before. Browser time: these are UTC instants. */
-function since(iso: string) {
-  const at = new Date(iso);
-  const time = at.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
-  const today = at.toDateString() === new Date().toDateString();
-  return today ? `since ${time}` : `since ${at.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}, ${time}`;
+function at(iso: string) {
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+  return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}, ${time}`;
 }
 
-/** What goes in the banner: every urgent problem, and the rest until marked seen. */
+function since(iso: string) {
+  return `since ${at(iso)}`;
+}
+
+/** When it started and how it ended: fixed (shown working again), or gone
+ *  quiet (last happened then, nothing retried it since). */
+function story(p: Problem) {
+  if (!p.resolved_at) return since(p.since);
+  if (p.resolved_how === "quiet") return `Last happened ${at(p.last_seen)}, not tried again since`;
+  return `${since(p.since)}, fixed ${at(p.resolved_at)}`;
+}
+
+/** What goes in the banner: every problem that can't be put away (urgent, or
+ *  for a clinic system-wide), and the rest until marked seen. */
 function bannered(open: Problem[]) {
-  return open.filter((p) => p.severity === "critical" || !p.seen);
+  return open.filter((p) => !p.can_mark_seen || !p.seen);
 }
 
 export function ProblemBanner({ open, onSeen, seenPending }: {
@@ -69,7 +81,7 @@ export function ProblemBanner({ open, onSeen, seenPending }: {
                   <Link href={p.link}>Open</Link>
                 </Button>
               )}
-              {p.severity !== "critical" && (
+              {p.can_mark_seen && (
                 <Button size="sm" variant="ghost" disabled={seenPending} onClick={() => onSeen(p.id)}
                   className="hover:bg-black/5">
                   Seen
@@ -112,7 +124,7 @@ export function ProblemBell({ open, recent, onSeen, className }: {
           <ProblemList open={open} onSeen={onSeen} />
           {recent.length > 0 && (
             <>
-              <h3 className="border-y bg-muted/50 px-4 py-2 text-xs font-semibold text-muted-foreground">Fixed in the last 7 days</h3>
+              <h3 className="border-y bg-muted/50 px-4 py-2 text-xs font-semibold text-muted-foreground">Closed in the last 7 days</h3>
               <ul className="divide-y">{recent.map((p) => <Row key={p.id} p={p} />)}</ul>
             </>
           )}
@@ -150,19 +162,20 @@ function Row({ p, onSeen }: { p: Problem; onSeen?: (id: number) => void }) {
   const fixed = p.resolved_at !== null;
   return (
     <li className={cn("flex gap-3 px-4 py-3 text-sm", fixed && "text-muted-foreground")}>
-      <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", fixed ? "bg-success-foreground" : tone.dot)} aria-hidden />
+      <span className={cn("mt-1.5 size-2 shrink-0 rounded-full",
+        !fixed ? tone.dot : p.resolved_how === "quiet" ? "bg-muted-foreground/50" : "bg-success-foreground")} aria-hidden />
       <div className="min-w-0 flex-1 space-y-1">
         <p className={cn("font-medium", !fixed && "text-foreground")}>
-          <span className="sr-only">{fixed ? "Fixed" : tone.word}: </span>{p.title}
+          <span className="sr-only">{!fixed ? tone.word : p.resolved_how === "quiet" ? "Gone quiet" : "Fixed"}: </span>{p.title}
         </p>
         {!fixed && p.action && <p className="text-muted-foreground">{p.action}</p>}
         <p className="text-xs text-muted-foreground">
-          {since(p.since)}{fixed && p.resolved_at ? `, fixed ${since(p.resolved_at).replace("since ", "")}` : ""}
+          {story(p)}
         </p>
-        {!fixed && (p.link || (onSeen && !p.seen && p.severity !== "critical")) && (
+        {!fixed && (p.link || (onSeen && !p.seen && p.can_mark_seen)) && (
           <div className="flex gap-3 pt-0.5">
             {p.link && <Link href={p.link} className="text-xs font-medium text-primary hover:underline">Open</Link>}
-            {onSeen && !p.seen && p.severity !== "critical" && (
+            {onSeen && !p.seen && p.can_mark_seen && (
               <button type="button" onClick={() => onSeen(p.id)} className="text-xs font-medium text-muted-foreground hover:text-foreground">
                 Mark seen
               </button>

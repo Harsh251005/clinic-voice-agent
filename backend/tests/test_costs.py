@@ -186,13 +186,17 @@ def test_a_model_without_a_price_is_flagged_until_its_price_is_added(world):  # 
     (missing,) = c.get("/api/admin/costs").json()["missing"]
     assert missing == {"why": "price", "provider": "openai", "model": "gpt-4.1", "unit_label": "words read (tokens)"}
     problem = next(p for p in c.get("/api/admin/problems").json()["open"] if p["kind"] == "price_missing")
-    assert "gpt-4.1 has no price" in problem["title"] and problem["link"] == "/admin/costs/prices"
+    assert "OpenAI gpt-4.1 has no price" in problem["title"]
+    # Open goes straight to the missing price, filled in: vendor, model, unit and the day it was first used
+    assert problem["link"] == f"/admin/costs/prices?add=openai%2Fgpt-4.1%2Ftokens_in&from={utc_now():%Y-%m-%d}"
+    used = c.get("/api/admin/cost-settings").json()["used"]
+    assert {"provider": "openai", "model": "gpt-4.1", "unit": "tokens_in"}.items() <= next(
+        u for u in used if u["model"] == "gpt-4.1").items()  # the page can tell which prices match no calls
     c.post("/api/admin/cost-settings/prices", json={
         "provider": "openai", "model": "gpt-4.1", "unit": "tokens_in",
         "amount": 2.00, "per": 1_000_000, "currency": "USD", "valid_from": "2026-10-01"})
     with _sessions()() as s:
-        incidents.sync(s, utc_now(), max_call_minutes=5)
-        assert not [i for i in repo.open_incidents(s) if i.kind == "price_missing"]
+        assert not [i for i in repo.open_incidents(s) if i.kind == "price_missing"]  # the save itself re-checked
 
 
 def test_everything_is_edited_in_the_panel(world):  # noqa: F811
@@ -263,3 +267,26 @@ def test_usage_rows_hold_counts_never_words():
     assert {c.name for c in Usage.__table__.columns} == {
         "id", "at", "clinic_id", "clinic_name", "call_id", "language", "test", "source", "part",
         "provider", "model", "unit", "quantity"}
+
+
+def test_every_vendor_a_call_can_use_is_counted_in_the_right_units():
+    # COUNTED_IN is what a price may name; it must follow the vendors calls can actually use.
+    from clinic_agent import costs
+    from clinic_agent.providers import llm, stt, tts
+
+    for vendor in stt.BUILDERS:
+        assert "seconds_heard" in costs.COUNTED_IN[vendor]
+    for vendor in tts.BUILDERS:
+        assert "characters" in costs.COUNTED_IN[vendor]
+    for vendor in llm.BUILDERS:
+        assert set(costs.TOKENS) <= set(costs.COUNTED_IN[vendor])
+
+
+def test_a_price_in_a_unit_its_vendor_is_never_counted_in_is_refused(world):  # noqa: F811
+    # Seen on the real data (2026-11-09): "speech-to-text" per minute for Sarvam, which counts listening in seconds.
+    c = client_as(ADMIN, admin=True)
+    r = c.post("/api/admin/cost-settings/prices", json={
+        "provider": "sarvam", "model": "speech-to-text", "unit": "minutes",
+        "amount": 0.49, "per": 1, "currency": "INR", "valid_from": "2026-11-09"})
+    assert r.status_code == 422 and "Calls never count Sarvam in call minutes" in r.json()["detail"]
+    assert "seconds heard" in r.json()["detail"]

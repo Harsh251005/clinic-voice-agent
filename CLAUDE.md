@@ -99,7 +99,9 @@ The pipeline is split so each concern lives in exactly one module:
   `voice_clips_unread`. Nothing records itself: `record` runs only on an
   admin's click, from `api/dashboard/voice.py` (page `/admin/voice`: edit in
   English, Hindi suggested by `providers/hindi.translate_phrase`, Record /
-  Play). No required wording in a greeting (Harsh, 2026-11-09: he handles
+  Play). A played recording asks no vendor, so usage counts nothing for it;
+  `CallRecorder.clip_played` adds a trace step (`kind="clip"`, the line's
+  kind, never words) so the call page shows it at ₹0. No required wording in a greeting (Harsh, 2026-11-09: he handles
   what callers are told); don't add checks back.
 - `api/` — FastAPI call-link server (browser calls until telephony).
   `/call/<slug>` page (no language choice: every call is Hindi); `POST
@@ -158,13 +160,23 @@ The pipeline is split so each concern lives in exactly one module:
   `session.usage`; never money, never words) and this prices it when shown:
   usage × the dated price list (`prices`, `exchange_rates`, `allowances`,
   `fixed_costs`, `vendor_bills`), all edited on the admin Prices page
-  (`api/dashboard/costs.py`), never in code (Harsh, 2026-10-13). Usage
+  (`api/dashboard/costs.py`), never in code (Harsh, 2026-10-13); a price
+  may only be in a unit calls count that vendor in (`costs.COUNTED_IN`:
+  record a new vendor's unit there too). Usage
   outlives its call (FKs `SET NULL`). A new billable vendor call = record
   its usage in the same change, or its cost is silently missing.
 - `clinic_agent/incidents.py` — **problems, flagged**: which conditions and
   events count (`KINDS`), `sync` (the API re-checks every 30 s: opens,
   updates, closes) and `report` (events: counted, closed after a quiet
-  spell). Words live in `api/dashboard/problems.py`, in two voices: plain
+  spell). **A problem closes on proof it is fixed** (Harsh, 2026-11-09:
+  never by a click or a timer alone): the same thing working again closes
+  it (`resolved_how="fixed"`); only what nothing retries goes "quiet" after
+  its spell, labelled so in the bell. A new kind needs its recovery rule.
+  Every accepted change (`/api/*`, not GET) re-checks before answering
+  (`api/app.py` `check_problems`, one at a time) and the dashboard's API
+  client refreshes problems after it (`afterEveryChange`), so a fix made in
+  the dashboard clears its problem at once.
+  Words live in `api/dashboard/problems.py`, in two voices: plain
   for the clinic, technical for the admin. Alerts stay **in the website**
   (Harsh, 2026-09-28): every page shows a banner, a bell and "(!)" in the
   tab, so **any new failure mode gets an incident kind in the same change**,
