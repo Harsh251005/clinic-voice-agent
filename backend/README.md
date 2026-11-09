@@ -534,6 +534,11 @@ write the same tables through `store/repo.py`.
   doctors with fees and weekly hours, leave and holidays inside the booking
   window, FAQ answers, and the clinic's current date and time. Anything not
   there, it says it doesn't know. Edits in the dashboard apply from the next call.
+  With only one active doctor it is told never to ask "which doctor?"; with
+  several, to ask only when the caller hasn't said.
+- **The rules it follows** (`prompts.RULES["hi"]`) stay **under 500 words**
+  (`test_the_rules_stay_short`): a long prompt is paid for on every turn, and
+  the model follows a short one better.
 - **Booking** (three tools, rules in `booking.py`):
   - `find_available_slots(date, doctor?, part_of_day?)` returns **every**
     free start time that day per doctor, **one by one** under fixed parts of

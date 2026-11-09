@@ -12,7 +12,7 @@ NOW = datetime(2026, 9, 21, 15, 30)  # Monday afternoon
 def test_facts_come_from_the_database(db):
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
-    assert "receptionist for Demo Family Clinic" in text
+    assert "receptionist of Demo Family Clinic" in text
     assert "Shop 4, Sunrise Apartments, Borivali East, Mumbai" in text
     assert "Dr. Asha Mehta (General Physician, fee ₹500)" in text
     assert "Q: Is there parking? A: Two-wheeler parking only" in text
@@ -62,7 +62,7 @@ def test_prompt_describes_booking_and_only_built_capabilities(db):
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
     assert "find_available_slots" in text and "book_appointment" in text
-    assert "only after a clear yes" in text
+    assert "Only after a clear yes, call book_appointment" in text
     assert "book, cancel and move appointments" in text
     assert "find_my_appointments" in text and "reschedule_appointment" in text
     assert "call end_call" in text
@@ -73,22 +73,33 @@ def test_the_receptionist_speaks_as_a_woman(db):
     # voice sounds wrong to every caller.
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
-    assert "You are a woman" in text
-    assert "मैं [the clinic's name, written in Devanagari] की ऑटोमेटेड असिस्टेंट" in text  # no Hindi name set
-    assert "That is only for you" in text  # the caller is never addressed as a woman
+    assert "You are an automated assistant and a woman" in text
+    assert 'About yourself always feminine ("मैं देखती हूँ", "बताती हूँ")' in text
+    assert 'never "sir" or "madam"' in text  # the caller's gender is never assumed
 
 
 def test_unknown_doctor_rule(db):
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
-    assert "Never answer about one\n  doctor as if they were another" in text
+    assert "A doctor not in CLINIC FACTS is not at this clinic: say who is" in text
+
+
+def test_the_only_doctor_is_never_asked_about(db):
+    # Seen 2026-10-24: a clinic with one doctor, and the agent asked "which doctor?".
+    s, clinic_id = db
+    two = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
+    assert "- Doctors (2: ask which one only if the caller hasn't said or described one):" in two
+    repo.update_doctor(s, repo.get_clinic(s, clinic_id).doctors[1].id, active=False)
+    s.expire_all()
+    one = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
+    assert "the clinic's only one: every appointment is with them, so never ask which doctor" in one
 
 
 def test_the_receptionist_says_it_is_automated(db):
     # Callers must know they aren't talking to a person (the call page says it too).
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
-    opening = text[text.index("Opening the call:"):text.index("How you speak:")]
+    opening = text[text.index("Opening:"):text.index("Language:")]
     assert "automated assistant" in opening and "ऑटोमेटेड असिस्टेंट" in opening
 
 
@@ -96,16 +107,15 @@ def test_the_receptionist_says_the_call_is_saved_as_text(db):
     # Every call's transcript is kept (call_record.py): callers are told, in their language.
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
-    opening = text[text.index("Opening the call:"):text.index("How you speak:")]
-    assert "saved as text for\nthe clinic's records" in opening
-    assert "लिखित\nरूप में सेव होती है" in opening
+    opening = text[text.index("Opening:"):text.index("Language:")]
+    assert "this conversation is saved as text for the clinic's records" in opening
 
 
 def test_visit_reason_is_asked_for_in_english():
     # The dashboard is English only: the agent speaks Hindi but files the reason in English.
     from clinic_agent.prompts import RULES
 
-    assert "always write it in short, plain English in Roman letters" in " ".join(RULES["hi"].split())
+    assert "pass it in short English" in " ".join(RULES["hi"].split())
 
 
 def _rules(language):
@@ -120,19 +130,27 @@ def test_the_core_rules_are_there():
     for rule in [
         "ऑटोमेटेड असिस्टेंट",
         "saved as text for the clinic's records",
-        "call check_booking", "After a clear yes, call book_appointment", "only after a clear yes",
-        "call end_call", "Do not give medical advice", "one-zero-eight", "one-one-two",
-        "Never answer about one doctor as if they were another",
-        "You cannot take a message, put anyone on hold",
+        "Call check_booking", "Only after a clear yes, call book_appointment",
+        "call again with the same details after a clear yes",
+        "call end_call", "never give medical advice", "one-zero-eight", "one-one-two",
+        "A doctor not in CLINIC FACTS is not at this clinic",
+        "No messages, holds, transfers or callbacks",
     ]:
         assert rule in rules, rule
+
+
+def test_the_rules_stay_short():
+    # Harsh, 2026-10-24: never more than 500 words: a long prompt costs every
+    # turn and the model follows a short one better.
+    assert len(_rules("hi").split()) <= 500
 
 
 def test_the_hindi_line_stays_hindi_and_promises_no_english_line():
     # The English line is gone (2026-11-08): never tell a caller to call back for one.
     rules = _rules("hi")
-    assert "stays in Hindi to the end" in rules and "this receptionist speaks Hindi only" in rules
-    assert "never reply in English" in rules
+    assert "Always reply in Hindi, to the end of the call" in rules
+    assert "this receptionist speaks Hindi only" in rules
+    assert "never Roman letters" in rules
     assert "choose English" not in rules
 
 
@@ -144,14 +162,13 @@ def test_the_hindi_line_says_names_as_the_clinic_spelt_them(db):
     repo.update_doctor(s, clinic.doctors[0].id, name_hi="डॉक्टर आशा मेहता")
     clinic = repo.get_clinic(s, clinic_id)
     hindi = build_instructions(clinic, [], NOW, "hi")
-    assert "नमस्ते जी, डेमो फ़ैमिली क्लिनिक में आपका स्वागत है" in hindi
+    assert 'name the clinic ("डेमो फ़ैमिली क्लिनिक")' in hindi
     assert f"{clinic.doctors[0].name} (in Hindi: डॉक्टर आशा मेहता)" in hindi
 
 
 def test_the_hindi_line_speaks_everyday_hindi():
     rules = _rules("hi")
-    for bookish in ("कृपया", "विवरण", "उपलब्ध", "सूचित", "आवश्यक", "पुष्टि"):
-        assert f'(not "{bookish}' in rules  # named only as words to avoid
-    assert '"जी", "अच्छा", "हाँ जी"' in rules  # small acknowledgements
-    assert "Never say the same thing twice in a call" in rules
-    assert "no dashes, semicolons or brackets" in rules
+    assert 'never bookish: "ज़रा", "खाली है", not "कृपया", "उपलब्ध है"' in rules
+    assert 'varied acknowledgement ("जी", "अच्छा", "ठीक है")' in rules
+    assert "Never repeat what is confirmed" in rules
+    assert "no dashes, brackets or lists" in rules

@@ -241,7 +241,8 @@ with `Session` / `Sessions` from `store/db.py`.
 - **Instructions are one set per line** (`prompts.RULES["hi"]`). The fillers
   and fallback goodbye follow the call's line, not the caller's last words.
   A caller asking for English is told kindly the receptionist speaks Hindi
-  only: never promise an English line.
+  only: never promise an English line. The rules stay **under 500 words**
+  (Harsh, 2026-10-24; `test_the_rules_stay_short`).
 - **Hindi replies are written in Devanagari** (prompt rule). The TTS pronounces
   by script; romanised Hindi ("aap kaise hain") is read with English spelling
   rules. Don't switch the prompt or `SARVAM_STT_MODE` to romanised output.
