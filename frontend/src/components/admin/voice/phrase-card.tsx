@@ -47,7 +47,8 @@ export function PhraseCard({ phrase, label, canRecord, onEdit, onRecord }: {
               </div>
               {t.key && t.recorded_at && <PlayButton clipKey={t.key} version={t.recorded_at} label={perClinic ? `${label} for ${t.clinic_name}` : label} />}
               {canRecord && (
-                <Button variant={t.recorded_at ? "ghost" : "outline"} size="sm" onClick={() => onRecord([t])}>
+                <Button variant={t.recorded_at ? "ghost" : "outline"} size="sm" onClick={() => onRecord([t])}
+                  aria-label={`${t.recorded_at ? "Re-record" : "Record"} ${perClinic ? `${label} for ${t.clinic_name}` : label}`}>
                   <Mic /> {t.recorded_at ? "Re-record" : "Record"}
                 </Button>
               )}
