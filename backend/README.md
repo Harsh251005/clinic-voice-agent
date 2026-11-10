@@ -197,7 +197,8 @@ in `repo.py`.
 - **Doctors by first name:** the receptionist says "डॉक्टर हर्ष", never the
   full name unless the caller asks for it (also in the booking read-back). A
   one-word name stays as it is; two doctors with the same first name both
-  keep their full names.
+  keep their full names. The booking tools find a doctor by the English or
+  the Hindi name, in full or in part ("डॉक्टर हर्ष", "Dr. Harsh").
 - **Names said one way:** the clinic and each doctor have a *Name in Hindi*
   (Devanagari), **filled in from the English name** as staff type
   (`POST /api/clinics/{id}/hindi-name`: one short OpenAI text request,

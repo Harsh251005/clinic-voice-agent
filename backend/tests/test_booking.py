@@ -40,6 +40,17 @@ def test_doctor_names_resolve(db, spoken):
     assert booking.resolve_doctor(repo.get_clinic(s, clinic_id), spoken).name == "Dr. Asha Mehta"
 
 
+@pytest.mark.parametrize("spoken", ["डॉक्टर आशा", "डॉ. आशा मेहता", "आशा", "डॉक्टर आशा मेहता"])
+def test_the_hindi_spelling_of_a_doctor_resolves(db, spoken):
+    # Seen 2026-11-10: the prompt says 'say "डॉक्टर हर्ष"', the model passed
+    # that to every tool and each one answered "No doctor called".
+    s, clinic_id = db
+    asha = repo.get_clinic(s, clinic_id).doctors[0]
+    repo.update_doctor(s, asha.id, name_hi="डॉक्टर आशा मेहता")
+    s.expire_all()
+    assert booking.resolve_doctor(repo.get_clinic(s, clinic_id), spoken).name == "Dr. Asha Mehta"
+
+
 def test_unknown_doctor_lists_who_exists(db):
     s, clinic_id = db
     with pytest.raises(BookingError, match="Doctors: Dr. Asha Mehta, Dr. Rohan Iyer"):

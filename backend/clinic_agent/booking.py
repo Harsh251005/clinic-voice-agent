@@ -64,8 +64,11 @@ def resolve_doctor(clinic: Clinic, name: str) -> Doctor:
     """Match a spoken doctor name to one active doctor, tolerating 'Dr.' and partial names."""
     active = [d for d in clinic.doctors if d.active]
     wanted = _name_key(name)
-    exact = [d for d in active if _name_key(d.name) == wanted]
-    partial = exact or [d for d in active if wanted and wanted in _name_key(d.name)]
+    # Seen 2026-11-10: the Hindi line is told to say "डॉक्टर हर्ष", passed that
+    # here, and no doctor matched: the Hindi spelling counts as the name too.
+    keys = {d.id: [_name_key(n) for n in (d.name, d.name_hi) if n.strip()] for d in active}
+    exact = [d for d in active if wanted in keys[d.id]]
+    partial = exact or [d for d in active if wanted and any(wanted in k for k in keys[d.id])]
     if len(partial) == 1:
         return partial[0]
     names = ", ".join(d.name for d in active) or "none"
@@ -596,7 +599,7 @@ def _spoken_person(name: str) -> str:
 
 
 def _name_key(name: str) -> str:
-    return re.sub(r"^(dr|doctor)\.?\s+", "", name.strip().lower()).replace(".", "")
+    return re.sub(r"^(dr|doctor|डॉक्टर|डॉ)\.?\s+", "", name.strip().lower()).replace(".", "")
 
 
 def erase_test_call(s: Session, clinic_id: int, call_id: int) -> None:
