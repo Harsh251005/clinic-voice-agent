@@ -43,6 +43,8 @@ set up through the dashboard):
 ```bash
 uv run python -m clinic_agent.store.migrations   # schema at the latest revision
 uv run python -m seeds.demo_clinic               # writes data/clinic.db (gitignored)
+uv run python -m seeds.busy_clinic --member you@gmail.com  # optional: "Busy Demo Clinic", 4 doctors, a full month, 500 calls
+uv run python -m seeds.busy_clinic --replace    # delete it and seed it fresh (also after deleting it in Admin, Clinics)
 ```
 
 Run the migrations command again after every pull that changes the schema.
@@ -622,6 +624,7 @@ api/                    call-link server: page + signed join pass (python -m api
         └── repo.py     every query the agent and dashboard make
     scheduling.py       free-slot rules — pure functions, no DB, no LiveKit
 seeds/demo_clinic.py    fictional clinic for tests and a first run
+seeds/busy_clinic.py    a busy fictional clinic beside the real ones, to try the dashboard under load
 ../frontend/            the dashboard (Next.js): screens only, over /api
 ```
 
