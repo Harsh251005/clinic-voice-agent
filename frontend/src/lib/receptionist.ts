@@ -35,7 +35,7 @@ export function editable(s: SystemSettings): Editable {
   return {
     rules: s.rules, hindi_llm: s.hindi_llm, sarvam_llm_model: s.sarvam_llm_model, openai_llm_model: s.openai_llm_model,
     sarvam_stt_model: s.sarvam_stt_model, sarvam_stt_language: s.sarvam_stt_language, sarvam_stt_mode: s.sarvam_stt_mode,
-    sarvam_tts_model: s.sarvam_tts_model, min_endpointing_delay: s.min_endpointing_delay,
+    min_endpointing_delay: s.min_endpointing_delay,
     number_endpointing_delay: s.number_endpointing_delay, interrupt_min_speech: s.interrupt_min_speech,
     vad_min_silence: s.vad_min_silence, greeting_interruptible: s.greeting_interruptible,
   };

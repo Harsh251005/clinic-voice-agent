@@ -17,10 +17,11 @@ still names the language (always `hi`) so a second line later is one entry.
 A missing key stops the worker with a one-line error. **How the receptionist
 behaves lives in the database, set in the dashboard** (Harsh, 2026-11-10;
 `clinic_agent/receptionist_settings.py`): what every clinic shares
-(`system_settings`: rules text, brain + model names, hearing, voice model,
-turn-taking, greeting interruptible; Admin > Receptionist) and what each
-clinic sets (`clinics`: instructions, directions, speaker, live speed,
-pitch, longest call; its Receptionist tab, admins only). `.env` keeps only
+(`system_settings`: rules text, brain + model names, hearing, turn-taking,
+greeting interruptible; Admin > Receptionist) and what each clinic sets
+(`clinics`: instructions, directions, voice model + speaker (saved and
+checked together: a pair the vendor refuses is a 422), live speed, pitch,
+longest call; its Receptionist tab, admins only). `.env` keeps only
 secrets and plumbing; a leftover moved line (`MOVED_ENV`) stops the worker
 and the API (`refuse_moved_settings`), after the migrations command copied
 it in once. Live tests use OpenAI only, as text (never Sarvam).

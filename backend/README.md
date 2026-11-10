@@ -261,7 +261,7 @@ every clinic?" and never shows patients:
   live word count, at most 500 words, **Reset to default**; blank = the
   rules in `prompts.py`, so code updates still reach it; an edited text is
   marked, because the live evals only grade the default), the brain
-  (vendor, Sarvam and OpenAI model names), hearing and voice model (a blank
+  (vendor, Sarvam and OpenAI model names), hearing (a blank
   field shows what it falls back to), the turn-taking timings with their
   ranges, and whether callers can talk over the greeting. Saved changes
   apply from the next call. Admins only.
@@ -269,7 +269,9 @@ every clinic?" and never shows patients:
   `/api/admin/clinics/{id}/receptionist`): its own instructions (added after
   the main rules, at most 150 words: every word is sent on every turn),
   directions (said when a caller asks the way, instead of the postal
-  address), its voice (speaker, live speed, pitch) and longest call. Before a
+  address), its voice (voice model and speaker, saved and checked together:
+  a speaker the model doesn't have is refused, since every call would fail;
+  live speed, pitch) and longest call. Before a
   voice change is saved, it says how many of the clinic's recorded lines the
   new voice leaves said live (`GET /api/admin/voice/impact`).
 - **Voice & phrases** (`/admin/voice`, `api/dashboard/voice.py`): the
@@ -854,9 +856,9 @@ rather than silently ignored.
 **How the receptionist behaves now lives in the database, not `.env`**
 (Harsh, 2026-11-10; `clinic_agent/receptionist_settings.py`). Every clinic
 shares the rules text, the brain (`HINDI_LLM` and the model names), the
-hearing settings, the voice model, the turn-taking timings and whether the
-greeting can be talked over. Each clinic sets its own instructions,
-directions, speaker, live speed, pitch and maximum call length. A call reads
+hearing settings, the turn-taking timings and whether the greeting can be
+talked over. Each clinic sets its own instructions, directions, voice model
+and speaker, live speed, pitch and maximum call length. A call reads
 them when it starts (`clinic_agent/call_settings.py`), so a change applies
 from the next call without a restart. The first
 `python -m clinic_agent.store.migrations` after this change copies those

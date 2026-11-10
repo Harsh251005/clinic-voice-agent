@@ -67,3 +67,17 @@ def test_admins_are_listed_read_only_for_admins(world, env):  # noqa: F811
     assert page["emails"] == ["friend@example.com", "harsh@example.com"]
     assert client_as("reception@cure.in").get("/api/admin/admins").status_code == 403
     assert client_as(ADMIN, admin=True).put("/api/admin/admins", json={"emails": ["x@y.z"]}).status_code == 405
+
+
+def test_a_speaker_the_voice_model_lacks_is_refused_before_it_breaks_calls(world, env):  # noqa: F811
+    # Seen 2026-11-10: bulbul:v4-flash with the default speaker (suhani) can't build: every call would fail.
+    # Model and speaker sit side by side per clinic, so both change in one save.
+    env.setenv("SARVAM_API_KEY", "sk-test")
+    c = client_as(ADMIN, admin=True)
+    path = f"/api/admin/clinics/{world['cure']}/receptionist"
+    r = c.put(path, json={"tts_model": "bulbul:v4-flash"})
+    assert r.status_code == 422 and "suhani" in r.text and r.json()["detail"].startswith("Cure")
+    assert c.get(path).json()["tts_model"] == ""  # nothing saved
+    ok = c.put(path, json={"tts_model": "bulbul:v4-flash", "tts_speaker": "aparna_hi_customer"})
+    assert ok.status_code == 200 and ok.json()["tts_model"] == "bulbul:v4-flash"
+    assert c.put(path, json={"tts_speaker": "suhani"}).status_code == 422

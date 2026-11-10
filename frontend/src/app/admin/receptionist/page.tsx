@@ -51,7 +51,7 @@ function Form({ saved }: { saved: SystemSettings }) {
   const tooLong = words(form.rules || saved.default_rules) > saved.rules_max_words;
   const blank = (key: string) => `Blank: ${saved.blank_means[key] ?? "the vendor's default"}`;
 
-  const text = (key: "sarvam_llm_model" | "openai_llm_model" | "sarvam_stt_model" | "sarvam_stt_language" | "sarvam_stt_mode" | "sarvam_tts_model",
+  const text = (key: "sarvam_llm_model" | "openai_llm_model" | "sarvam_stt_model" | "sarvam_stt_language" | "sarvam_stt_mode",
     label: string, hint?: string) => (
     <Field id={key} label={label} hint={hint}>
       <Input id={key} maxLength={100} value={form[key]} placeholder={blank(key)} onChange={(e) => set({ [key]: e.target.value })} />
@@ -80,12 +80,11 @@ function Form({ saved }: { saved: SystemSettings }) {
         </div>
       </Section>
 
-      <Section title="Hearing and voice model" description="Sarvam turns the caller's speech into text and speaks her replies. Each clinic picks its own speaker, speed and pitch.">
+      <Section title="Hearing" description="Sarvam turns the caller's speech into text. Each clinic picks its own voice (model, speaker, speed, pitch) on its Receptionist tab.">
         <div className="grid gap-4 md:grid-cols-2">
           {text("sarvam_stt_model", "Speech-to-text model")}
           {text("sarvam_stt_language", "Language heard", "“unknown” detects it per sentence, so Hinglish comes through as said.")}
           {text("sarvam_stt_mode", "Speech-to-text mode", "How Sarvam writes down what it hears. Replies must stay in Devanagari, so avoid a romanised (translit) mode.")}
-          {text("sarvam_tts_model", "Voice model", "Changing it leaves recorded lines said live until re-recorded.")}
         </div>
       </Section>
 

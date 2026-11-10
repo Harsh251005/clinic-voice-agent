@@ -25,12 +25,12 @@ export function Receptionist({ clinic }: { clinic: Schemas["Clinic"] }) {
   return <Form key={JSON.stringify(page.data)} saved={page.data} />;
 }
 
-type Editable = Pick<ClinicReceptionist, "instructions" | "directions" | "tts_speaker" | "tts_pace" | "tts_pitch" | "max_call_minutes">;
+type Editable = Pick<ClinicReceptionist, "instructions" | "directions" | "tts_model" | "tts_speaker" | "tts_pace" | "tts_pitch" | "max_call_minutes">;
 
 function Form({ saved }: { saved: ClinicReceptionist }) {
   const save = useSaveClinicReceptionist(saved.clinic_id);
   const start: Editable = {
-    instructions: saved.instructions, directions: saved.directions, tts_speaker: saved.tts_speaker,
+    instructions: saved.instructions, directions: saved.directions, tts_model: saved.tts_model, tts_speaker: saved.tts_speaker,
     tts_pace: saved.tts_pace, tts_pitch: saved.tts_pitch, max_call_minutes: saved.max_call_minutes,
   };
   const [form, setForm] = useState(start);
@@ -39,7 +39,7 @@ function Form({ saved }: { saved: ClinicReceptionist }) {
   const dirty = Object.keys(changed).length > 0;
   const count = words(form.instructions);
   const over = count > saved.instructions_max_words;
-  const voiceChanged = form.tts_speaker !== start.tts_speaker || form.tts_pitch !== start.tts_pitch;
+  const voiceChanged = form.tts_model !== start.tts_model || form.tts_speaker !== start.tts_speaker || form.tts_pitch !== start.tts_pitch;
   const limit = (name: string) => saved.limits[name];
 
   return (
@@ -65,12 +65,18 @@ function Form({ saved }: { saved: ClinicReceptionist }) {
         </Field>
       </Section>
 
-      <Section title="Voice" description="How she sounds on this clinic's calls.">
-        <div className="grid gap-4 md:grid-cols-3">
-          <Field id="tts_speaker" label="Speaker" hint="A Sarvam voice name for the voice model in use.">
+      <Section title="Voice" description="How she sounds on this clinic's calls. The model and speaker are saved together: a speaker exists only in some models, and a pair that doesn't work is refused.">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field id="tts_model" label="Voice model" hint="A Sarvam voice model, e.g. bulbul:v3 or bulbul:v4-flash.">
+            <Input id="tts_model" maxLength={100} value={form.tts_model} placeholder={`Blank: ${saved.model_default}`}
+              onChange={(e) => set({ tts_model: e.target.value })} />
+          </Field>
+          <Field id="tts_speaker" label="Speaker" hint="A Sarvam voice name that this model has.">
             <Input id="tts_speaker" maxLength={50} value={form.tts_speaker} placeholder={`Blank: ${saved.speaker_default}`}
               onChange={(e) => set({ tts_speaker: e.target.value })} />
           </Field>
+        </div>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Field id="tts_pace" label="Speed" hint={`${limit("tts_pace").low}× to ${limit("tts_pace").high}×. Recorded lines keep their own speed.`}>
             <Input id="tts_pace" type="number" inputMode="decimal" step="0.05" required
               min={limit("tts_pace").low ?? undefined} max={limit("tts_pace").high ?? undefined} value={form.tts_pace}
@@ -83,7 +89,7 @@ function Form({ saved }: { saved: ClinicReceptionist }) {
               onChange={(e) => set({ tts_pitch: e.target.value === "" ? null : Number(e.target.value) })} />
           </Field>
         </div>
-        {voiceChanged && <VoiceImpact clinicId={saved.clinic_id} speaker={form.tts_speaker} pitch={form.tts_pitch} />}
+        {voiceChanged && <VoiceImpact clinicId={saved.clinic_id} model={form.tts_model} speaker={form.tts_speaker} pitch={form.tts_pitch} />}
       </Section>
 
       <Section title="Calls">

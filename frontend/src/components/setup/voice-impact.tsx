@@ -5,11 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import { TriangleAlert } from "lucide-react";
 import { api, unwrap } from "@/lib/api/client";
 
-export function VoiceImpact({ clinicId, speaker, pitch }: { clinicId: number; speaker: string; pitch: number | null }) {
+export function VoiceImpact({ clinicId, model, speaker, pitch }: { clinicId: number; model: string; speaker: string; pitch: number | null }) {
   const impact = useQuery({
-    queryKey: ["admin", "voice-impact", clinicId, speaker, pitch],
+    queryKey: ["admin", "voice-impact", clinicId, model, speaker, pitch],
     queryFn: () => unwrap(api.GET("/api/admin/voice/impact", {
-      params: { query: { clinic_id: clinicId, speaker, ...(pitch == null ? {} : { pitch }) } },
+      params: { query: { clinic_id: clinicId, model, speaker, ...(pitch == null ? {} : { pitch }) } },
     })),
   });
   if (!impact.data) return null;

@@ -1293,6 +1293,18 @@
             ],
             "title": "Max Call Minutes"
           },
+          "tts_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Model"
+          },
           "tts_pace": {
             "anyOf": [
               {
@@ -1368,8 +1380,16 @@
             "title": "Max Call Minutes",
             "type": "number"
           },
+          "model_default": {
+            "title": "Model Default",
+            "type": "string"
+          },
           "speaker_default": {
             "title": "Speaker Default",
+            "type": "string"
+          },
+          "tts_model": {
+            "title": "Tts Model",
             "type": "string"
           },
           "tts_pace": {
@@ -1397,11 +1417,13 @@
           "clinic_name",
           "instructions",
           "directions",
+          "tts_model",
           "tts_speaker",
           "tts_pace",
           "tts_pitch",
           "max_call_minutes",
           "speaker_default",
+          "model_default",
           "instructions_max_words",
           "directions_max_chars",
           "limits"
@@ -3574,18 +3596,6 @@
             ],
             "title": "Sarvam Stt Model"
           },
-          "sarvam_tts_model": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sarvam Tts Model"
-          },
           "vad_min_silence": {
             "anyOf": [
               {
@@ -3680,10 +3690,6 @@
             "title": "Sarvam Stt Model",
             "type": "string"
           },
-          "sarvam_tts_model": {
-            "title": "Sarvam Tts Model",
-            "type": "string"
-          },
           "vad_min_silence": {
             "title": "Vad Min Silence",
             "type": "number"
@@ -3697,7 +3703,6 @@
           "sarvam_stt_model",
           "sarvam_stt_language",
           "sarvam_stt_mode",
-          "sarvam_tts_model",
           "min_endpointing_delay",
           "number_endpointing_delay",
           "interrupt_min_speech",
@@ -6156,6 +6161,16 @@
             "schema": {
               "title": "Clinic Id",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Model",
+              "type": "string"
             }
           },
           {

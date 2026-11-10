@@ -38,7 +38,6 @@ def merge(cfg: Settings, system, clinic) -> CallSettings:
         sarvam_stt_model=_blank(system.sarvam_stt_model),
         sarvam_stt_language=_blank(system.sarvam_stt_language),
         sarvam_stt_mode=system.sarvam_stt_mode.strip() or "transcribe",
-        sarvam_tts_model=_blank(system.sarvam_tts_model),
         min_endpointing_delay=system.min_endpointing_delay,
         number_endpointing_delay=system.number_endpointing_delay,
         interrupt_min_speech=system.interrupt_min_speech,
@@ -47,6 +46,7 @@ def merge(cfg: Settings, system, clinic) -> CallSettings:
     if clinic is not None:
         shared = replace(
             shared,
+            sarvam_tts_model=_blank(clinic.tts_model),
             sarvam_tts_speaker=_blank(clinic.tts_speaker),
             sarvam_tts_pace=clinic.tts_pace,
             sarvam_tts_pitch=clinic.tts_pitch,

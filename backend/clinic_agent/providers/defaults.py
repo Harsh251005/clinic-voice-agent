@@ -13,6 +13,6 @@ BLANK_MEANS = {
     "openai_llm_model": OPENAI_LLM_MODEL,
     "sarvam_stt_model": SARVAM_STT_MODEL,
     "sarvam_stt_language": SARVAM_STT_LANGUAGE,
-    "sarvam_tts_model": SARVAM_TTS_MODEL,
+    "tts_model": SARVAM_TTS_MODEL,
     "tts_speaker": SARVAM_TTS_SPEAKER,
 }

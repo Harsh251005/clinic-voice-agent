@@ -36,7 +36,8 @@ def line_for(cfg: Settings, language: Language) -> Line:
 
 
 def why_unavailable(cfg: Settings, line: Line, text_only: bool = False) -> str | None:
-    """None if the line can take a call; else why not (a missing key).
+    """None if the line can take a call; else why not: a missing key, or
+    settings the vendor refuses (a speaker the voice model doesn't have).
     Building the providers is the check: each builder asks for its own key.
     Text-only (console --text) needs only the line's LLM."""
     try:
@@ -44,9 +45,14 @@ def why_unavailable(cfg: Settings, line: Line, text_only: bool = False) -> str |
         if not text_only:
             build_stt(cfg, line.stt)
             build_tts(cfg, line.tts)
-    except ConfigError as err:
-        return str(err)
+    except (ConfigError, ValueError) as err:
+        return _short(str(err))
     return None
+
+
+def _short(why: str) -> str:
+    """A vendor's message, without its list of every allowed value."""
+    return why.split(". Please choose", 1)[0].split(" Compatible speakers", 1)[0]
 
 
 def available(cfg: Settings, text_only: bool = False) -> dict[Language, str | None]:

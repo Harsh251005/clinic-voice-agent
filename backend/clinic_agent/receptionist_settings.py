@@ -41,7 +41,6 @@ SYSTEM = (
     Field("sarvam_stt_model", "text", "", env="SARVAM_STT_MODEL", max_chars=100),
     Field("sarvam_stt_language", "text", "", env="SARVAM_STT_LANGUAGE", max_chars=20),
     Field("sarvam_stt_mode", "text", "transcribe", env="SARVAM_STT_MODE", max_chars=30),
-    Field("sarvam_tts_model", "text", "", env="SARVAM_TTS_MODEL", max_chars=100),
     Field("min_endpointing_delay", "number", 0.2, env="MIN_ENDPOINTING_DELAY", low=0.0, high=5.0),
     Field("number_endpointing_delay", "number", 1.5, env="NUMBER_ENDPOINTING_DELAY", low=0.0, high=5.0),
     Field("interrupt_min_speech", "number", 0.3, env="INTERRUPT_MIN_SPEECH", low=0.05, high=3.0),
@@ -52,6 +51,9 @@ SYSTEM = (
 CLINIC = (
     Field("instructions", "text", "", max_words=INSTRUCTIONS_MAX_WORDS),
     Field("directions", "text", "", max_chars=DIRECTIONS_MAX_CHARS),
+    # Model and speaker together (2026-11-10): a speaker only exists in some
+    # models, so they are set and checked side by side, per clinic.
+    Field("tts_model", "text", "", env="SARVAM_TTS_MODEL", max_chars=100),
     Field("tts_speaker", "text", "", env="SARVAM_TTS_SPEAKER", max_chars=50),
     Field("tts_pace", "number", 1.0, env="SARVAM_TTS_PACE", low=0.5, high=2.0),
     Field("tts_pitch", "number", None, env="SARVAM_TTS_PITCH", low=-0.5, high=0.5, optional=True),

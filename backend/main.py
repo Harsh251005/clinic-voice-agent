@@ -26,7 +26,7 @@ from clinic_agent.agent import ClinicAgent
 from clinic_agent.call_limit import end_after
 from clinic_agent.call_record import CallRecorder, stack_of
 from clinic_agent.config import ConfigError, load_settings, refuse_moved_settings
-from clinic_agent.context import clinic_now, load_clinic, local_clinic, shared_settings
+from clinic_agent.context import clinic_now, every_clinics_settings, load_clinic, local_clinic
 from clinic_agent.dispatch import AGENT_NAME, LANGUAGES, BadDispatch, CallFor, call_from
 from clinic_agent.lines import NAMES, available, line_for
 from clinic_agent.prompts import build_instructions
@@ -111,7 +111,7 @@ async def entrypoint(ctx: JobContext) -> None:
     line = line_for(cfg, call.language)
     try:
         session = build_session(cfg, line, text_only=TEXT_ONLY)
-    except ConfigError as err:
+    except (ConfigError, ValueError) as err:  # a missing key, or a voice the vendor refuses
         # Its key is missing: the call page no longer offers this line, so
         # only a page opened before the worker started can get here.
         logger.error("refusing call in room %s: the %s line is off: %s", ctx.room.name, NAMES[call.language], err)
@@ -168,7 +168,15 @@ if __name__ == "__main__":
         cfg = load_settings()
         refuse_moved_settings()
         sessions_for(cfg.database_url)  # an old schema stops here, before reading the settings
-        lines_off = {lang: why for lang, why in available(shared_settings(cfg).cfg, TEXT_ONLY).items() if why}
+        # Each clinic's own voice: a line is off only if no clinic can use it.
+        checks = [(name, available(call.cfg, TEXT_ONLY)) for name, call in every_clinics_settings(cfg)]
+        lines_off = {}
+        for lang in LANGUAGES:
+            whys = [(name, found[lang]) for name, found in checks if found[lang]]
+            if len(whys) == len(checks):
+                lines_off[lang] = whys[0][1]
+            for name, why in whys if len(whys) < len(checks) else []:
+                print(f"warning: {name}'s calls can't be answered: {why}", file=sys.stderr)
         ready = [lang for lang in LANGUAGES if lang not in lines_off]
         if not ready:
             raise ConfigError("no language line can take calls: " + "; ".join(

@@ -34,11 +34,15 @@ def load_clinic(cfg: Settings, clinic_id: int) -> tuple[Clinic, list[TimeOff], C
     return clinic, time_off, settings
 
 
-def shared_settings(cfg: Settings) -> CallSettings:
-    """What every clinic shares, over .env (no clinic's own): the worker's
-    start-up check of the line and the dashboard's recording voice."""
+def every_clinics_settings(cfg: Settings) -> list[tuple[str, CallSettings]]:
+    """(clinic name, its call settings) for every active clinic, or one
+    ("", shared settings) when there is none: the worker's start-up check
+    tries each clinic's own voice, since a clinic's speaker must suit the
+    shared voice model."""
     with sessions_for(cfg.database_url)() as s:
-        return merge(cfg, repo.system_settings(s), None)
+        system = repo.system_settings(s)
+        clinics = [c for c in repo.list_clinics(s) if c.active]
+        return [(c.name, merge(cfg, system, c)) for c in clinics] or [("", merge(cfg, system, None))]
 
 
 def local_clinic(cfg: Settings, requested: int | None) -> int:

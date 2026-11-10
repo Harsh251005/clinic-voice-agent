@@ -839,7 +839,6 @@ class SystemSettingsBase(BaseModel):
     sarvam_stt_model: str
     sarvam_stt_language: str
     sarvam_stt_mode: str
-    sarvam_tts_model: str
     min_endpointing_delay: float
     number_endpointing_delay: float
     interrupt_min_speech: float
@@ -864,7 +863,6 @@ class SystemSettingsIn(BaseModel):
     sarvam_stt_model: str | None = Field(default=None, max_length=100)
     sarvam_stt_language: str | None = Field(default=None, max_length=20)
     sarvam_stt_mode: str | None = Field(default=None, max_length=30)
-    sarvam_tts_model: str | None = Field(default=None, max_length=100)
     min_endpointing_delay: float | None = None
     number_endpointing_delay: float | None = None
     interrupt_min_speech: float | None = None
@@ -879,11 +877,13 @@ class ClinicReceptionistOut(BaseModel):
     clinic_name: str
     instructions: str  # added after the main rules on this clinic's calls
     directions: str  # said when a caller asks the way
+    tts_model: str  # "" = model_default
     tts_speaker: str  # "" = speaker_default
     tts_pace: float  # live voice speed
     tts_pitch: float | None  # None = the voice's own
     max_call_minutes: float
     speaker_default: str
+    model_default: str
     instructions_max_words: int
     directions_max_chars: int
     limits: dict[str, Limit]
@@ -893,6 +893,7 @@ class ClinicReceptionistIn(BaseModel):
     """Any of the fields; only those sent change. tts_pitch null = the voice's own."""
     instructions: str | None = Field(default=None, max_length=5_000)
     directions: str | None = Field(default=None, max_length=1_000)
+    tts_model: str | None = Field(default=None, max_length=100)
     tts_speaker: str | None = Field(default=None, max_length=50)
     tts_pace: float | None = None
     tts_pitch: float | None = None

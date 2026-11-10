@@ -1804,6 +1804,8 @@ export interface components {
             instructions?: string | null;
             /** Max Call Minutes */
             max_call_minutes?: number | null;
+            /** Tts Model */
+            tts_model?: string | null;
             /** Tts Pace */
             tts_pace?: number | null;
             /** Tts Pitch */
@@ -1831,8 +1833,12 @@ export interface components {
             };
             /** Max Call Minutes */
             max_call_minutes: number;
+            /** Model Default */
+            model_default: string;
             /** Speaker Default */
             speaker_default: string;
+            /** Tts Model */
+            tts_model: string;
             /** Tts Pace */
             tts_pace: number;
             /** Tts Pitch */
@@ -2672,8 +2678,6 @@ export interface components {
             sarvam_stt_mode?: string | null;
             /** Sarvam Stt Model */
             sarvam_stt_model?: string | null;
-            /** Sarvam Tts Model */
-            sarvam_tts_model?: string | null;
             /** Vad Min Silence */
             vad_min_silence?: number | null;
         };
@@ -2718,8 +2722,6 @@ export interface components {
             sarvam_stt_mode: string;
             /** Sarvam Stt Model */
             sarvam_stt_model: string;
-            /** Sarvam Tts Model */
-            sarvam_tts_model: string;
             /** Vad Min Silence */
             vad_min_silence: number;
         };
@@ -4245,6 +4247,7 @@ export interface operations {
         parameters: {
             query: {
                 clinic_id: number;
+                model?: string;
                 speaker?: string;
                 pitch?: number | null;
             };

@@ -54,6 +54,7 @@ class Clinic(Base):
     # Fields, limits and defaults: clinic_agent/receptionist_settings.py CLINIC.
     instructions: Mapped[str] = mapped_column(Text, default="", server_default="")  # added after the rules
     directions: Mapped[str] = mapped_column(String(300), default="", server_default="")  # how to find it
+    tts_model: Mapped[str] = mapped_column(String(100), default="", server_default="")  # "" = the vendor's default
     tts_speaker: Mapped[str] = mapped_column(String(50), default="", server_default="")  # "" = the voice's default
     tts_pace: Mapped[float] = mapped_column(default=1.0, server_default="1.0")  # live voice speed
     tts_pitch: Mapped[float | None] = mapped_column(default=None)  # None = not sent (the voice's own)
@@ -451,7 +452,6 @@ class SystemSettings(Base):
     sarvam_stt_model: Mapped[str] = mapped_column(String(100), default="", server_default="")
     sarvam_stt_language: Mapped[str] = mapped_column(String(20), default="", server_default="")
     sarvam_stt_mode: Mapped[str] = mapped_column(String(30), default="transcribe", server_default="transcribe")
-    sarvam_tts_model: Mapped[str] = mapped_column(String(100), default="", server_default="")
     min_endpointing_delay: Mapped[float] = mapped_column(default=0.2, server_default="0.2")
     number_endpointing_delay: Mapped[float] = mapped_column(default=1.5, server_default="1.5")
     interrupt_min_speech: Mapped[float] = mapped_column(default=0.3, server_default="0.3")

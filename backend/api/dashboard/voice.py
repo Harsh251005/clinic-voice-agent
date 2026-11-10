@@ -43,12 +43,14 @@ def _settings(request: Request):
         return repo.system_settings(s), repo.list_clinics(s)
 
 
-def clinic_voice(base: Settings, system, clinic, pace: float | None = None, speaker=_KEEP, pitch=_KEEP):
+def clinic_voice(base: Settings, system, clinic, pace: float | None = None, speaker=_KEEP, pitch=_KEEP, model=_KEEP):
     """(TTS, its identity, why there is none) for `clinic`'s calls: the shared
     voice model with this clinic's speaker and pitch (call_settings.py). With
     `pace`, at that speed: how a phrase is recorded (Phrase.pace). `speaker`
     and `pitch` try out other values (the clinic tab's warning before a save)."""
     cfg = merge(base, system, clinic).cfg
+    if model is not _KEEP:
+        cfg = replace(cfg, sarvam_tts_model=model.strip() or None)
     if speaker is not _KEEP:
         cfg = replace(cfg, sarvam_tts_speaker=speaker.strip() or None)
     if pitch is not _KEEP:
@@ -260,7 +262,7 @@ async def record(body: schemas.RecordIn, request: Request):
 
 
 @router.get("/impact", response_model=schemas.VoiceImpact)
-def impact(request: Request, clinic_id: int, speaker: str = "", pitch: float | None = None):
+def impact(request: Request, clinic_id: int, model: str = "", speaker: str = "", pitch: float | None = None):
     """Before a clinic's voice is changed (its Receptionist tab): how many of
     its lines are recorded in its voice now, and how many would be in the one
     tried out. The others are said live until recorded."""
@@ -269,7 +271,7 @@ def impact(request: Request, clinic_id: int, speaker: str = "", pitch: float | N
     if clinic is None:
         raise HTTPException(404, "No such clinic.")
     _, now, _ = clinic_voice(request.app.state.cfg, system, clinic)
-    _, after, _ = clinic_voice(request.app.state.cfg, system, clinic, speaker=speaker, pitch=pitch)
+    _, after, _ = clinic_voice(request.app.state.cfg, system, clinic, speaker=speaker, pitch=pitch, model=model)
     with request.app.state.sessions() as s:
         lines = [(p, voice_clips.spoken(p.text, clinic)) for p in repo.phrases_for_call(s, clinic.id, LANGUAGE)]
 
