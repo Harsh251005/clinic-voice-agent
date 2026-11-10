@@ -14,7 +14,7 @@ def test_facts_come_from_the_database(db):
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
     assert "receptionist of Demo Family Clinic" in text
     assert "Shop 4, Sunrise Apartments, Borivali East, Mumbai" in text
-    assert "Dr. Asha Mehta (General Physician, fee ₹500)" in text
+    assert "Dr. Asha Mehta (say \"Dr. Asha\"; the full name only if asked: Dr. Asha Mehta) (General Physician, fee ₹500)" in text
     assert "Q: Is there parking? A: Two-wheeler parking only" in text
     assert "Monday, 21 September 2026, 15:30" in text
 
@@ -169,7 +169,17 @@ def test_the_hindi_line_says_names_as_the_clinic_spelt_them(db):
     clinic = repo.get_clinic(s, clinic_id)
     hindi = build_instructions(clinic, [], NOW, "hi")
     assert "- Name: Demo Family Clinic (in Hindi: डेमो फ़ैमिली क्लिनिक)" in hindi
-    assert f"{clinic.doctors[0].name} (in Hindi: डॉक्टर आशा मेहता)" in hindi
+    assert f'{clinic.doctors[0].name} (say "डॉक्टर आशा"; the full name only if asked: डॉक्टर आशा मेहता)' in hindi
+
+
+def test_doctors_are_called_by_first_name_unless_two_share_it():
+    # Harsh, 2026-11-10: "डॉक्टर + first name"; the full name only if the caller asks.
+    from clinic_agent.prompts import _doctor_named
+    assert _doctor_named("Dr. Harsh Dharnidharka", "डॉक्टर हर्ष धरनिधरका", "hi", ["harsh"]) == (
+        'Dr. Harsh Dharnidharka (say "डॉक्टर हर्ष"; the full name only if asked: डॉक्टर हर्ष धरनिधरका)')
+    assert _doctor_named("Dr. Rohan Iyer", "", "hi", ["rohan"]).startswith('Dr. Rohan Iyer (say "Dr. Rohan";')
+    assert _doctor_named("Dr. Mehra", "", "hi", ["mehra"]) == "Dr. Mehra"  # one name: nothing to shorten
+    assert _doctor_named("Dr. Harsh Shah", "", "hi", ["harsh", "harsh"]) == "Dr. Harsh Shah"  # two Harshes
 
 
 def test_the_hindi_line_speaks_everyday_hindi():

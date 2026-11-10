@@ -65,6 +65,31 @@ def _named(name: str, name_hi: str, language: Language) -> str:
     return f"{name} (in Hindi: {name_hi})" if language == "hi" and name_hi else name
 
 
+_TITLES = ("डॉक्टर", "डॉ.", "डॉ", "dr.", "dr")
+
+
+def _first_name(name: str) -> tuple[str, str, bool]:
+    """(title, first word, more words after it) of a doctor's name."""
+    words = name.split()
+    title = words.pop(0) if words and words[0].lower() in _TITLES else ""
+    return title, (words[0] if words else ""), len(words) > 1
+
+
+def _doctor_named(name: str, name_hi: str, language: Language, first_names: list[str]) -> str:
+    """Harsh, 2026-11-10: the full name every time ("डॉक्टर हर्ष धरनिधरका")
+    sounded stiff. Say "डॉक्टर + first name"; the full name only if asked.
+    Two doctors sharing a first name keep the full name (no mix-up)."""
+    full = _named(name, name_hi, language)
+    if language != "hi":
+        return full
+    spoken = name_hi or name
+    _, first, more = _first_name(spoken)
+    if not (first and more) or first_names.count(_first_name(name)[1].lower()) > 1:
+        return full
+    title = "डॉक्टर" if name_hi else "Dr."
+    return f'{name} (say "{title} {first}"; the full name only if asked: {spoken})'
+
+
 def clinic_facts(clinic: Clinic, time_off: Iterable[TimeOff], now: datetime, language: Language) -> str:
     doctors = [d for d in clinic.doctors if d.active]
     names = {d.id: d.name for d in clinic.doctors}
@@ -84,9 +109,10 @@ def clinic_facts(clinic: Clinic, time_off: Iterable[TimeOff], now: datetime, lan
     else:
         lines.append(f"- Doctors ({len(doctors)}: ask which one only if the caller hasn't said or described one):"
                      if doctors else "- Doctors: none listed.")
+    first_names = [_first_name(d.name)[1].lower() for d in doctors]
     for d in doctors:
         detail = ", ".join(x for x in [d.specialty, f"fee ₹{d.fee}" if d.fee else ""] if x)
-        lines.append(f"  - {_named(d.name, d.name_hi, language)}{f' ({detail})' if detail else ''}: {weekly_hours(d)}")
+        lines.append(f"  - {_doctor_named(d.name, d.name_hi, language, first_names)}{f' ({detail})' if detail else ''}: {weekly_hours(d)}")
 
     closures = [
         f"  - {names.get(t.doctor_id, 'Whole clinic closed') if t.doctor_id else 'Whole clinic closed'}"

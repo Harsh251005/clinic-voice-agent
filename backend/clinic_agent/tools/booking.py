@@ -222,8 +222,9 @@ def booking_tools(link: ClinicLink) -> list:
             reason_fits == "unsure", _caller_turns(ctx) or 0,
         )]
         return fit_gate(reason, details.specialty) + (
-            f"Not booked yet. Read this back to the caller in one sentence, the number "
-            f"digit by digit, and ask if it is correct: {details}. If they say yes, call "
+            f"Not booked yet. Read this back to the caller in one sentence, the doctor as "
+            f"CLINIC FACTS says to say them, the number digit by digit, and ask if it is "
+            f"correct: {details}. If they say yes, call "
             f"book_appointment. If anything is wrong, fix it and call check_booking again."
         )
 

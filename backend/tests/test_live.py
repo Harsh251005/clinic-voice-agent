@@ -226,7 +226,7 @@ async def test_afternoon_means_twelve_to_five_named_one_by_one(session):
 
 
 READ_BACK = (
-    "Not booked yet. Read this back to the caller in one sentence, the number digit by digit, "
+    "Not booked yet. Read this back to the caller in one sentence, the doctor as CLINIC FACTS says to say them, the number digit by digit, "
     "and ask if it is correct: Dr. Asha Mehta, Tuesday 22 September 2026, 17:00 (पाँच बजे), "
     "for Ravi, mobile 9 8 7 6 5 4 3 2 1 0. If they say yes, call book_appointment. "
     "If anything is wrong, fix it and call check_booking again."

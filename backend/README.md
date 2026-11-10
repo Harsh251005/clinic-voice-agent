@@ -186,6 +186,10 @@ in `repo.py`.
   "उपलब्ध"…), start replies with a short "जी" / "अच्छा", never repeat a
   confirmed detail, and use no dashes, semicolons or brackets (the voice
   reads them oddly). The English rules share the last three.
+- **Doctors by first name:** the receptionist says "डॉक्टर हर्ष", never the
+  full name unless the caller asks for it (also in the booking read-back). A
+  one-word name stays as it is; two doctors with the same first name both
+  keep their full names.
 - **Names said one way:** the clinic and each doctor have a *Name in Hindi*
   (Devanagari), **filled in from the English name** as staff type
   (`POST /api/clinics/{id}/hindi-name`: one short OpenAI text request,
