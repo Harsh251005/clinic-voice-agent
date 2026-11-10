@@ -14,6 +14,7 @@ import asyncio
 import io
 import logging
 import wave
+from dataclasses import replace
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -33,10 +34,14 @@ router = APIRouter(prefix="/api/admin/voice", dependencies=[Depends(admin)])
 LANGUAGE = "hi"  # the one line (docs/decisions.md #13)
 
 
-def _voice(request: Request):
-    """(the TTS calls use now, its identity, why there is none)."""
+def _voice(request: Request, pace: float | None = None):
+    """(the TTS calls use now, its identity, why there is none). With `pace`,
+    the same voice at that speed: how a phrase is recorded (Phrase.pace)."""
+    cfg = request.app.state.cfg
+    if pace is not None:
+        cfg = replace(cfg, sarvam_tts_pace=pace)
     try:
-        tts = build_tts(request.app.state.cfg, line_for(request.app.state.cfg, LANGUAGE).tts)
+        tts = build_tts(cfg, line_for(cfg, LANGUAGE).tts)
         return tts, identity(tts), ""
     except (ConfigError, ValueError, TypeError) as err:
         return None, None, f"No voice to record with: {err}"
@@ -57,23 +62,27 @@ def _page(s, request: Request, voice: dict | None, problem: str) -> schemas.Voic
     phrases = [p for p in repo.list_phrases(s) if p.language == LANGUAGE]
     own = {p.clinic_id for p in phrases if p.clinic_id is not None}
     takes = {p.id: _takes(p, clinics, own, voice) for p in phrases}
-    keys = {t[2]: voice_clips.clip_key(voice, t[2]) for ts in takes.values() for t in ts} if voice else {}
+    keys = {(p.id, t[2]): voice_clips.clip_key(voice_clips.at_pace(voice, p.pace), t[2])
+            for p in phrases for t in takes[p.id]} if voice else {}
     clips = repo.clip_dates(s, keys.values())
     out = []
     for p in phrases:
         listed = []
         for clinic_id, name, words in takes[p.id]:
-            clip = clips.get(keys.get(words, ""))
+            key = keys.get((p.id, words))
+            clip = clips.get(key or "")
             listed.append(schemas.Take(
-                clinic_id=clinic_id, clinic_name=name, spoken=words, key=keys.get(words),
+                clinic_id=clinic_id, clinic_name=name, spoken=words, key=key,
                 recorded_at=convert.utc(clip.recorded_at) if clip else None, duration_s=clip.duration_s if clip else None))
         out.append(schemas.PhraseOut(
             id=p.id, kind=p.kind, language=p.language, slot=p.slot, clinic_id=p.clinic_id,
-            clinic_name=clinics[p.clinic_id].name if p.clinic_id else "", source=p.source, text=p.text, takes=listed))
+            clinic_name=clinics[p.clinic_id].name if p.clinic_id else "", source=p.source, text=p.text,
+            pace=p.pace, takes=listed))
     return schemas.VoicePage(
         voice=schemas.VoiceOut(vendor=voice["vendor"], model=voice["model"], voice=voice["voice"], pace=voice["pace"],
                                pitch=voice["pitch"], sample_rate=voice["sample_rate"]) if voice else None,
-        voice_problem=problem, rupees_per_1000_chars=_price(s, voice), max_chars=repo.MAX_PHRASE_CHARS, phrases=out,
+        voice_problem=problem, rupees_per_1000_chars=_price(s, voice), max_chars=repo.MAX_PHRASE_CHARS,
+        pace_min=repo.PACE_RANGE[0], pace_max=repo.PACE_RANGE[1], phrases=out,
         clinics=[schemas.VoiceClinic(id=c.id, name=c.name, spoken_name=voice_clips.spoken_name(c), own_greeting=c.id in own)
                  for c in clinics.values()],
     )
@@ -104,6 +113,15 @@ def edit_phrase(phrase_id: int, body: schemas.PhraseIn, request: Request):
     longer plays: the phrase is said live until it is recorded again."""
     with staff_errors(), request.app.state.sessions() as s:
         repo.set_phrase_text(s, phrase_id, body.text, source=body.source)
+    return page_now(request)
+
+
+@router.put("/phrases/{phrase_id}/pace", response_model=schemas.VoicePage)
+def phrase_pace(phrase_id: int, body: schemas.PaceIn, request: Request):
+    """How fast this phrase's recording is spoken. Takes at the old speed stay
+    but no longer play: the phrase is said live until recorded again."""
+    with staff_errors(), request.app.state.sessions() as s:
+        repo.set_phrase_pace(s, phrase_id, body.pace)
     return page_now(request)
 
 
@@ -168,17 +186,21 @@ async def record(body: schemas.RecordIn, request: Request):
 
     page = await asyncio.to_thread(current)
     by_phrase = {p.id: p for p in page.phrases}
-    wanted: dict[str, str] = {}  # key -> words, each once
+    wanted: dict[str, tuple[str, float]] = {}  # key -> (words, speed), each once
     for ref in body.takes:
         phrase = by_phrase.get(ref.phrase_id)
         take = next((t for t in phrase.takes if t.clinic_id == ref.clinic_id), None) if phrase else None
         if take is None or take.key is None:
             raise HTTPException(404, "That phrase (or that clinic's greeting) is not there any more. Reload the page.")
-        wanted[take.key] = take.spoken
+        wanted[take.key] = (take.spoken, phrase.pace)
     done, failed = 0, ""
-    for words in wanted.values():
+    for words, pace in wanted.values():
+        paced, paced_identity, why = _voice(request, pace)
+        if paced is None:
+            failed = why
+            break
         try:
-            await voice_clips.record(sessions, tts, voice, words)
+            await voice_clips.record(sessions, paced, paced_identity, words)
             done += 1
         except voice_clips.RecordFailed as err:
             failed = str(err)

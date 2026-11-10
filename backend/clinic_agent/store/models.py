@@ -459,6 +459,10 @@ class Phrase(Base):
     # What is spoken and recorded: the Hindi made from `source` (staff may fix
     # it after reading it), or `source` itself on the English line.
     text: Mapped[str] = mapped_column(Text)
+    # How fast its recording is spoken (Sarvam's pace, 0.5-2.0), apart from the
+    # live voice's SARVAM_TTS_PACE (Harsh, 2026-11-10): tuning one never
+    # un-records the other.
+    pace: Mapped[float] = mapped_column(default=1.0, server_default="1.0")  # `text` here is the column above
 
 
 class VoiceClip(Base):

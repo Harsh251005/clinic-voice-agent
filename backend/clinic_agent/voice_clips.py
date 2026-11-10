@@ -50,6 +50,12 @@ def clip_key(voice: dict, text: str) -> str:
     return hashlib.sha256("\x1f".join(str(p) for p in [*parts, text]).encode()).hexdigest()
 
 
+def at_pace(voice: dict, pace: float) -> dict:
+    """The voice as it records a phrase: its own speed (Phrase.pace), not the
+    live voice's, so changing either never un-records the other."""
+    return {**voice, "pace": pace}
+
+
 @dataclass(frozen=True)
 class Said:
     """A phrase ready to say: its words, and its recording if there is one
@@ -95,9 +101,10 @@ def load(s: Session, clinic, languages: Iterable[str], voice_of: Callable[[str],
         voice = voice_of(language)
         rows = sorted(repo.phrases_for_call(s, clinic.id, language), key=lambda p: p.slot)
         texts = [spoken(p.text, clinic) for p in rows]
-        clips = repo.clips_by_key(s, [clip_key(voice, t) for t in texts]) if voice else {}
-        for row, text in zip(rows, texts):
-            clip = clips.get(clip_key(voice, text)) if voice else None
+        keys = [clip_key(at_pace(voice, p.pace), t) for p, t in zip(rows, texts)] if voice else []
+        clips = repo.clips_by_key(s, keys) if voice else {}
+        for i, (row, text) in enumerate(zip(rows, texts)):
+            clip = clips.get(keys[i]) if voice else None
             said.setdefault((row.kind, language), []).append(
                 Said(text, clip.pcm, clip.sample_rate, kind=row.kind) if clip and _playable(clip) else Said(text, kind=row.kind))
     return Phrasebook(said, name)

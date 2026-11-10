@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { recordedOn, type Phrase, type Take } from "@/lib/voice";
 import { PlayButton } from "./play-button";
+import { SpeedSelect } from "./speed-select";
 
 export function Status({ take }: { take: Take }) {
   return take.recorded_at ? (
@@ -20,8 +21,9 @@ export function Status({ take }: { take: Take }) {
   );
 }
 
-export function PhraseCard({ phrase, label, canRecord, onEdit, onRecord }: {
-  phrase: Phrase; label: string; canRecord: boolean; onEdit: () => void; onRecord: (takes: Take[]) => void;
+export function PhraseCard({ phrase, label, canRecord, speed, onEdit, onRecord, onSpeed }: {
+  phrase: Phrase; label: string; canRecord: boolean; speed: { min: number; max: number; busy: boolean };
+  onEdit: () => void; onRecord: (takes: Take[]) => void; onSpeed: (pace: number) => void;
 }) {
   const perClinic = phrase.kind === "greeting";
   return (
@@ -32,7 +34,11 @@ export function PhraseCard({ phrase, label, canRecord, onEdit, onRecord }: {
           <p lang="hi" className="text-[17px] leading-relaxed">{phrase.text}</p>
           <p className="text-sm text-muted-foreground">{phrase.source}</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={onEdit} aria-label={`Change ${label}`}><Pencil /> Change</Button>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onEdit} aria-label={`Change ${label}`}><Pencil /> Change</Button>
+          <SpeedSelect id={`speed-${phrase.id}`} value={phrase.pace} min={speed.min} max={speed.max} label={label}
+            disabled={speed.busy} onChange={onSpeed} />
+        </div>
       </div>
 
       {phrase.takes.length === 0 ? (

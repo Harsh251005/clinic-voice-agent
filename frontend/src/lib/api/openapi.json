@@ -2556,6 +2556,19 @@
         "title": "NewDoctor",
         "type": "object"
       },
+      "PaceIn": {
+        "properties": {
+          "pace": {
+            "title": "Pace",
+            "type": "number"
+          }
+        },
+        "required": [
+          "pace"
+        ],
+        "title": "PaceIn",
+        "type": "object"
+      },
       "Pattern": {
         "properties": {
           "name": {
@@ -2633,6 +2646,10 @@
             "title": "Language",
             "type": "string"
           },
+          "pace": {
+            "title": "Pace",
+            "type": "number"
+          },
           "slot": {
             "title": "Slot",
             "type": "integer"
@@ -2662,6 +2679,7 @@
           "clinic_name",
           "source",
           "text",
+          "pace",
           "takes"
         ],
         "title": "PhraseOut",
@@ -3887,6 +3905,14 @@
             "title": "Max Chars",
             "type": "integer"
           },
+          "pace_max": {
+            "title": "Pace Max",
+            "type": "number"
+          },
+          "pace_min": {
+            "title": "Pace Min",
+            "type": "number"
+          },
           "phrases": {
             "items": {
               "$ref": "#/components/schemas/PhraseOut"
@@ -3925,6 +3951,8 @@
           "voice_problem",
           "rupees_per_1000_chars",
           "max_chars",
+          "pace_min",
+          "pace_max",
           "phrases",
           "clinics"
         ],
@@ -5472,6 +5500,56 @@
           }
         },
         "summary": "Edit Phrase"
+      }
+    },
+    "/api/admin/voice/phrases/{phrase_id}/pace": {
+      "put": {
+        "description": "How fast this phrase's recording is spoken. Takes at the old speed stay\nbut no longer play: the phrase is said live until recorded again.",
+        "operationId": "phrase_pace_api_admin_voice_phrases__phrase_id__pace_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phrase_id",
+            "required": true,
+            "schema": {
+              "title": "Phrase Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoicePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Phrase Pace"
       }
     },
     "/api/admin/voice/record": {

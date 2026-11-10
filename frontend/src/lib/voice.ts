@@ -42,6 +42,12 @@ export function useVoiceChanges() {
     onSuccess: (page) => { show(page); toast.success("Back to the shared greeting."); },
     onError: fail,
   });
+  const pace = useMutation({
+    mutationFn: ({ id, pace }: { id: number; pace: number }) =>
+      unwrap(api.PUT("/api/admin/voice/phrases/{phrase_id}/pace", { params: { path: { phrase_id: id } }, body: { pace } })),
+    onSuccess: (page) => { show(page); toast.success("Speed saved. Record the line again to hear it at this speed; until then it is said live."); },
+    onError: fail,
+  });
   const record = useMutation({
     mutationFn: (takes: TakeRef[]) => unwrap(api.POST("/api/admin/voice/record", { body: { takes } })),
     onSuccess: (r) => {
@@ -51,11 +57,21 @@ export function useVoiceChanges() {
     },
     onError: fail,
   });
-  return { editPhrase, ownGreeting, sharedGreeting, record };
+  return { editPhrase, ownGreeting, sharedGreeting, pace, record };
 }
 
 export function suggestHindi(english: string, clinicId?: number) {
   return unwrap(api.POST("/api/admin/voice/translate", { body: { english, clinic_id: clinicId ?? null } }));
+}
+
+/** Speeds to pick from: 0.70× to 1.30× in steps of 0.05 (within what the
+ *  voice accepts), plus the line's own if it is outside that. */
+export function speeds(current: number, min: number, max: number): number[] {
+  const out: number[] = [];
+  for (let i = 70; i <= 130; i += 5) if (i / 100 >= min && i / 100 <= max) out.push(i / 100);
+  const own = Math.round(current * 100) / 100;
+  if (!out.includes(own)) out.push(own);
+  return out.sort((a, b) => a - b);
 }
 
 // ---------- words ----------

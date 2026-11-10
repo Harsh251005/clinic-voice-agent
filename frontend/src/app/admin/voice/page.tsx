@@ -80,7 +80,8 @@ function Body({ page }: { page: VoicePage }) {
               <p className="font-semibold">{voiceName(page.voice)}</p>
               <p className="text-sm text-muted-foreground">
                 <span className="tabular-nums">{recorded} of {lines(allTakes.length)}</span> recorded in this voice.
-                A new voice, pace or pitch starts unrecorded; old recordings come back if you switch back.
+                Each line records at its own speed, so changing the live voice&apos;s speed keeps them.
+                A new voice or pitch starts unrecorded; old recordings come back if you switch back.
               </p>
             </>
           ) : (
@@ -114,6 +115,8 @@ function Body({ page }: { page: VoicePage }) {
                   : kind === "filler" ? `Line ${i + 1}` : KINDS[kind].title;
                 return (
                   <PhraseCard key={p.id} phrase={p} label={label} canRecord={canRecord}
+                    speed={{ min: page.pace_min, max: page.pace_max, busy: change.pace.isPending || change.record.isPending }}
+                    onSpeed={(pace) => change.pace.mutate({ id: p.id, pace })}
                     onEdit={() => edit(p, label)}
                     onRecord={(takes) => ask(`${takes.some((t) => t.recorded_at) ? "Record again" : "Record"}: ${label}?`, p, takes)} />
                 );

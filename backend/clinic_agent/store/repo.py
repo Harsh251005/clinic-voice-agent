@@ -1140,6 +1140,21 @@ def set_phrase_text(s: Session, phrase_id: int, text: str, source: str | None = 
     return phrase
 
 
+PACE_RANGE = (0.5, 2.0)  # what Sarvam accepts
+
+
+def set_phrase_pace(s: Session, phrase_id: int, pace: float) -> Phrase:
+    """How fast this phrase's recording is spoken. Its takes at the old speed
+    stay (for going back) but no longer play: it is said live until recorded."""
+    low, high = PACE_RANGE
+    if not low <= pace <= high:
+        raise ValueError(f"Speed must be between {low} and {high}.")
+    phrase = _get(s, Phrase, phrase_id)
+    phrase.pace = round(pace, 2)
+    s.commit()
+    return phrase
+
+
 def set_greeting_override(s: Session, clinic_id: int, language: str, text: str, source: str | None = None) -> Phrase:
     """This clinic's own greeting in `language`, replacing the global one."""
     text = _phrase_text(text)
@@ -1148,7 +1163,10 @@ def set_greeting_override(s: Session, clinic_id: int, language: str, text: str, 
     phrase = s.scalar(select(Phrase).where(
         Phrase.clinic_id == clinic_id, Phrase.kind == "greeting", Phrase.language == language))
     if phrase is None:
-        phrase = Phrase(kind="greeting", language=language, slot=0, clinic_id=clinic_id, source=source, text=text)
+        shared = s.scalar(select(Phrase).where(
+            Phrase.clinic_id.is_(None), Phrase.kind == "greeting", Phrase.language == language))
+        phrase = Phrase(kind="greeting", language=language, slot=0, clinic_id=clinic_id, source=source, text=text,
+                        pace=shared.pace if shared else 1.0)  # starts at the shared greeting's speed
         s.add(phrase)
     else:
         phrase.text, phrase.source = text, source

@@ -25,8 +25,15 @@ OK_GREETING = "नमस्ते जी, {clinic} में स्वागत 
 @pytest.fixture
 def fake_voice(monkeypatch):
     spoken = FakeVoice()
-    monkeypatch.setattr(voice_api, "build_tts", lambda cfg, vendor: spoken)
-    monkeypatch.setattr(voice_api, "identity", lambda tts: VOICE)
+    paces = []  # the speed each voice was built at (a phrase records at its own)
+
+    def build(cfg, vendor):
+        paces.append(cfg.sarvam_tts_pace)
+        return spoken
+
+    monkeypatch.setattr(voice_api, "build_tts", build)
+    monkeypatch.setattr(voice_api, "identity", lambda tts: {**VOICE, "pace": paces[-1] or VOICE["pace"]})
+    spoken.paces = paces
     return spoken
 
 
@@ -40,14 +47,14 @@ def _phrase(page, kind, clinic_id=None):
 
 ROUTES = [
     ("GET", "/api/admin/voice"), ("PUT", "/api/admin/voice/phrases/1"),
-    ("PUT", "/api/admin/voice/clinics/{cure}/greeting"), ("DELETE", "/api/admin/voice/clinics/{cure}/greeting"),
+    ("PUT", "/api/admin/voice/phrases/1/pace"), ("PUT", "/api/admin/voice/clinics/{cure}/greeting"), ("DELETE", "/api/admin/voice/clinics/{cure}/greeting"),
     ("POST", "/api/admin/voice/translate"), ("POST", "/api/admin/voice/record"), ("GET", "/api/admin/voice/clips/abc.wav"),
 ]
 
 
 @pytest.mark.parametrize(("method", "path"), ROUTES)
 def test_only_admins(world, method, path):  # noqa: F811
-    body = {"source": "x", "text": "x", "english": "x", "takes": [{"phrase_id": 1}]}
+    body = {"source": "x", "text": "x", "english": "x", "takes": [{"phrase_id": 1}], "pace": 1.0}
     for client in (client_as("reception@cure.in"), client_as()):
         assert client.request(method, path.format(**world), json=body).status_code in (401, 403)
 
@@ -168,3 +175,17 @@ def test_a_failed_suggestion_says_type_it_yourself_and_tells_the_admin(world, op
     _admin().post("/api/admin/voice/translate", json={"english": "Yes, wait."})
     with sessions_for(load_settings().database_url)() as s:
         assert not [i for i in repo.open_incidents(s) if i.kind == "phrase_translation_failing"]
+
+
+def test_a_phrase_records_at_its_own_speed(world, fake_voice):  # noqa: F811
+    # Harsh, 2026-11-10: recordings get their own speed, apart from the live voice.
+    c = _admin()
+    filler = _phrase(c.get("/api/admin/voice").json(), "filler")
+    page = c.put(f"/api/admin/voice/phrases/{filler['id']}/pace", json={"pace": 1.15}).json()
+    assert _phrase(page, "filler")["pace"] == 1.15 and page["pace_min"] == 0.5 and page["pace_max"] == 2.0
+    r = c.post("/api/admin/voice/record", json={"takes": [{"phrase_id": filler["id"]}]}).json()
+    assert r["recorded"] == 1 and fake_voice.paces[-1] == 1.15
+    assert _phrase(r["page"], "filler")["takes"][0]["recorded_at"]
+    c.put(f"/api/admin/voice/phrases/{filler['id']}/pace", json={"pace": 1.0})  # another speed: not recorded yet
+    assert _phrase(c.get("/api/admin/voice").json(), "filler")["takes"][0]["recorded_at"] is None
+    assert c.put(f"/api/admin/voice/phrases/{filler['id']}/pace", json={"pace": 3}).status_code == 422

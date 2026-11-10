@@ -766,6 +766,7 @@ class PhraseOut(BaseModel):
     clinic_name: str
     source: str  # the English the admin wrote
     text: str  # the Hindi that is spoken
+    pace: float  # how fast its recording is spoken (apart from the live voice)
     takes: list[Take]
 
 
@@ -781,8 +782,14 @@ class VoicePage(BaseModel):
     voice_problem: str  # why there is no voice (no key...); "" when there is one
     rupees_per_1000_chars: float | None  # the voice's price today; None when no price is set
     max_chars: int
+    pace_min: float  # the speeds a recording may have
+    pace_max: float
     phrases: list[PhraseOut]
     clinics: list[VoiceClinic]
+
+
+class PaceIn(BaseModel):
+    pace: float
 
 
 class PhraseIn(BaseModel):

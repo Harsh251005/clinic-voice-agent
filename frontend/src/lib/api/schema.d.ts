@@ -496,6 +496,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/voice/phrases/{phrase_id}/pace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Phrase Pace
+         * @description How fast this phrase's recording is spoken. Takes at the old speed stay
+         *     but no longer play: the phrase is said live until recorded again.
+         */
+        put: operations["phrase_pace_api_admin_voice_phrases__phrase_id__pace_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/voice/record": {
         parameters: {
             query?: never;
@@ -2173,6 +2194,11 @@ export interface components {
             /** Specialty */
             specialty: string;
         };
+        /** PaceIn */
+        PaceIn: {
+            /** Pace */
+            pace: number;
+        };
         /** Pattern */
         Pattern: {
             /** Name */
@@ -2205,6 +2231,8 @@ export interface components {
              * @constant
              */
             language: "hi";
+            /** Pace */
+            pace: number;
             /** Slot */
             slot: number;
             /** Source */
@@ -2732,6 +2760,10 @@ export interface components {
             clinics: components["schemas"]["VoiceClinic"][];
             /** Max Chars */
             max_chars: number;
+            /** Pace Max */
+            pace_max: number;
+            /** Pace Min */
+            pace_min: number;
             /** Phrases */
             phrases: components["schemas"]["PhraseOut"][];
             /** Rupees Per 1000 Chars */
@@ -3841,6 +3873,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PhraseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoicePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    phrase_pace_api_admin_voice_phrases__phrase_id__pace_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                phrase_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaceIn"];
             };
         };
         responses: {

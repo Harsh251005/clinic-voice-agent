@@ -259,9 +259,14 @@ every clinic?" and never shows patients:
   2026-11-09: no required wording; what callers are told is the admin's
   call). Each line shows,
   per clinic for the greeting, whether it is **recorded in the current
-  voice** (vendor, model, speaker, pace, pitch) and its exact words; **Play**
+  voice** (vendor, model, speaker, pitch) at **its own speed** and its exact
+  words; **Play**
   a recording, **Record** one, a line, or everything not yet recorded (the
   estimated characters and price are shown first, from the Prices page).
+  Each line has its own **Speed** (0.70× to 1.30×; migration 0017 set the
+  existing ones to 0.90×, the speed they were recorded at), apart from the
+  live voice's `SARVAM_TTS_PACE`: changing either never un-records the
+  other. A line at a new speed is said live until recorded again.
   Nothing records by itself, and recording stops at the first failure
   (problem "Recording a voice clip failed"). Edited words or a new voice
   are said live until recorded; old takes stay, so going back to an old
@@ -666,7 +671,8 @@ write the same tables through `store/repo.py`.
   random, never the same twice running) and the two fixed goodbyes (empty
   `end_call` goodbye, time limit). Each call loads them once at its start:
   a phrase recorded for the call's exact voice (vendor, model, speaker,
-  pace, pitch, sample rate) and exact words plays that recording, with no
+  pitch, sample rate), at the phrase's own speed, and exact words plays that
+  recording, with no
   voice-vendor call; anything else is said live, as before. A recording is
   made only when an admin asks (admin page: coming). If the phrases can't
   be read at all, the call says them live in their built-in words and the
@@ -831,7 +837,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `SARVAM_TTS_SPEAKER` | `suhani` | Any voice of the chosen model (a woman's: the prompt says so); v2 names such as `anushka` are rejected by `bulbul:v3`. |
 | `SARVAM_TTS_CODEC` | `linear16` | Raw PCM: compressed formats cost a decode per chunk. |
 | `SARVAM_TTS_LANGUAGE` | `hi-IN` | The replies are Devanagari. |
-| `SARVAM_TTS_PACE` | `1` | Speed of the voice, 0.5 to 2. Restart to hear a change. |
+| `SARVAM_TTS_PACE` | `1` | Speed of the live voice, 0.5 to 2. Restart to hear a change. Recorded lines keep their own speed (Voice page). |
 | `SARVAM_TTS_PITCH` | `0` | Pitch, set once for every reply: -0.5 (lower) to 0.5 (higher). Only `bulbul:v4-flash` applies it. Temperature is not a setting: v4-flash fixes it at 0.6 itself. A change in either makes new voice clips (the old ones stay for going back). |
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
 | `PUBLIC_BASE_URL` | `http://localhost:8080` | Where the call-link server is reachable; the dashboard builds each clinic's link from it. Your tunnel's https address for a demo from outside. |
