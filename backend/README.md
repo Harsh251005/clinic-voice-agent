@@ -436,7 +436,9 @@ instructions in its README); every action below is an `/api` endpoint here.
   picks the one who fits. When unsure it books, marked **Check reason** on
   Today and in the diary ("The receptionist wasn't sure this doctor sees
   this"); staff clear it from the appointment's menu, *Reason checked*. A
-  caller who won't say why is still booked, unmarked. Before every read-back,
+  caller who won't say why is still booked, unmarked. The slot search can't
+  run without the model's verdict on the reason (`reason_fits`): "outside"
+  returns no times at all, only the decline. Before every read-back,
   `check_booking` sets the reason beside the doctor's specialty for a second
   look. The model makes the call, so it is graded by live evals
   (`tests/test_live.py`, "the right doctor for the reason").
