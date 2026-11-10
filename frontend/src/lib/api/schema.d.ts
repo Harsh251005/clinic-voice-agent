@@ -4,6 +4,28 @@
  */
 
 export interface paths {
+    "/api/admin/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admins
+         * @description Who is an admin: ADMIN_EMAILS in .env, read-only here on purpose
+         *     (Harsh, 2026-11-10): nobody can make themselves admin from the dashboard
+         *     or the database, only whoever controls the server's .env.
+         */
+        get: operations["admins_api_admin_admins_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/calls": {
         parameters: {
             query?: never;
@@ -1291,6 +1313,13 @@ export interface components {
             name: string;
             /** Slug */
             slug: string;
+        };
+        /** Admins */
+        Admins: {
+            /** Emails */
+            emails: string[];
+            /** Sign In */
+            sign_in: string;
         };
         /** AllowanceIn */
         AllowanceIn: {
@@ -3028,6 +3057,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admins_api_admin_admins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Admins"];
+                };
+            };
+        };
+    };
     calls_api_admin_calls_get: {
         parameters: {
             query?: {

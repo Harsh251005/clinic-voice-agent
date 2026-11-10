@@ -78,6 +78,27 @@
         "title": "AdminClinic",
         "type": "object"
       },
+      "Admins": {
+        "properties": {
+          "emails": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Emails",
+            "type": "array"
+          },
+          "sign_in": {
+            "title": "Sign In",
+            "type": "string"
+          }
+        },
+        "required": [
+          "emails",
+          "sign_in"
+        ],
+        "title": "Admins",
+        "type": "object"
+      },
       "AllowanceIn": {
         "properties": {
           "note": {
@@ -4572,6 +4593,25 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/admins": {
+      "get": {
+        "description": "Who is an admin: ADMIN_EMAILS in .env, read-only here on purpose\n(Harsh, 2026-11-10): nobody can make themselves admin from the dashboard\nor the database, only whoever controls the server's .env.",
+        "operationId": "admins_api_admin_admins_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Admins"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Admins"
+      }
+    },
     "/api/admin/calls": {
       "get": {
         "operationId": "calls_api_admin_calls_get",

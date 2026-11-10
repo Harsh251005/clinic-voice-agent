@@ -903,3 +903,8 @@ class VoiceImpact(BaseModel):
     lines: int  # the lines this clinic's calls say
     recorded_now: int  # recorded in its current voice
     recorded_after: int  # recorded in the voice being tried out
+
+
+class Admins(BaseModel):
+    emails: list[str]  # ADMIN_EMAILS: see every clinic, including patients' transcripts (each opening logged)
+    sign_in: str  # "google" or "off" (local development: everyone is an admin)

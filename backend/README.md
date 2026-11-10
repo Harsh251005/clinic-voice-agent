@@ -250,6 +250,12 @@ every clinic?" and never shows patients:
   everything of it. A SQLite database is copied first
   (`clinic.db.bak-…`); on Postgres that relies on your own backups.
 - **Costs**: what every call cost you, in rupees (below).
+- **Admins** (bottom of `/admin/clinics`, `GET /api/admin/admins`): who has
+  admin access, **read-only on purpose** (Harsh, 2026-11-10). Admins are only
+  `ADMIN_EMAILS` in the server's `.env` (comma-separated, any number; restart
+  the API), so nobody can make themselves admin from the dashboard or the
+  database. An admin sees every clinic, including transcripts (each opening
+  is logged).
 - **Receptionist** (`/admin/receptionist`, `api/dashboard/receptionist.py`):
   how she behaves on every clinic's calls. The main rules (editable, a
   live word count, at most 500 words, **Reset to default**; blank = the

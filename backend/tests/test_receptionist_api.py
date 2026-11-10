@@ -58,3 +58,12 @@ def test_a_clinics_receptionist_is_read_changed_and_checked(world):  # noqa: F81
     assert c.get("/api/admin/clinics/99999/receptionist").status_code == 404
     other = c.get(f"/api/admin/clinics/{world['demo']}/receptionist").json()
     assert other["instructions"] == ""  # each clinic its own
+
+
+
+def test_admins_are_listed_read_only_for_admins(world, env):  # noqa: F811
+    env.setenv("ADMIN_EMAILS", "harsh@example.com, Friend@Example.com")
+    page = client_as(ADMIN, admin=True).get("/api/admin/admins").json()
+    assert page["emails"] == ["friend@example.com", "harsh@example.com"]
+    assert client_as("reception@cure.in").get("/api/admin/admins").status_code == 403
+    assert client_as(ADMIN, admin=True).put("/api/admin/admins", json={"emails": ["x@y.z"]}).status_code == 405

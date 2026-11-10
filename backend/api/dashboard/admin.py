@@ -199,6 +199,15 @@ def _admin_clinics(s) -> list[schemas.AdminClinic]:
     return out
 
 
+@router.get("/admins", response_model=schemas.Admins, dependencies=[Depends(admin)])
+def admins(request: Request):
+    """Who is an admin: ADMIN_EMAILS in .env, read-only here on purpose
+    (Harsh, 2026-11-10): nobody can make themselves admin from the dashboard
+    or the database, only whoever controls the server's .env."""
+    cfg = request.app.state.cfg
+    return schemas.Admins(emails=sorted(cfg.admin_emails), sign_in=cfg.dashboard_login)
+
+
 @router.get("/clinics", response_model=list[schemas.AdminClinic], dependencies=[Depends(admin)])
 def clinics(request: Request):
     with request.app.state.sessions() as s:
