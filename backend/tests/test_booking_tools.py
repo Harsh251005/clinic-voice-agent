@@ -44,7 +44,7 @@ def next_working_day() -> date:
 async def test_find_then_book_through_the_tools(tools):
     find, book, sessions, clinic_id = tools
     day = next_working_day().isoformat()
-    found = await find(None, date=day, doctor_name="Asha", part_of_day="evening")
+    found = await find(None, date=day, reason_fits="fits", doctor_name="Asha", part_of_day="evening")
     assert "free start times - evening: 17:00 (पाँच बजे), 17:15 (सवा पाँच बजे)" in found and found.endswith("suggest first 17:00, 17:15, 17:30.")
     booked = await book(
         doctor_name="Asha", date=day, time="17:00",
@@ -86,7 +86,7 @@ async def test_check_refuses_a_time_that_is_not_free(tools):
 async def test_bad_date_and_time_become_tool_errors(tools):
     find, book, *_ = tools
     with pytest.raises(ToolError, match="not a date in YYYY-MM-DD"):
-        await find(None, date="kal")
+        await find(None, date="kal", reason_fits="none")
     with pytest.raises(ToolError, match="not a time in HH:MM"):
         await book(
             doctor_name="Asha", date=next_working_day().isoformat(), time="shaam paanch",
@@ -97,7 +97,7 @@ async def test_bad_date_and_time_become_tool_errors(tools):
 async def test_booking_errors_reach_the_llm_as_tool_errors(tools):
     find, *_ = tools
     with pytest.raises(ToolError, match="No doctor called 'Dr. Sharma'"):
-        await find(None, date=next_working_day().isoformat(), doctor_name="Dr. Sharma")
+        await find(None, date=next_working_day().isoformat(), reason_fits="none", doctor_name="Dr. Sharma")
 
 
 async def test_find_cancel_through_the_tools(tools):
@@ -137,6 +137,16 @@ async def test_lookups_stop_after_three_misses(tools):
 def _manage(sessions, clinic_id):
     _, _, _, mine, cancel, move = booking_tools(ClinicLink(clinic_id, "Asia/Kolkata", sessions, "hi"))
     return mine, cancel, move
+
+
+async def test_a_reason_outside_the_specialty_gets_no_times(tools):
+    # Harsh, 2026-11-10: fever with an eye specialist was offered times; the
+    # reason is judged before any time is found.
+    find, *_ = tools
+    said = await find(None, date=next_working_day().isoformat(), reason_fits="outside", doctor_name="Asha")
+    assert said.startswith("No times") and "17:00" not in said
+    for fits in ("fits", "unsure", "none"):
+        assert "17:00" in await find(None, date=next_working_day().isoformat(), reason_fits=fits, doctor_name="Asha")
 
 
 async def test_the_reason_is_set_beside_the_specialty_before_the_read_back(tools):

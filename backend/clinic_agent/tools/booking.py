@@ -66,6 +66,13 @@ class _Pending:
     caller_turns: int  # caller messages heard when it was read back
 
 
+OUTSIDE_SPECIALTY = (
+    "No times: this reason is outside the doctor's specialty, so it is not booked here. "
+    "Kindly tell the caller this clinic's doctor doesn't see it, suggesting a type of doctor "
+    "only if obvious. Never say the doctor will see it, and offer no times."
+)
+
+
 def fit_gate(reason: str, specialty: str) -> str:
     """A second look before the read-back (Harsh, 2026-11-09: "fever" was
     booked with an eye specialist): the reason, beside the doctor's specialty.
@@ -133,10 +140,14 @@ def booking_tools(link: ClinicLink) -> list:
     async def find_available_slots(
         ctx: RunContext,
         date: str,
+        reason_fits: Literal["fits", "unsure", "outside", "none"],
         doctor_name: str = "",
         part_of_day: Literal["any", "morning", "afternoon", "evening"] = "any",
     ) -> str:
         """Find every free appointment time on one day. Offer the caller only times this returns.
+
+        Judge the reason before searching (reason_fits): a reason outside
+        the doctor's specialty gets no times, only a kind decline.
 
         It lists every free start time one by one, with its Hindi words in
         brackets ("12:30 (साढ़े बारह बजे)"), grouped as morning
@@ -149,11 +160,20 @@ def booking_tools(link: ClinicLink) -> list:
         Args:
             date: The day as YYYY-MM-DD. Work out words like aaj, kal, parson or
                 Monday from the current date in CLINIC FACTS.
+            reason_fits: The caller's reason beside the specialty in CLINIC
+                FACTS of the doctor (or doctors) searched: "fits" if that
+                specialty clearly treats it; "unsure" if you can't tell;
+                "outside" if it clearly doesn't (fever for an eye specialist);
+                "none" if no reason was given, or when moving an appointment.
             doctor_name: A doctor from CLINIC FACTS if the caller named one or
                 described one (e.g. the children's doctor); empty for any doctor.
             part_of_day: Only if the caller asked for morning (before 12:00),
                 afternoon (12:00 to before 17:00) or evening (17:00 on).
         """
+        if reason_fits == "outside":
+            # Harsh, 2026-11-10: the model offered times for a fever with an eye
+            # specialist; the reason is now judged before any time is found.
+            return OUTSIDE_SPECIALTY
         return await run(
             ctx, booking.find_slots, _date(date), clinic_now(link.timezone),
             doctor_name or None, None if part_of_day == "any" else part_of_day,

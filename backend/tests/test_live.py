@@ -195,7 +195,7 @@ REAL_AFTERNOON = (
 async def test_afternoon_times_are_said_as_given(session, attempt):
     from livekit.agents.voice.run_result import mock_tools
 
-    async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
+    async def find_available_slots(date: str, reason_fits: str = "none", doctor_name: str = "", part_of_day: str = "any"):
         return REAL_AFTERNOON
 
     with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots}):
@@ -212,7 +212,7 @@ async def test_afternoon_times_are_said_as_given(session, attempt):
 async def test_afternoon_means_twelve_to_five_named_one_by_one(session):
     from livekit.agents.voice.run_result import mock_tools
 
-    async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
+    async def find_available_slots(date: str, reason_fits: str = "none", doctor_name: str = "", part_of_day: str = "any"):
         return GAPPY_DAY
 
     with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots}):
@@ -239,7 +239,7 @@ async def test_booking_flow_reads_back_before_booking(session):
     this grades the model: it checks, reads everything back, and books on the yes."""
     from livekit.agents.voice.run_result import mock_tools
 
-    async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
+    async def find_available_slots(date: str, reason_fits: str = "none", doctor_name: str = "", part_of_day: str = "any"):
         return SLOTS
 
     async def check_booking(**kwargs):
@@ -285,7 +285,7 @@ async def test_visit_reason_is_written_in_english(session):
     """Staff read English: a reason told in Hindi is stored translated, in Roman letters."""
     from livekit.agents.voice.run_result import mock_tools
 
-    async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
+    async def find_available_slots(date: str, reason_fits: str = "none", doctor_name: str = "", part_of_day: str = "any"):
         return SLOTS
 
     async def check_booking(**kwargs):
@@ -333,8 +333,10 @@ async def eye_session(eye_clinic):
 
 
 def _booking_mocks():
-    async def find_available_slots(date: str, doctor_name: str = "", part_of_day: str = "any"):
-        return SLOTS
+    from clinic_agent.tools.booking import OUTSIDE_SPECIALTY
+
+    async def find_available_slots(date: str, reason_fits: str = "none", doctor_name: str = "", part_of_day: str = "any"):
+        return OUTSIDE_SPECIALTY if reason_fits == "outside" else SLOTS
 
     async def check_booking(**kwargs):
         return READ_BACK
@@ -372,6 +374,18 @@ async def test_fever_with_an_eye_specialist_is_declined_kindly(eye_session):
         "fever visit here; books nothing; may suggest seeing a general physician; names no "
         "particular doctor, hospital or clinic elsewhere; does not say what illness it is",
     )
+
+
+async def test_fever_with_an_eye_specialist_gets_no_times(eye_session):
+    """Harsh's call, 2026-11-10: reason first, no time named yet. The model
+    searched times and offered them; the reason must be judged before any search."""
+    from livekit.agents.voice.run_result import mock_tools
+
+    with mock_tools(ClinicAgent, _booking_mocks()):
+        r = await eye_session.run(user_input="अपॉइंटमेंट बुक करना है, मुझे बुखार है, कल का चाहिए")
+    for args in _calls(r, "find_available_slots"):
+        assert args.get("reason_fits") == "outside", args
+    assert "बजे" not in _said(r), _said(r)  # no time offered
 
 
 async def test_an_eye_complaint_with_an_eye_specialist_is_booked(eye_session):

@@ -23,7 +23,7 @@ from tests.fake_llm import FakeLLM, Reply
 from tests.test_booking_tools import next_working_day
 
 DAY = next_working_day().isoformat()
-FIND = ("find_available_slots", {"date": DAY, "doctor_name": "Asha"})
+FIND = ("find_available_slots", {"date": DAY, "reason_fits": "none", "doctor_name": "Asha"})
 
 
 @pytest.fixture
@@ -130,7 +130,7 @@ async def test_no_filler_when_the_model_already_said_it(link):
 
 
 async def test_two_lookups_in_one_reply_say_it_once(link):
-    other = ("find_available_slots", {"date": DAY, "doctor_name": "Rohan"})
+    other = ("find_available_slots", {"date": DAY, "reason_fits": "none", "doctor_name": "Rohan"})
     spoken, _, _ = await call(link, [Reply(calls=[FIND, other]), Reply("...")], "कल किसी का भी टाइम?")
     assert len(spoken) == 1
 
