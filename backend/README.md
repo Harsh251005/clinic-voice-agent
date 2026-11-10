@@ -855,8 +855,10 @@ them when it starts (`clinic_agent/call_settings.py`), so a change applies
 from the next call without a restart. The first
 `python -m clinic_agent.store.migrations` after this change copies those
 lines from your `.env` into the database once (a clinic's setting goes to
-every clinic) and lists them for you to delete. After that, the `.env`
-values in the table below for those settings are no longer read. Shared
+every clinic) and lists them for you to delete. After that, a leftover
+line stops the worker and the API with a message naming it, so nothing is
+silently ignored. The table below still names those settings by their old
+`.env` names for what they do; set them in the dashboard. Shared
 settings are on **Admin > Receptionist**; each clinic's own on its
 **Receptionist** tab in Clinic settings (admins only).
 

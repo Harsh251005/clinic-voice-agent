@@ -25,7 +25,7 @@ from clinic_agent import heartbeat, voice_clips
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.call_limit import end_after
 from clinic_agent.call_record import CallRecorder, stack_of
-from clinic_agent.config import ConfigError, load_settings
+from clinic_agent.config import ConfigError, load_settings, refuse_moved_settings
 from clinic_agent.context import clinic_now, load_clinic, local_clinic, shared_settings
 from clinic_agent.dispatch import AGENT_NAME, LANGUAGES, BadDispatch, CallFor, call_from
 from clinic_agent.lines import NAMES, available, line_for
@@ -166,6 +166,7 @@ if __name__ == "__main__":
         requested = _take_clinic_flag(sys.argv)
         _refuse_language_flag(sys.argv)
         cfg = load_settings()
+        refuse_moved_settings()
         sessions_for(cfg.database_url)  # an old schema stops here, before reading the settings
         lines_off = {lang: why for lang, why in available(shared_settings(cfg).cfg, TEXT_ONLY).items() if why}
         ready = [lang for lang in LANGUAGES if lang not in lines_off]

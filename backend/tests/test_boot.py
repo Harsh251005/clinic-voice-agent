@@ -159,7 +159,16 @@ def test_text_mode_needs_no_speech_keys(tmp_path):
 def test_voice_console_without_the_speech_key_exits_with_one_line(tmp_path):
     r = run_main(
         tmp_path, "console", "--help",
-        HINDI_LLM="openai", OPENAI_API_KEY="sk-x", DATABASE_URL=seeded_db(tmp_path),
+        OPENAI_API_KEY="sk-x", DATABASE_URL=openai_brain_db(tmp_path),
     )
     assert r.returncode == 1
     assert r.stderr.strip().startswith("configuration error: no language line can take calls: Hindi: SARVAM_API_KEY is not set")
+
+
+def test_a_setting_moved_to_the_dashboard_left_in_env_exits_with_one_line(tmp_path):
+    # Harsh, 2026-11-10: those settings live in the database; a leftover line would be silently ignored.
+    r = run_main(tmp_path, SARVAM_API_KEY="x", HINDI_LLM="openai", SARVAM_TTS_PACE="0.95",
+                 DATABASE_URL=seeded_db(tmp_path))
+    assert r.returncode == 1
+    assert r.stderr.strip().startswith("configuration error: these settings are now set in the dashboard")
+    assert "delete them from .env: HINDI_LLM, SARVAM_TTS_PACE." in r.stderr
