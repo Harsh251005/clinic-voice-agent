@@ -44,8 +44,8 @@ def next_working_day() -> date:
 async def test_find_then_book_through_the_tools(tools):
     find, book, sessions, clinic_id = tools
     day = next_working_day().isoformat()
-    found = await find(None, date=day, reason_fits="fits", doctor_name="Asha", part_of_day="evening")
-    assert "free start times - evening: 17:00 (पाँच बजे), 17:15 (सवा पाँच बजे)" in found and found.endswith("suggest first 17:00, 17:15, 17:30.")
+    found = await find(None, date=day, reason_fits="fits", from_time="17:00", doctor_name="Asha")
+    assert "offer these free times: 17:00 (पाँच बजे), 17:15 (सवा पाँच बजे), 17:30 (साढ़े पाँच बजे)." in found
     booked = await book(
         doctor_name="Asha", date=day, time="17:00",
         patient_name="Ravi", patient_phone="9876543210",
@@ -143,10 +143,12 @@ async def test_a_reason_outside_the_specialty_gets_no_times(tools):
     # Harsh, 2026-11-10: fever with an eye specialist was offered times; the
     # reason is judged before any time is found.
     find, *_ = tools
-    said = await find(None, date=next_working_day().isoformat(), reason_fits="outside", doctor_name="Asha")
+    said = await find(None, date=next_working_day().isoformat(), reason_fits="outside",
+                      from_time="17:00", doctor_name="Asha")
     assert said.startswith("No times") and "17:00" not in said
     for fits in ("fits", "unsure", "none"):
-        assert "17:00" in await find(None, date=next_working_day().isoformat(), reason_fits=fits, doctor_name="Asha")
+        assert "17:00" in await find(None, date=next_working_day().isoformat(), reason_fits=fits,
+                                     from_time="17:00", doctor_name="Asha")
 
 
 async def test_the_reason_is_set_beside_the_specialty_before_the_read_back(tools):

@@ -74,7 +74,7 @@ async def test_silent_model_gets_a_filler_in_the_calls_language(link):
     (text, kwargs), = spoken
     assert text in FILLERS and kwargs == {"add_to_chat_ctx": False}
     # the tool still ran and its result reached the model
-    assert "free start times" in fake.requests[-1].items[-1].output
+    assert "offer these free times" in fake.requests[-1].items[-1].output
 
 
 async def test_a_hindi_call_keeps_its_hindi_filler_when_the_caller_speaks_english(link):
@@ -95,7 +95,7 @@ async def test_a_recorded_filler_plays_its_recording(link):
     (text, kwargs), = spoken
     assert text == "जी, बस एक सेकंड।" and kwargs["add_to_chat_ctx"] is False and "audio" in kwargs
     assert played == ["filler"]  # the trace notes it came from a recording (no voice cost)
-    assert "free start times" in fake.requests[-1].items[-1].output
+    assert "offer these free times" in fake.requests[-1].items[-1].output
 
 
 async def test_an_empty_goodbye_plays_the_recorded_one(link):
@@ -142,7 +142,7 @@ async def test_saying_it_will_check_without_a_tool_forces_the_tool(link):
     replies = [Reply("जी, मैं कल के खाली स्लॉट्स चेक कर लेती हूँ।"), Reply(calls=[FIND]), Reply("कल नौ बजे खाली है।")]
     spoken, fake, _ = await call(link, replies, "मुझे ठीक से दिख नहीं रहा, कल दिखाना है")
     assert fake.replies == [], "the follow-up and the answer after the tool never ran"
-    assert "free start times" in fake.requests[2].items[-1].output
+    assert "offer these free times" in fake.requests[2].items[-1].output
     assert spoken == []  # the promise itself was the "one moment": no second filler
 
 

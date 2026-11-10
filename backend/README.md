@@ -600,20 +600,19 @@ write the same tables through `store/repo.py`.
   (`test_the_rules_stay_short`): a long prompt is paid for on every turn, and
   the model follows a short one better.
 - **Booking** (three tools, rules in `booking.py`):
-  - `find_available_slots(date, doctor?, part_of_day?)` returns **every**
-    free start time that day per doctor, **one by one** under fixed parts of
-    the day: morning before 12:00, afternoon 12:00 to before 17:00, evening
-    17:00 on ("morning: 10:00, 10:15, 11:30; afternoon: 12:30, 14:00"). It
-    marks the clinic's "free times offered at once" as the ones to suggest
-    first. The agent suggests those, and answers "anything later / in the
-    afternoon?" from the full list, offering only the times under that label
-    and never summing them up as a range. Ranges used to hide booked times
-    inside them ("10:00 to 13:30" with 11:00 taken), and the agent offered
-    those. Each time carries its Hindi words, written by code (`spoken.py`):
-    "12:30 (साढ़े बारह बजे)". The agent says only those words; left to
-    itself it said "बारह साढ़े बजे" and "सत्रह बजे". With nothing free it says why (clinic
-    closed, doctor on leave, doesn't sit that day or that part of the day, no
-    times left today, fully booked) and gives the next free day.
+  - `find_available_slots(date, reason_fits, from_time?, doctor?)` returns
+    **only the next few free times** from `from_time` (the clinic's "free
+    times offered at once", default 3), one by one, per doctor, and says
+    whether more are free later that day. "Evening?" is asked again from
+    17:00, "after seven?" from 19:00, so the agent only ever sees the times it
+    may offer (Harsh, 2026-11-10: from a whole-day list it read out 5-6).
+    A refused time ("not free at 17:00") offers the next few after it the
+    same way. Each time carries its Hindi words, written by code
+    (`spoken.py`): "12:30 (साढ़े बारह बजे)"; left to itself the agent said
+    "बारह साढ़े बजे" and "सत्रह बजे". With nothing free it says why (clinic
+    closed, doctor on leave, doesn't sit that day, nothing from that time,
+    no times left today, fully booked) and gives the next free day's first
+    few.
   - `check_booking(doctor, date, time, name, phone, reason?)` books
     **nothing**. It checks everything a booking would (doctor, day, the time
     still free, a 10-digit Indian mobile, +91 / 0 / spaces accepted), keeps

@@ -150,12 +150,12 @@ async def test_replies_in_callers_language(session):
 
 # ---------- booking conversation (tools mocked) ----------
 
+# As find_available_slots answers (Harsh, 2026-11-10): only the clinic's few
+# times from the time asked, never the whole day.
 SLOTS = (
-    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - evening: 17:00 (पाँच बजे), "
-    "17:15 (सवा पाँच बजे), 17:30 (साढ़े पाँच बजे), 17:45 (पौने छह बजे), 18:00 (छह बजे), "
-    "18:15 (सवा छह बजे), 18:30 (साढ़े छह बजे), 18:45 (पौने सात बजे), 19:00 (सात बजे), "
-    "19:15 (सवा सात बजे), 19:30 (साढ़े सात बजे), 19:45 (पौने आठ बजे) (12 in all); "
-    "suggest first 17:00, 17:15, 17:30."
+    "Dr. Asha Mehta on Tuesday 22 September 2026: offer these free times: 17:00 (पाँच बजे), "
+    "17:15 (सवा पाँच बजे), 17:30 (साढ़े पाँच बजे). Never offer any other time. "
+    "More later that day: for those, call again with from_time after 17:30."
 )
 
 
@@ -175,19 +175,18 @@ def _calls(result, name):
     ]
 
 
-# A whole day with gaps, as find_available_slots lists it.
-GAPPY_DAY = (
-    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - morning: 10:00 (दस बजे), "
-    "10:15 (सवा दस बजे), 11:30 (साढ़े ग्यारह बजे); afternoon: 12:30 (साढ़े बारह बजे), 14:00 (दो बजे), "
-    "16:45 (पौने पाँच बजे); evening: 17:00 (पाँच बजे), 18:30 (साढ़े छह बजे) (8 in all); "
-    "suggest first 10:00, 10:15, 11:30."
+# An afternoon with gaps, from 12:00.
+GAPPY_AFTERNOON = (
+    "Dr. Asha Mehta on Tuesday 22 September 2026: offer these free times: 12:30 (साढ़े बारह बजे), "
+    "14:00 (दो बजे), 16:45 (पौने पाँच बजे). Never offer any other time. "
+    "More later that day: for those, call again with from_time after 16:45."
 )
 # Harsh's call: "कल दोपहर ग्यारह बजे से पहले ... बारह साढ़े बजे" for a day
 # whose afternoon starts at 12:00.
 REAL_AFTERNOON = (
-    "Dr. Asha Mehta on Tuesday 22 September 2026: free start times - afternoon: 12:00 (बारह बजे), "
-    "12:30 (साढ़े बारह बजे), 13:00 (एक बजे), 13:30 (डेढ़ बजे), 14:30 (ढाई बजे) (5 in all); "
-    "suggest first 12:00, 12:30, 13:00."
+    "Dr. Asha Mehta on Tuesday 22 September 2026: offer these free times: 12:00 (बारह बजे), "
+    "12:30 (साढ़े बारह बजे), 13:00 (एक बजे). Never offer any other time. "
+    "More later that day: for those, call again with from_time after 13:00."
 )
 
 
@@ -195,7 +194,7 @@ REAL_AFTERNOON = (
 async def test_afternoon_times_are_said_as_given(session, attempt):
     from livekit.agents.voice.run_result import mock_tools
 
-    async def find_available_slots(date: str, reason_fits: str = "none", doctor_name: str = "", part_of_day: str = "any"):
+    async def find_available_slots(date: str, reason_fits: str = "none", from_time: str = "", doctor_name: str = ""):
         return REAL_AFTERNOON
 
     with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots}):
@@ -209,19 +208,20 @@ async def test_afternoon_times_are_said_as_given(session, attempt):
     assert not re.search(r"ेंगी\b|ती हैं\b", said), said  # the caller isn't assumed female
 
 
-async def test_afternoon_means_twelve_to_five_named_one_by_one(session):
+async def test_afternoon_is_asked_from_twelve_and_only_those_times_offered(session):
     from livekit.agents.voice.run_result import mock_tools
 
-    async def find_available_slots(date: str, reason_fits: str = "none", doctor_name: str = "", part_of_day: str = "any"):
-        return GAPPY_DAY
+    async def find_available_slots(date: str, reason_fits: str = "none", from_time: str = "", doctor_name: str = ""):
+        return GAPPY_AFTERNOON
 
     with mock_tools(ClinicAgent, {"find_available_slots": find_available_slots}):
         r = await session.run(user_input="खाँसी है, आशा मेहता जी का कल दोपहर में कोई टाइम खाली है?")
+        (args,) = _calls(r, "find_available_slots")
+        assert args.get("from_time") == "12:00", args
         await _reply(r).judge(
             session.judge,
-            intent="offers afternoon times only from 12:30, 2:00 and 4:45 (any of them, as words); "
-            "offers no morning time (10:00, 10:15, 11:30) and no evening time (5:00, 6:30); "
-            "does not describe a stretch such as 'eleven to four' or 'twelve to five'",
+            intent="offers only times from 12:30, 2:00 and 4:45 (any of them, as words); names no "
+            "other time and does not describe a stretch such as 'twelve to five'",
         )
 
 
@@ -239,7 +239,7 @@ async def test_booking_flow_reads_back_before_booking(session):
     this grades the model: it checks, reads everything back, and books on the yes."""
     from livekit.agents.voice.run_result import mock_tools
 
-    async def find_available_slots(date: str, reason_fits: str = "none", doctor_name: str = "", part_of_day: str = "any"):
+    async def find_available_slots(date: str, reason_fits: str = "none", from_time: str = "", doctor_name: str = ""):
         return SLOTS
 
     async def check_booking(**kwargs):
@@ -256,13 +256,12 @@ async def test_booking_flow_reads_back_before_booking(session):
         (args,) = _calls(r1, "find_available_slots")
         assert args["date"] == "2026-09-22"  # "kal" resolved from the date in CLINIC FACTS
         assert "asha" in args.get("doctor_name", "").lower()
-        assert args.get("part_of_day") == "evening"
+        assert args.get("from_time") == "17:00"
         await _reply(r1).judge(
             session.judge,
-            intent="names one or more evening times for the caller to choose from; each time it "
-            "names is on the free list (any 15-minute step from five to quarter to eight in the "
-            "evening), and it says them the everyday way such as 'पाँच बजे' or 'साढ़े पाँच', "
-            "never as 'सत्रह'",
+            intent="names one or more of five, quarter past five and half past five in the evening "
+            "for the caller to choose from, and no other time; says them the everyday way such as "
+            "'पाँच बजे' or 'साढ़े पाँच', never as 'सत्रह'",
         )
 
         r2 = await session.run(
@@ -285,7 +284,7 @@ async def test_visit_reason_is_written_in_english(session):
     """Staff read English: a reason told in Hindi is stored translated, in Roman letters."""
     from livekit.agents.voice.run_result import mock_tools
 
-    async def find_available_slots(date: str, reason_fits: str = "none", doctor_name: str = "", part_of_day: str = "any"):
+    async def find_available_slots(date: str, reason_fits: str = "none", from_time: str = "", doctor_name: str = ""):
         return SLOTS
 
     async def check_booking(**kwargs):
@@ -335,7 +334,7 @@ async def eye_session(eye_clinic):
 def _booking_mocks():
     from clinic_agent.tools.booking import OUTSIDE_SPECIALTY
 
-    async def find_available_slots(date: str, reason_fits: str = "none", doctor_name: str = "", part_of_day: str = "any"):
+    async def find_available_slots(date: str, reason_fits: str = "none", from_time: str = "", doctor_name: str = ""):
         return OUTSIDE_SPECIALTY if reason_fits == "outside" else SLOTS
 
     async def check_booking(**kwargs):

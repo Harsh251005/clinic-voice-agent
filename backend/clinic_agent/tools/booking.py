@@ -141,21 +141,18 @@ def booking_tools(link: ClinicLink) -> list:
         ctx: RunContext,
         date: str,
         reason_fits: Literal["fits", "unsure", "outside", "none"],
+        from_time: str = "",
         doctor_name: str = "",
-        part_of_day: Literal["any", "morning", "afternoon", "evening"] = "any",
     ) -> str:
-        """Find every free appointment time on one day. Offer the caller only times this returns.
+        """Find the next few free appointment times on one day, from a time.
+        Offer the caller only the times this returns, never any other.
 
         Judge the reason before searching (reason_fits): a reason outside
         the doctor's specialty gets no times, only a kind decline.
 
-        It lists every free start time one by one, with its Hindi words in
-        brackets ("12:30 (साढ़े बारह बजे)"), grouped as morning
-        (before 12:00), afternoon (12:00 to before 17:00) and evening (17:00
-        on), and which few to suggest first. Suggest those, and answer
-        "anything later / in the evening?" from the full list
-        without calling again: for a part of the day, offer only the times
-        under that label. Call again only for another day or doctor.
+        Each time comes with its Hindi words in brackets ("12:30 (साढ़े
+        बारह बजे)"). For later times ("anything in the evening?",
+        "after seven?") call again with a later from_time.
 
         Args:
             date: The day as YYYY-MM-DD. Work out words like aaj, kal, parson or
@@ -165,10 +162,11 @@ def booking_tools(link: ClinicLink) -> list:
                 specialty clearly treats it; "unsure" if you can't tell;
                 "outside" if it clearly doesn't (fever for an eye specialist);
                 "none" if no reason was given, or when moving an appointment.
+            from_time: The earliest time the caller wants, as HH:MM (24-hour):
+                "after 12:30" is "12:30", afternoon "12:00", evening "17:00".
+                Empty for the earliest free time.
             doctor_name: A doctor from CLINIC FACTS if the caller named one or
                 described one (e.g. the children's doctor); empty for any doctor.
-            part_of_day: Only if the caller asked for morning (before 12:00),
-                afternoon (12:00 to before 17:00) or evening (17:00 on).
         """
         if reason_fits == "outside":
             # Harsh, 2026-11-10: the model offered times for a fever with an eye
@@ -176,7 +174,7 @@ def booking_tools(link: ClinicLink) -> list:
             return OUTSIDE_SPECIALTY
         return await run(
             ctx, booking.find_slots, _date(date), clinic_now(link.timezone),
-            doctor_name or None, None if part_of_day == "any" else part_of_day,
+            doctor_name or None, _time(from_time) if from_time.strip() else None,
         )
 
     @function_tool
