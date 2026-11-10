@@ -5,24 +5,33 @@ thread (database I/O must not stall the audio loop) and turns a
 BookingError into a ToolError, whose message the LLM reads and relays.
 While it runs, the caller hears "one moment" unless the model already said
 something (tools/speech.py).
+
+When a tool can't answer, the code answers, not the model (Harsh,
+2026-11-10: every lookup failed on a call and the model made up free
+times): a crash, or the same error twice running from one tool, says the
+fixed sorry line, stops the model's reply and opens a problem (`give_up`).
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, time
 from typing import Literal
 
-from livekit.agents import RunContext, ToolError, function_tool
+from livekit.agents import RunContext, StopResponse, ToolError, function_tool
 
-from clinic_agent import booking
+from clinic_agent import booking, incidents, voice_clips
 from clinic_agent.context import clinic_now
 from clinic_agent.dispatch import Language
 from clinic_agent.store.db import Sessions
+from clinic_agent.store.models import utc_now
 from clinic_agent.tools.speech import filler_unless_spoken
 from clinic_agent.voice_clips import Phrasebook
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -100,18 +109,53 @@ def booking_tools(link: ClinicLink) -> list:
     checked: list[_Checked] = []  # the one booking awaiting the caller's yes (a call's tools are its own)
     missed: list[int] = [0]  # lookups this call that matched nobody
     pending: list[_Pending] = []  # the one cancel or move awaiting the caller's yes
+    last_error: dict[str, str] = {}  # each tool's error, until that tool next works
+
+    def note(tool: str, why: str | None) -> None:
+        """Open the tool's problem (`why`), or close it as fixed: it just worked."""
+        try:
+            with link.sessions() as s:
+                if why:
+                    incidents.report(s, "tools_failing", utc_now(), clinic_id=link.clinic_id, subject=tool, detail=why)
+                else:
+                    incidents.clear(s, "tools_failing", utc_now(), clinic_id=link.clinic_id, subject=tool)
+        except Exception:  # noqa: BLE001 - noting it must never break the call
+            logger.exception("could not note how %s went", tool)
+
+    async def give_up(ctx: RunContext | None, tool: str, why: str):
+        """The code tells the caller it couldn't check, in the fixed words, and
+        the model gets no turn to say anything else. `why` is for the admin:
+        an error's type, never its words (they can hold what a caller said)."""
+        await asyncio.to_thread(note, tool, why)
+        if ctx is None:  # a tool called directly, as in tests: nobody to speak to
+            raise ToolError("Could not check. Tell the caller you can't check this right now.")
+        voice_clips.say(ctx.session, link.phrases.one("sorry_cant_check", link.language))
+        raise StopResponse()
 
     async def run(ctx: RunContext | None, fn: Callable, *args):
+        tool = ctx.function_call.name if ctx is not None else fn.__name__
+
         def work():
             with link.sessions() as s:
-                return fn(s, link.clinic_id, *args)
+                result = fn(s, link.clinic_id, *args)
+            note(tool, None)  # it works: a problem an earlier call opened closes as fixed
+            return result
 
         task = asyncio.ensure_future(asyncio.to_thread(work))  # start before the filler wait
         await filler_unless_spoken(ctx, said, link.phrases, link.language)
         try:
             result = await task
+            last_error.pop(tool, None)
         except booking.BookingError as err:
+            if last_error.get(tool) == str(err):
+                # The same answer twice running: the model is stuck, and what it
+                # says next is a guess (call 37: ten failed lookups, made-up times).
+                await give_up(ctx, tool, "same error twice running")
+            last_error[tool] = str(err)
             raise ToolError(str(err)) from None
+        except Exception as err:  # noqa: BLE001 - a crash must reach the caller as words, not silence or a guess
+            logger.exception("%s crashed", tool)
+            await give_up(ctx, tool, f"crashed: {type(err).__name__}")
         if isinstance(result, booking.Changed) and link.on_change:
             link.on_change(result.appointment_id, result.action, result.undo)
         return result if isinstance(result, booking.ReadBack) else str(result)

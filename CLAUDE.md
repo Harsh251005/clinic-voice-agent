@@ -218,6 +218,10 @@ The pipeline is split so each concern lives in exactly one module:
   repeating**: the first call is only the check and read-back, the same
   call again acts once the caller has spoken (`confirmed` in the wrapper).
   Never go back to trusting a `caller_confirmed` flag.
+  **A tool that can't answer is answered by the code** (Harsh, 2026-11-10;
+  `give_up`): a crash, or the same error twice running, says the fixed
+  `sorry_cant_check` phrase, raises `StopResponse` (no model reply) and
+  reports `tools_failing`. Never let the model word a failed lookup twice.
   **The right doctor for the reason** (Harsh, 2026-11-09): the model judges
   whether the reason fits a specialty (no code can); `check_booking` sets the
   reason beside the specialty before the read-back (`fit_gate`), and

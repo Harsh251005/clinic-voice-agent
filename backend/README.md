@@ -389,6 +389,7 @@ not tried again since") instead of "fixed".
 | Hindi name suggestions failing | a name's Hindi suggestion fails (OpenAI) | no | the next suggestion works, or a quiet hour |
 | Phrase translation failing | Suggest Hindi fails (OpenAI) | no | a suggestion works, or a quiet hour |
 | Fixed phrases unreadable | a call can't read its phrases: it says the built-in words live | no | the clinic's next call reads them, or a quiet hour |
+| A lookup failed on a call | a booking tool crashed, or gave the same error twice running; the caller heard the fixed sorry line | yes | that tool works on a call again, or a quiet hour |
 
 - **A fix made in the dashboard shows at once.** Every change the API
   accepts (adding a price, setting hours, adding or turning on a doctor,
@@ -706,6 +707,13 @@ write the same tables through `store/repo.py`.
   No model round runs before the caller speaks, so it can't call a tool
   either (seen live, when the model wrote it: it looked up tomorrow
   evening's slots before the caller had said a word).
+- **A lookup that can't answer is answered by the code, never the model**
+  (`tools/booking.py` `give_up`; seen 2026-11-10: every lookup failed and the
+  model made up free times). A tool that crashes, or gives the same error
+  twice running, makes the code say the fixed "can't check right now" line
+  (a fixed phrase: edit and record it on Voice & phrases), the model gets no
+  turn after it, and a "lookup failed" problem opens for the clinic and the
+  admin. One error alone still goes to the model, to put right or relay.
 - **Fixed phrases play from a recording when there is one**
   (`voice_clips.py`): the greeting, the three "one moment" fillers (one at
   random, never the same twice running) and the two fixed goodbyes (empty

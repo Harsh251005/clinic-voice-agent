@@ -95,9 +95,13 @@ export const KINDS: Record<Phrase["kind"], { title: string; about: string }> = {
     title: "Time-limit goodbye",
     about: "When a call reaches its time limit. The caller can't talk over it.",
   },
+  sorry_cant_check: {
+    title: "“Can’t check right now” line",
+    about: "Said by the system, not the model, when a lookup or booking step fails on a call. The model says nothing after it, so it can't guess an answer.",
+  },
 };
 
-export const ORDER: Phrase["kind"][] = ["greeting", "filler", "goodbye_fallback", "goodbye_time_limit"];
+export const ORDER: Phrase["kind"][] = ["greeting", "filler", "goodbye_fallback", "goodbye_time_limit", "sorry_cant_check"];
 
 export const refOf = (p: Phrase, t: Take): TakeRef => ({ phrase_id: p.id, clinic_id: t.clinic_id });
 

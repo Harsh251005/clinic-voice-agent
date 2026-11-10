@@ -176,3 +176,54 @@ async def test_an_empty_goodbye_still_says_goodbye_in_hindi(link):
     spoken, _, closed = await call(link, [Reply(calls=[("end_call", {"goodbye": "  "})])], "bye")
     assert spoken == [(FALLBACK_GOODBYE, {"allow_interruptions": False})]
     assert closed
+
+
+# ---------- a lookup that can't answer: the code says so, never the model ----------
+# Seen 2026-11-10 (call 37): ten lookups failed and the model made up free times.
+
+from clinic_agent import booking  # noqa: E402
+from clinic_agent.store import repo  # noqa: E402
+
+SORRY = BUILT_IN[("sorry_cant_check", "hi")][0]
+NOBODY = ("find_available_slots", {"date": DAY, "reason_fits": "none", "doctor_name": "Dr. Sharma"})
+MADE_UP = Reply("पाँच बजे का टाइम खाली है।")  # what the model would say next: it must never get the turn
+
+
+def _problems(link):
+    with link.sessions() as s:
+        return [(i.subject, i.detail) for i in repo.open_incidents(s) if i.kind == "tools_failing"]
+
+
+async def test_the_same_error_twice_running_is_answered_by_the_code(link):
+    spoken, fake, _ = await call(link, [Reply(calls=[NOBODY]), Reply(calls=[NOBODY]), MADE_UP], "डॉक्टर शर्मा का टाइम?")
+    assert SORRY in [text for text, _ in spoken]
+    assert fake.replies == [MADE_UP] and len(fake.requests) == 2  # the model was not asked again
+    # the admin is told which step and why, never the error's words (they can hold a caller's)
+    assert _problems(link) == [("find_available_slots", "same error twice running")]
+
+
+async def test_one_error_still_goes_to_the_model_to_put_right(link):
+    spoken, fake, _ = await call(link, [Reply(calls=[NOBODY]), Reply(calls=[FIND]), Reply("दस बजे खाली है।")], "टाइम?")
+    assert SORRY not in [text for text, _ in spoken] and not fake.replies
+    assert "Nothing was checked" in fake.requests[1].items[-1].output  # told not to guess meanwhile
+    assert _problems(link) == []
+
+
+async def test_a_crashed_lookup_is_answered_by_the_code(link, monkeypatch):
+    def crash(*args):
+        raise RuntimeError("the caller said 9876543210")
+
+    monkeypatch.setattr(booking, "find_slots", crash)
+    spoken, fake, _ = await call(link, [Reply(calls=[FIND]), MADE_UP], "कल आशा जी का टाइम?")
+    assert SORRY in [text for text, _ in spoken]
+    assert fake.replies == [MADE_UP]
+    assert _problems(link) == [("find_available_slots", "crashed: RuntimeError")]
+
+
+async def test_the_problem_closes_once_that_lookup_works_on_a_call(link, monkeypatch):
+    with monkeypatch.context() as broken:
+        broken.setattr(booking, "find_slots", lambda *a: 1 / 0)
+        await call(link, [Reply(calls=[FIND]), MADE_UP], "कल आशा जी का टाइम?")
+    assert _problems(link)
+    await call(link, [Reply(calls=[FIND]), Reply("दस बजे खाली है।")], "कल आशा जी का टाइम?")
+    assert _problems(link) == []

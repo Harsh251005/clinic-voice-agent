@@ -168,10 +168,12 @@ from clinic_agent.voice_clips import BUILT_IN, Phrasebook, Said, for_call, say  
 
 
 def test_the_built_in_words_are_the_seeded_ones():
-    # A kind missing from the database is said in these: they must match migration 0014.
+    # A kind missing from the database is said in these: they must match migrations 0014 and 0020.
     from importlib import import_module
 
-    seeds = import_module("clinic_agent.store.alembic.versions.0014_fixed_phrases_and_their_recordings").SEEDS
+    versions = "clinic_agent.store.alembic.versions."
+    seeds = [*import_module(versions + "0014_fixed_phrases_and_their_recordings").SEEDS,
+             *import_module(versions + "0020_sorry_cant_check_phrase").SEEDS]
     seeded: dict = {}
     for kind, language, _slot, source, text in sorted(seeds, key=lambda r: r[2]):
         seeded.setdefault((kind, language), []).append(text or source)

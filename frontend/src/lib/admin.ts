@@ -117,6 +117,7 @@ export const RECORDED: Record<string, string> = {
   filler: "“One moment” line",
   goodbye_fallback: "Goodbye",
   goodbye_time_limit: "Time-limit goodbye",
+  sorry_cant_check: "“Can’t check” line",
 };
 
 /** "Greeting, 2 “one moment” lines": the recorded lines a call played. */

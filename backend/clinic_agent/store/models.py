@@ -434,7 +434,7 @@ class VendorBill(Base):
 
 # ---------- fixed phrases and their recordings ----------
 
-PHRASE_KINDS = ("greeting", "filler", "goodbye_fallback", "goodbye_time_limit")
+PHRASE_KINDS = ("greeting", "filler", "goodbye_fallback", "goodbye_time_limit", "sorry_cant_check")
 
 
 class SystemSettings(Base):
