@@ -176,5 +176,7 @@ def test_the_hindi_line_speaks_everyday_hindi():
     rules = _rules("hi")
     assert 'never bookish: "ज़रा", "खाली है", not "कृपया", "उपलब्ध है"' in rules
     assert 'varied acknowledgement ("जी", "अच्छा", "ठीक है")' in rules
-    assert "Never repeat what is confirmed" in rules
+    assert "Never repeat confirmed details" in rules
+    # Harsh, 2026-11-10: replies ran ~3 sentences / 30 words; keep turns short.
+    assert "Under 20 words and one question per reply, except read-backs" in rules
     assert "no dashes, brackets or lists" in rules
