@@ -15,6 +15,7 @@ from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, defer, selectinload
 
+from clinic_agent import receptionist_settings as rs
 from clinic_agent.clock import clock12
 from clinic_agent.store import migrations
 from clinic_agent.store.models import (
@@ -35,6 +36,7 @@ from clinic_agent.store.models import (
     Phrase,
     PHRASE_KINDS,
     Price,
+    SystemSettings,
     TimeOff,
     TranscriptAccess,
     Usage,
@@ -403,6 +405,7 @@ def book(
     patient_phone: str,
     source: str = "voice",
     reason: str = "",
+    reason_unsure: bool = False,
 ) -> Appointment:
     """Book a slot. Raises SlotTaken if the doctor is already booked then."""
     doctor = _get(s, Doctor, doctor_id)
@@ -419,6 +422,7 @@ def book(
             ends_at=ends_at,
             source=source,
             reason=reason,
+            reason_unsure=reason_unsure,
         )
         s.add(appt)
         try:
@@ -491,6 +495,14 @@ def update_appointment_details(
     appt = _get(s, Appointment, appointment_id)
     appt.patient = _patient(s, appt.clinic_id, patient_name, patient_phone)
     appt.reason = reason
+    s.commit()
+    return appt
+
+
+def reason_checked(s: Session, appointment_id: int) -> Appointment:
+    """Staff checked a reason the receptionist wasn't sure fits the doctor."""
+    appt = _get(s, Appointment, appointment_id)
+    appt.reason_unsure = False
     s.commit()
     return appt
 
@@ -1088,6 +1100,66 @@ def _get(s: Session, model, row_id: int):
     return row
 
 
+# ---------- receptionist settings (clinic_agent/receptionist_settings.py) ----------
+
+def system_settings(s: Session) -> SystemSettings:
+    """The one row every clinic shares (made with its defaults if missing)."""
+    row = s.get(SystemSettings, 1)
+    if row is None:
+        row = SystemSettings(id=1)
+        s.add(row)
+        s.commit()
+    return row
+
+
+def update_system_settings(s: Session, **changes) -> SystemSettings:
+    """Change what every clinic shares; each value is checked (ValueError)."""
+    row = system_settings(s)
+    checked = {name: rs.checked(rs.field(rs.SYSTEM, name), value) for name, value in changes.items()}
+    for name, value in checked.items():
+        setattr(row, name, value)
+    s.commit()
+    return row
+
+
+def update_clinic_receptionist(s: Session, clinic_id: int, **changes) -> Clinic:
+    """Change how this clinic's receptionist behaves; each value is checked (ValueError)."""
+    clinic = _get(s, Clinic, clinic_id)
+    checked = {name: rs.checked(rs.field(rs.CLINIC, name), value) for name, value in changes.items()}
+    for name, value in checked.items():
+        setattr(clinic, name, value)
+    s.commit()
+    return clinic
+
+
+def longest_call_minutes(s: Session) -> float:
+    """The longest call any clinic allows: past it, an unfinished call was dropped."""
+    return s.scalar(select(func.max(Clinic.max_call_minutes))) or rs.field(rs.CLINIC, "max_call_minutes").default
+
+
+def copy_settings_from_env(s: Session, env: dict[str, str]) -> list[str]:
+    """Once ever: the old .env lines' values (`env`, non-blank ones) into the
+    database, a clinic's setting into every clinic. Returns the lines copied,
+    for the admin to delete. A second run copies nothing."""
+    row = system_settings(s)
+    if row.copied_from_env:
+        return []
+    copied = []
+    clinics = s.scalars(select(Clinic)).all()
+    for scope in (rs.SYSTEM, rs.CLINIC):
+        for f in scope:
+            raw = (env.get(f.env) or "").strip() if f.env else ""
+            if not raw:
+                continue
+            value = rs.from_env(f, raw)
+            for target in ([row] if scope is rs.SYSTEM else clinics):
+                setattr(target, f.name, value)
+            copied.append(f.env)
+    row.copied_from_env = True
+    s.commit()
+    return copied
+
+
 # ---------- fixed phrases and their recordings ----------
 
 MAX_PHRASE_CHARS = 500
@@ -1130,6 +1202,21 @@ def set_phrase_text(s: Session, phrase_id: int, text: str, source: str | None = 
     return phrase
 
 
+PACE_RANGE = (0.5, 2.0)  # what Sarvam accepts
+
+
+def set_phrase_pace(s: Session, phrase_id: int, pace: float) -> Phrase:
+    """How fast this phrase's recording is spoken. Its takes at the old speed
+    stay (for going back) but no longer play: it is said live until recorded."""
+    low, high = PACE_RANGE
+    if not low <= pace <= high:
+        raise ValueError(f"Speed must be between {low} and {high}.")
+    phrase = _get(s, Phrase, phrase_id)
+    phrase.pace = round(pace, 2)
+    s.commit()
+    return phrase
+
+
 def set_greeting_override(s: Session, clinic_id: int, language: str, text: str, source: str | None = None) -> Phrase:
     """This clinic's own greeting in `language`, replacing the global one."""
     text = _phrase_text(text)
@@ -1138,7 +1225,10 @@ def set_greeting_override(s: Session, clinic_id: int, language: str, text: str, 
     phrase = s.scalar(select(Phrase).where(
         Phrase.clinic_id == clinic_id, Phrase.kind == "greeting", Phrase.language == language))
     if phrase is None:
-        phrase = Phrase(kind="greeting", language=language, slot=0, clinic_id=clinic_id, source=source, text=text)
+        shared = s.scalar(select(Phrase).where(
+            Phrase.clinic_id.is_(None), Phrase.kind == "greeting", Phrase.language == language))
+        phrase = Phrase(kind="greeting", language=language, slot=0, clinic_id=clinic_id, source=source, text=text,
+                        pace=shared.pace if shared else 1.0)  # starts at the shared greeting's speed
         s.add(phrase)
     else:
         phrase.text, phrase.source = text, source
@@ -1159,6 +1249,14 @@ def clip_dates(s: Session, keys: Iterable[str]) -> dict[str, VoiceClip]:
     if not keys:
         return {}
     return {c.key: c for c in s.scalars(select(VoiceClip).options(defer(VoiceClip.pcm)).where(VoiceClip.key.in_(keys)))}
+
+
+def recorded_texts(s: Session, texts: Iterable[str]) -> set[str]:
+    """Which of `texts` have a recording in any voice."""
+    texts = list(texts)
+    if not texts:
+        return set()
+    return set(s.scalars(select(VoiceClip.text).where(VoiceClip.text.in_(texts)).distinct()))
 
 
 def clips_by_key(s: Session, keys: Iterable[str]) -> dict[str, VoiceClip]:

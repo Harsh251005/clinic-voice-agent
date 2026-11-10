@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { recordedOn, type Phrase, type Take } from "@/lib/voice";
 import { PlayButton } from "./play-button";
+import { SpeedSelect } from "./speed-select";
 
 export function Status({ take }: { take: Take }) {
   return take.recorded_at ? (
@@ -20,8 +21,9 @@ export function Status({ take }: { take: Take }) {
   );
 }
 
-export function PhraseCard({ phrase, label, canRecord, onEdit, onRecord }: {
-  phrase: Phrase; label: string; canRecord: boolean; onEdit: () => void; onRecord: (takes: Take[]) => void;
+export function PhraseCard({ phrase, label, canRecord, speed, onEdit, onRecord, onSpeed }: {
+  phrase: Phrase; label: string; canRecord: boolean; speed: { min: number; max: number; busy: boolean };
+  onEdit: () => void; onRecord: (takes: Take[]) => void; onSpeed: (pace: number) => void;
 }) {
   const perClinic = phrase.kind === "greeting";
   return (
@@ -32,7 +34,11 @@ export function PhraseCard({ phrase, label, canRecord, onEdit, onRecord }: {
           <p lang="hi" className="text-[17px] leading-relaxed">{phrase.text}</p>
           <p className="text-sm text-muted-foreground">{phrase.source}</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={onEdit} aria-label={`Change ${label}`}><Pencil /> Change</Button>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onEdit} aria-label={`Change ${label}`}><Pencil /> Change</Button>
+          <SpeedSelect id={`speed-${phrase.id}`} value={phrase.pace} min={speed.min} max={speed.max} label={label}
+            disabled={speed.busy} onChange={onSpeed} />
+        </div>
       </div>
 
       {phrase.takes.length === 0 ? (
@@ -41,14 +47,19 @@ export function PhraseCard({ phrase, label, canRecord, onEdit, onRecord }: {
         <ul className={cn("mt-3 divide-y rounded-lg border", !perClinic && "border-dashed")}>
           {phrase.takes.map((t) => (
             <li key={t.clinic_id ?? "all"} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
-              <div className="mr-auto min-w-0">
-                {perClinic && <p className="truncate text-sm font-medium">{t.clinic_name}</p>}
+              <div className="mr-auto min-w-0 space-y-1">
+                {t.clinic_name && <p className="truncate text-sm font-medium">{t.clinic_name}</p>}
                 <Status take={t} />
+                {t.live_pace != null && Math.abs(t.live_pace - phrase.pace) > 0.05 && (
+                  <p className="text-xs text-muted-foreground">
+                    Recorded at {phrase.pace.toFixed(2)}×, live voice at {t.live_pace.toFixed(2)}×: it may sound different from her replies.
+                  </p>
+                )}
               </div>
-              {t.key && t.recorded_at && <PlayButton clipKey={t.key} version={t.recorded_at} label={perClinic ? `${label} for ${t.clinic_name}` : label} />}
+              {t.key && t.recorded_at && <PlayButton clipKey={t.key} version={t.recorded_at} label={t.clinic_name ? `${label} for ${t.clinic_name}` : label} />}
               {canRecord && (
                 <Button variant={t.recorded_at ? "ghost" : "outline"} size="sm" onClick={() => onRecord([t])}
-                  aria-label={`${t.recorded_at ? "Re-record" : "Record"} ${perClinic ? `${label} for ${t.clinic_name}` : label}`}>
+                  aria-label={`${t.recorded_at ? "Re-record" : "Record"} ${t.clinic_name ? `${label} for ${t.clinic_name}` : label}`}>
                   <Mic /> {t.recorded_at ? "Re-record" : "Record"}
                 </Button>
               )}

@@ -28,7 +28,8 @@ QUIET_AFTER = timedelta(days=3)  # an active clinic with no calls for this long 
 
 
 def dropped_before(request: Request, now: datetime) -> datetime:
-    return incidents.dropped_before(now, request.app.state.cfg.max_call_minutes)
+    with request.app.state.sessions() as s:
+        return incidents.dropped_before(now, repo.longest_call_minutes(s))
 
 
 def _summaries(s, calls, request: Request) -> list[schemas.CallSummary]:
@@ -196,6 +197,15 @@ def _admin_clinics(s) -> list[schemas.AdminClinic]:
             calls_7d=calls_7d, calls_with_errors_7d=errors_7d, last_call_at=convert.utc(last),
         ))
     return out
+
+
+@router.get("/admins", response_model=schemas.Admins, dependencies=[Depends(admin)])
+def admins(request: Request):
+    """Who is an admin: ADMIN_EMAILS in .env, read-only here on purpose
+    (Harsh, 2026-11-10): nobody can make themselves admin from the dashboard
+    or the database, only whoever controls the server's .env."""
+    cfg = request.app.state.cfg
+    return schemas.Admins(emails=sorted(cfg.admin_emails), sign_in=cfg.dashboard_login)
 
 
 @router.get("/clinics", response_model=list[schemas.AdminClinic], dependencies=[Depends(admin)])

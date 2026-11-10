@@ -171,6 +171,29 @@ def _refuse_old_settings() -> None:
         )
 
 
+def moved_settings() -> dict[str, str]:
+    """The .env lines whose settings now live in the dashboard
+    (clinic_agent/receptionist_settings.py), as written, for the one-time
+    copy into the database (store/migrations.py)."""
+    from clinic_agent.receptionist_settings import MOVED_ENV
+
+    load_dotenv()
+    return {name: os.environ[name] for name in MOVED_ENV if os.environ.get(name, "").strip()}
+
+
+def refuse_moved_settings() -> None:
+    """The worker and the API stop on a leftover .env line whose setting now
+    lives in the dashboard (Harsh, 2026-11-10): it would be silently ignored.
+    The migrations command copies them in first, so it never refuses."""
+    left = sorted(moved_settings())
+    if left:
+        raise ConfigError(
+            "these settings are now set in the dashboard (Admin > Receptionist, and each clinic's Receptionist "
+            "tab); delete them from .env: " + ", ".join(left) + ". Run `uv run python -m clinic_agent.store.migrations` "
+            "first if you haven't since this change: it copies them into the database."
+        )
+
+
 def load_settings() -> Settings:
     """Read .env and the environment into a Settings object.
 

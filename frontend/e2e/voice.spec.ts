@@ -50,3 +50,19 @@ test("a clinic gets its own greeting and goes back to the shared one", async ({ 
   await expect(page.getByText("Demo Family Clinic's own greeting")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Give Demo Family Clinic its own greeting" })).toBeVisible();
 });
+
+test("a line's recording speed is changed and put back", async ({ page }) => {
+  // Harsh, 2026-11-10: each line records at its own speed, apart from the live voice.
+  await page.goto("/admin/voice");
+  const speed = page.getByRole("combobox", { name: "Recording speed: Line 1" });
+  await expect(speed).toHaveText(/0\.90×/); // migration 0017: lines start at the speed they were recorded at
+  await speed.click();
+  await page.getByRole("option", { name: "1.10×" }).click();
+  await expect(page.getByText(/Speed saved/)).toBeVisible();
+  await expect(speed).toHaveText(/1\.10×/);
+  await page.reload();
+  await expect(speed).toHaveText(/1\.10×/); // kept
+  await speed.click();
+  await page.getByRole("option", { name: "0.90×" }).click();
+  await expect(speed).toHaveText(/0\.90×/);
+});

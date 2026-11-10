@@ -5,7 +5,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, AudioLines, Building2, IndianRupee, LayoutDashboard, PhoneCall, ShieldAlert, TriangleAlert, FlaskConical } from "lucide-react";
+import { Activity, AudioLines, Building2, Headset, IndianRupee, LayoutDashboard, PhoneCall, ShieldAlert, TriangleAlert, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAdminProblems, useMe, useSeenProblem } from "@/lib/queries";
@@ -22,6 +22,7 @@ const PAGES = [
   { href: "/admin/errors", label: "Errors", icon: TriangleAlert },
   { href: "/admin/costs", label: "Costs", icon: IndianRupee },
   { href: "/admin/clinics", label: "Clinics", icon: Building2 },
+  { href: "/admin/receptionist", label: "Receptionist", short: "Agent", icon: Headset },
   { href: "/admin/voice", label: "Voice", icon: AudioLines },
 ] as const;
 
@@ -115,13 +116,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
         {login !== "off" && <AccountMenu email={email} role="Admin" tone="ops" compact />}
       </header>
       <nav aria-label="Admin pages"
-        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-6 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        {PAGES.map(({ href, label, icon: Icon }) => {
+        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-7 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        {PAGES.map(({ href, label, short, icon: Icon }: { href: string; label: string; short?: string; icon: typeof Activity }) => {
           const on = isCurrent(pathname, href);
           return (
-            <Link key={href} href={href} aria-current={on ? "page" : undefined}
-              className={cn("flex flex-col items-center gap-1 py-2.5 text-xs font-medium text-muted-foreground", on && "text-foreground")}>
-              <Icon className={cn("size-5", on && "text-amber-600 dark:text-ops-primary")} aria-hidden /> {label}
+            <Link key={href} href={href} aria-current={on ? "page" : undefined} aria-label={label}
+              className={cn("flex min-w-0 flex-col items-center gap-1 py-2.5 text-[11px] font-medium text-muted-foreground", on && "text-foreground")}>
+              <Icon className={cn("size-5", on && "text-amber-600 dark:text-ops-primary")} aria-hidden />
+              <span className="max-w-full truncate">{short ?? label}</span>
             </Link>
           );
         })}

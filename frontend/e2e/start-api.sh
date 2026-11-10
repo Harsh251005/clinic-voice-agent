@@ -12,6 +12,11 @@ export PUBLIC_BASE_URL=http://127.0.0.1:8095 DASHBOARD_URL=http://localhost:3200
 export LIVEKIT_URL=wss://e2e.invalid LIVEKIT_API_KEY=e2e LIVEKIT_API_SECRET=e2e-only-secret-not-used-for-real-calls
 # No vendor is ever called from a test: blank keys beat the developer's .env (load_dotenv never overrides).
 export OPENAI_API_KEY= SARVAM_API_KEY= ELEVENLABS_API_KEY=
+# The receptionist's settings live in the database now; blank lines here keep
+# the one-time copy from .env (migrations) from bringing a developer's values in.
+export HINDI_LLM= SARVAM_LLM_MODEL= OPENAI_LLM_MODEL= SARVAM_STT_MODEL= SARVAM_STT_LANGUAGE= SARVAM_STT_MODE=
+export SARVAM_TTS_MODEL= SARVAM_TTS_SPEAKER= SARVAM_TTS_PACE= SARVAM_TTS_PITCH= MAX_CALL_MINUTES=
+export MIN_ENDPOINTING_DELAY= NUMBER_ENDPOINTING_DELAY= INTERRUPT_MIN_SPEECH= VAD_MIN_SILENCE=
 uv run python -m clinic_agent.store.migrations
 uv run python - <<'PY'
 from datetime import datetime, time

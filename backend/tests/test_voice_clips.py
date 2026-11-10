@@ -4,7 +4,7 @@ import pytest
 
 from clinic_agent.config import load_settings
 from clinic_agent.providers import build_tts, identity
-from clinic_agent.voice_clips import clip_key
+from clinic_agent.voice_clips import at_pace, clip_key
 
 
 def test_the_voice_identity_is_read_from_what_was_built(env):
@@ -34,8 +34,11 @@ VOICE = {"vendor": "sarvam", "model": "m", "voice": "v", "language_code": "hi-IN
          "pace": 1.0, "pitch": 0.0}
 
 
-def _record(s, text, pcm=b"\x01\x02"):
-    repo.save_clip(s, key=clip_key(VOICE, text), vendor="sarvam", model="m", voice="v", language_code="hi-IN",
+SEEDED_PACE = 0.9  # migration 0017: phrases start at the speed they were recorded at
+
+
+def _record(s, text, pcm=b"\x01\x02", pace=SEEDED_PACE):
+    repo.save_clip(s, key=clip_key(at_pace(VOICE, pace), text), vendor="sarvam", model="m", voice="v", language_code="hi-IN",
                    sample_rate=24000, text=text, pcm=pcm, duration_s=1.0)
 
 
@@ -53,6 +56,23 @@ def test_a_phrase_plays_its_recording_only_while_the_voice_and_text_match(db):
     assert load(s, clinic, ["hi"], lambda language: other).one("greeting", "hi").pcm is None
     repo.set_greeting_override(s, clinic_id, "hi", "बिल्कुल नया।")  # edited text: back to live
     assert load(s, clinic, ["hi"], lambda language: VOICE).one("greeting", "hi").pcm is None
+
+
+def test_a_recording_keeps_its_own_speed_apart_from_the_live_voice(db):
+    # Harsh, 2026-11-10: the live voice went 0.9 -> 0.95; recordings have their own speed.
+    s, clinic_id = db
+    clinic = repo.get_clinic(s, clinic_id)
+    text = load(s, clinic, ["hi"], lambda language: VOICE).one("greeting", "hi").text
+    _record(s, text)
+    faster_live = {**VOICE, "pace": 1.3}
+    assert load(s, clinic, ["hi"], lambda language: faster_live).one("greeting", "hi").pcm == b"\x01\x02"
+    greeting = next(p for p in repo.phrases_for_call(s, clinic_id, "hi") if p.kind == "greeting")
+    repo.set_phrase_pace(s, greeting.id, 1.1)  # its own speed changed: said live until recorded again
+    assert load(s, clinic, ["hi"], lambda language: VOICE).one("greeting", "hi").pcm is None
+    _record(s, text, pace=1.1)
+    assert load(s, clinic, ["hi"], lambda language: VOICE).one("greeting", "hi").pcm == b"\x01\x02"
+    with pytest.raises(ValueError, match="between 0.5 and 2.0"):
+        repo.set_phrase_pace(s, greeting.id, 2.5)
 
 
 def test_fillers_are_random_and_never_the_same_twice_running(db):
@@ -229,7 +249,7 @@ def test_for_call_finds_the_recordings_of_the_calls_own_voice(sessions, env):
         clinic = repo.get_clinic(s, seed_demo(s))
         s.expunge(clinic)
         text = load(s, clinic, ["hi"], lambda language: None).one("greeting", "hi").text
-        repo.save_clip(s, key=clip_key(identity(voice), text), vendor="sarvam", model="m", voice="v", language_code="hi-IN",
+        repo.save_clip(s, key=clip_key(at_pace(identity(voice), SEEDED_PACE), text), vendor="sarvam", model="m", voice="v", language_code="hi-IN",
                        sample_rate=24000, text=text, pcm=b"\x00\x00" * 10, duration_s=0.1)
     assert for_call(sessions, clinic, "hi", voice).one("greeting", "hi").pcm == b"\x00\x00" * 10
 
@@ -271,3 +291,25 @@ def test_a_played_recording_is_a_step_in_the_trace_by_kind_only():
     rec.clip_played("greeting")
     (event,) = rec.events
     assert (event["kind"], event["name"], event["ok"], event["duration_ms"]) == ("clip", "greeting", True, None)
+
+
+def test_lines_recorded_in_an_earlier_voice_open_a_problem_that_closes_on_proof(db):
+    # Harsh, 2026-11-10: a voice change after recording must warn at once; the
+    # lines are said live meanwhile. Back to the old voice = fixed.
+    from clinic_agent import incidents
+    from clinic_agent.store.models import utc_now
+    from clinic_agent.voice_clips import stale_lines
+
+    s, clinic_id = db
+    clinic = repo.get_clinic(s, clinic_id)
+    _record(s, load(s, clinic, ["hi"], lambda language: VOICE).one("greeting", "hi").text)
+    other = {**VOICE, "voice": "someone else"}
+    assert stale_lines(s, clinic, VOICE) == 0 and stale_lines(s, clinic, other) == 1
+
+    current = {"voice": other}
+    incidents.sync(s, utc_now(), voice_of=lambda system, c: current["voice"])
+    (open_,) = [i for i in repo.open_incidents(s) if i.kind == "recordings_stale"]
+    assert open_.clinic_id == clinic_id and open_.detail == "1"
+    current["voice"] = VOICE  # switched back
+    incidents.sync(s, utc_now(), voice_of=lambda system, c: current["voice"])
+    assert not [i for i in repo.open_incidents(s) if i.kind == "recordings_stale"]

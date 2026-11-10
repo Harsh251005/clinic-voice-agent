@@ -3,7 +3,7 @@
 // hours are white, the rest shaded; leave and holidays say why. Free slots
 // are drawn and clickable, so booking into a gap is one click.
 import { useEffect, useRef } from "react";
-import { PhoneCall, TriangleAlert } from "lucide-react";
+import { PhoneCall, SearchCheck, TriangleAlert } from "lucide-react";
 import type { Schemas } from "@/lib/api/client";
 import { clockTime, span12, time12 } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -183,7 +183,7 @@ function Column({ clinic, doctor, today, appointments, height, hours, top, px, n
         ) : (
           <AppointmentMenu key={item.appt.id} clinic={clinic} appt={item.appt} today={today}>
             <button type="button" style={style} className={cn("absolute z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none", blockTone(item.appt))}
-              aria-label={`${clockTime(item.appt.starts_at)}, ${item.appt.patient_name}, ${statusWords(item.appt).join(", ")}${item.appt.problem ? `. Call the patient: ${item.appt.problem}` : ""}`}>
+              aria-label={`${clockTime(item.appt.starts_at)}, ${item.appt.patient_name}, ${statusWords(item.appt).join(", ")}${item.appt.reason_unsure ? ". Check reason" : ""}${item.appt.problem ? `. Call the patient: ${item.appt.problem}` : ""}`}>
               <Block appt={item.appt} tall={style.height >= 44} />
             </button>
           </AppointmentMenu>
@@ -220,6 +220,7 @@ function Block({ appt, tall }: { appt: Appointment; tall: boolean }) {
         <span className={cn("truncate font-medium", cancelled && "line-through")}>{appt.patient_name}</span>
         <span className="ml-auto flex shrink-0 items-center gap-1">
           {appt.problem && <TriangleAlert className="size-3.5" aria-hidden />}
+          {appt.reason_unsure && <SearchCheck className="size-3.5" aria-hidden />}
           {appt.source === "voice" && <PhoneCall className="size-3" aria-hidden />}
           {visit && <visit.icon className="size-3.5" aria-hidden />}
         </span>

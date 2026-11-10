@@ -62,3 +62,10 @@ test("a clinic can be paused, which closes its call link, and resumed", async ({
   await expect(pausedAlert).toHaveCount(0, { timeout: 5_000 });  // fixed: gone at once, no click
   expect((await request.get("http://127.0.0.1:8095/call/demo-family-clinic")).status()).toBe(200);
 });
+
+test("the admins list is read-only and says where admins are set", async ({ page }) => {
+  await page.goto("/admin/clinics");
+  await expect(page.getByRole("heading", { name: "Admins" })).toBeVisible();
+  await expect(page.getByText("Sign-in is off on this server: everyone who opens it is an admin.")).toBeVisible();
+  await expect(page.getByText(/ADMIN_EMAILS/)).toBeVisible();
+});

@@ -12,17 +12,18 @@ from livekit.agents import stt
 from livekit.plugins import sarvam
 
 from clinic_agent.config import Settings, require_key
+from clinic_agent.providers import defaults
 
 
 def _sarvam(cfg: Settings) -> stt.STT:
     # sarvam.STT declares streaming=True and does its own endpointing over a
     # websocket the plugin owns, so no separate VAD is wired in.
     return sarvam.STT(
-        model=cfg.sarvam_stt_model or "saaras:v3",
+        model=cfg.sarvam_stt_model or defaults.SARVAM_STT_MODEL,
         # Sarvam answers the Hindi line. "unknown" auto-detects per utterance,
         # so the Hinglish callers mix in (English words, whole English
         # sentences) comes through as said; the replies stay Hindi.
-        language=cfg.sarvam_stt_language or "unknown",
+        language=cfg.sarvam_stt_language or defaults.SARVAM_STT_LANGUAGE,
         mode=cfg.sarvam_stt_mode,
         sample_rate=cfg.stt_sample_rate,
         api_key=require_key(cfg.sarvam_api_key, "SARVAM_API_KEY"),

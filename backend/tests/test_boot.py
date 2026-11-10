@@ -38,18 +38,29 @@ def run_main(tmp_path, *args, **overrides):
 
 
 def test_the_hindi_line_without_its_key_exits_with_one_line(tmp_path):
-    r = run_main(tmp_path)
+    r = run_main(tmp_path, DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 1
     assert r.stderr.strip() == "configuration error: no language line can take calls: Hindi: " \
         "SARVAM_API_KEY is not set. Copy .env.example to .env and fill it in."
 
 
+def openai_brain_db(tmp_path) -> str:
+    """The brain is chosen in the dashboard now (Admin > Receptionist), not .env."""
+    from clinic_agent.store import repo
+    from clinic_agent.store.db import make_engine, session_factory
+
+    url = seeded_db(tmp_path)
+    with session_factory(make_engine(url))() as s:
+        repo.update_system_settings(s, hindi_llm="openai")
+    return url
+
+
 def test_an_openai_brain_without_its_key_exits_with_one_line(tmp_path):
-    r = run_main(tmp_path, SARVAM_API_KEY="x", HINDI_LLM="openai", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=openai_brain_db(tmp_path))
     assert r.returncode == 1
     assert "Hindi: OPENAI_API_KEY is not set" in r.stderr.strip()
     (again := tmp_path / "with-key").mkdir()
-    r = run_main(again, SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", HINDI_LLM="openai", DATABASE_URL=seeded_db(again))
+    r = run_main(again, SARVAM_API_KEY="x", OPENAI_API_KEY="sk-x", DATABASE_URL=openai_brain_db(again))
     assert r.returncode == 0, r.stderr
     assert "warning" not in r.stderr
 
@@ -139,7 +150,7 @@ def test_text_mode_needs_no_speech_keys(tmp_path):
     # The brain's key only: no Sarvam key for the ears or voice.
     r = run_main(
         tmp_path, "console", "--text", "--help",
-        HINDI_LLM="openai", OPENAI_API_KEY="sk-x", DATABASE_URL=seeded_db(tmp_path),
+        OPENAI_API_KEY="sk-x", DATABASE_URL=openai_brain_db(tmp_path),
     )
     assert r.returncode == 0, r.stderr
     assert "text mode" in r.stdout
@@ -148,7 +159,16 @@ def test_text_mode_needs_no_speech_keys(tmp_path):
 def test_voice_console_without_the_speech_key_exits_with_one_line(tmp_path):
     r = run_main(
         tmp_path, "console", "--help",
-        HINDI_LLM="openai", OPENAI_API_KEY="sk-x", DATABASE_URL=seeded_db(tmp_path),
+        OPENAI_API_KEY="sk-x", DATABASE_URL=openai_brain_db(tmp_path),
     )
     assert r.returncode == 1
     assert r.stderr.strip().startswith("configuration error: no language line can take calls: Hindi: SARVAM_API_KEY is not set")
+
+
+def test_a_setting_moved_to_the_dashboard_left_in_env_exits_with_one_line(tmp_path):
+    # Harsh, 2026-11-10: those settings live in the database; a leftover line would be silently ignored.
+    r = run_main(tmp_path, SARVAM_API_KEY="x", HINDI_LLM="openai", SARVAM_TTS_PACE="0.95",
+                 DATABASE_URL=seeded_db(tmp_path))
+    assert r.returncode == 1
+    assert r.stderr.strip().startswith("configuration error: these settings are now set in the dashboard")
+    assert "delete them from .env: HINDI_LLM, SARVAM_TTS_PACE." in r.stderr

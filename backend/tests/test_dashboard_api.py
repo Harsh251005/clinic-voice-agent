@@ -30,7 +30,7 @@ def world(tmp_path, env):
     with session_factory(engine)() as s:
         demo = seed_demo(s)
         cure = repo.create_clinic(s, name="Cure Dental Clinic").id
-        khushboo = repo.add_doctor(s, cure, name="Dr. Khushboo", fee=400, slot_minutes=15).id
+        khushboo = repo.add_doctor(s, cure, name="Dr. Khushboo", specialty="Dentist", fee=400, slot_minutes=15).id
         repo.set_doctor_hours(s, khushboo, [(d, time(10), time(13)) for d in range(6)])
         repo.add_faq(s, cure, "Parking?", "Yes.")
         repo.add_time_off(s, cure, date(2026, 12, 1), date(2026, 12, 2), reason="Conference")
@@ -266,6 +266,7 @@ ATTACKS = [
     ("POST", "/appointments/{demo_appt}/cancel", None),
     ("POST", "/appointments/{demo_appt}/visit", {"visit": None}),
     ("POST", "/appointments/{demo_appt}/restore", None),
+    ("POST", "/appointments/{demo_appt}/reason-checked", None),
     ("POST", "/time-off", {"date_from": "2026-12-01", "date_to": "2026-12-01", "doctor_id": "{demo_doctor}"}),
     ("POST", "/appointments", {"doctor_id": "{demo_doctor}", "starts_at": "2026-12-08T10:00",
                                "patient_name": "X", "patient_phone": "9876543210"}),
@@ -358,11 +359,36 @@ def test_names_in_hindi_are_saved_in_devanagari_only(world):
     assert c.patch(doctor, json={"name_hi": ""}).json()["name_hi"] == ""  # cleared: its own way again
 
 
+def test_a_doctor_needs_a_specialty(world):
+    # Harsh, 2026-11-09: "even if it's a general physician". The receptionist matches reasons to it.
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}"
+    for blank in ({}, {"specialty": ""}, {"specialty": "   "}):
+        r = c.post(f"{base}/doctors", json={"name": "Dr. Blank", "fee": 0, "slot_minutes": 15, **blank})
+        assert r.status_code == 422, blank
+    assert c.patch(f"{base}/doctors/{world['khushboo']}", json={"specialty": "  "}).status_code == 422
+    r = c.patch(f"{base}/doctors/{world['khushboo']}", json={"specialty": "  Eye   Specialist "})
+    assert r.json()["specialty"] == "Eye Specialist"
+
+
+def test_staff_clear_an_unsure_reason_once_checked(world):
+    with session_factory(make_engine(load_settings().database_url))() as s:
+        appt = s.get(repo.Appointment, world["demo_appt"])
+        appt.reason_unsure = True
+        s.commit()
+    staff = client_as("doctor@demo.in")
+    base = f"/api/clinics/{world['demo']}"
+    day = staff.get(f"{base}/appointments", params={"day": "2026-12-07"}).json()
+    assert [a["reason_unsure"] for a in day["appointments"] if a["id"] == world["demo_appt"]] == [True]
+    r = staff.post(f"{base}/appointments/{world['demo_appt']}/reason-checked")
+    assert r.status_code == 200 and r.json()["reason_unsure"] is False
+
+
 def test_adding_a_doctor_with_a_pattern_then_editing_hours(world):
     c = client_as("reception@cure.in")
     base = f"/api/clinics/{world['cure']}"
     pattern = next(p for p in c.get("/api/hours/patterns").json() if p["name"] == "Mon–Sat, 10 am–1 pm and 5–8 pm")
-    doctor = c.post(f"{base}/doctors", json={"name": "Dr. Neha", "fee": 600, "slot_minutes": 20,
+    doctor = c.post(f"{base}/doctors", json={"name": "Dr. Neha", "specialty": "Dermatologist", "fee": 600, "slot_minutes": 20,
                                              "hours": pattern["sittings"]}).json()
     assert len(doctor["hours"]) == 12
     assert doctor["hours_text"] == "Monday to Saturday 10:00-13:00 and 17:00-20:00; Sunday not available"
@@ -376,7 +402,7 @@ def test_bad_hours_are_explained_and_add_nobody(world):
     c = client_as("reception@cure.in")
     base = f"/api/clinics/{world['cure']}"
     overlap = [{"weekday": 1, "start": "10:00", "end": "13:00"}, {"weekday": 1, "start": "12:00", "end": "15:00"}]
-    r = c.post(f"{base}/doctors", json={"name": "Dr. Overlap", "fee": 0, "slot_minutes": 15, "hours": overlap})
+    r = c.post(f"{base}/doctors", json={"name": "Dr. Overlap", "specialty": "Dentist", "fee": 0, "slot_minutes": 15, "hours": overlap})
     assert r.status_code == 422 and "Sessions on Tuesday overlap" in r.json()["detail"]
     assert [d["name"] for d in c.get(base).json()["doctors"]] == ["Dr. Khushboo"]
 

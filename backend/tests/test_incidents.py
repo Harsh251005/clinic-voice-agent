@@ -203,6 +203,22 @@ def test_setup_that_stops_bookings(db):
     assert open_kinds(s, clinic_id) == ["clinic_paused"]
 
 
+def test_a_doctor_without_a_specialty_is_flagged_until_one_is_added(db):
+    # Harsh, 2026-11-09: the specialty is required, since the receptionist matches
+    # each reason to it. Doctors saved blank before then are flagged, and the
+    # problem closes on proof: the field filled in.
+    s, clinic_id = db
+    healthy(s)
+    rohan = repo.get_clinic(s, clinic_id).doctors[1]
+    repo.update_doctor(s, rohan.id, specialty="  ")
+    sync(s)
+    (inc,) = [i for i in repo.open_incidents(s) if i.kind == "doctor_no_specialty"]
+    assert (inc.clinic_id, inc.subject, inc.detail) == (clinic_id, str(rohan.id), "Dr. Rohan Iyer")
+    repo.update_doctor(s, rohan.id, specialty="Paediatrician")
+    sync(s)
+    assert "doctor_no_specialty" not in open_kinds(s, clinic_id)
+
+
 def test_bookings_that_need_a_call(db):
     s, clinic_id = db
     healthy(s)

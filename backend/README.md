@@ -81,6 +81,14 @@ Use plain `console` when you need to hear the voice.
 `LIVEKIT_*` values in `.env` and spend from the free tier's 1,000 agent-session
 minutes per month. `console` spends none of them.
 
+## Running all three on your machine
+
+`./start-clinic.sh` (repo root; needs `xterm`) starts or restarts the API,
+the receptionist worker (`main.py start`) and the production dashboard,
+each in its own window. It first stops the copies it started before (only
+this app's, from its own folders), brings the schema up to date, and prints
+the branch it is running. Safe to run again after a code change.
+
 ## Docker
 
 `docker compose up --build` (repo root) runs Postgres, the API on :8080
@@ -186,6 +194,10 @@ in `repo.py`.
   "उपलब्ध"…), start replies with a short "जी" / "अच्छा", never repeat a
   confirmed detail, and use no dashes, semicolons or brackets (the voice
   reads them oddly). The English rules share the last three.
+- **Doctors by first name:** the receptionist says "डॉक्टर हर्ष", never the
+  full name unless the caller asks for it (also in the booking read-back). A
+  one-word name stays as it is; two doctors with the same first name both
+  keep their full names.
 - **Names said one way:** the clinic and each doctor have a *Name in Hindi*
   (Devanagari), **filled in from the English name** as staff type
   (`POST /api/clinics/{id}/hindi-name`: one short OpenAI text request,
@@ -246,6 +258,30 @@ every clinic?" and never shows patients:
   everything of it. A SQLite database is copied first
   (`clinic.db.bak-…`); on Postgres that relies on your own backups.
 - **Costs**: what every call cost you, in rupees (below).
+- **Admins** (bottom of `/admin/clinics`, `GET /api/admin/admins`): who has
+  admin access, **read-only on purpose** (Harsh, 2026-11-10). Admins are only
+  `ADMIN_EMAILS` in the server's `.env` (comma-separated, any number; restart
+  the API), so nobody can make themselves admin from the dashboard or the
+  database. An admin sees every clinic, including transcripts (each opening
+  is logged).
+- **Receptionist** (`/admin/receptionist`, `api/dashboard/receptionist.py`):
+  how she behaves on every clinic's calls. The main rules (editable, a
+  live word count, at most 500 words, **Reset to default**; blank = the
+  rules in `prompts.py`, so code updates still reach it; an edited text is
+  marked, because the live evals only grade the default), the brain
+  (vendor, Sarvam and OpenAI model names), hearing (a blank
+  field shows what it falls back to), the turn-taking timings with their
+  ranges, and whether callers can talk over the greeting. Saved changes
+  apply from the next call. Admins only.
+- **A clinic's Receptionist tab** (Clinic settings, admins only;
+  `/api/admin/clinics/{id}/receptionist`): its own instructions (added after
+  the main rules, at most 150 words: every word is sent on every turn),
+  directions (said when a caller asks the way, instead of the postal
+  address), its voice (voice model and speaker, saved and checked together:
+  a speaker the model doesn't have is refused, since every call would fail;
+  live speed, pitch) and longest call. Before a
+  voice change is saved, it says how many of the clinic's recorded lines the
+  new voice leaves said live (`GET /api/admin/voice/impact`).
 - **Voice & phrases** (`/admin/voice`, `api/dashboard/voice.py`): the
   receptionist's fixed lines: the greeting (shared, with `{clinic}` for each
   clinic's spoken name, or a clinic's own), the three "one moment" fillers
@@ -255,9 +291,18 @@ every clinic?" and never shows patients:
   2026-11-09: no required wording; what callers are told is the admin's
   call). Each line shows,
   per clinic for the greeting, whether it is **recorded in the current
-  voice** (vendor, model, speaker, pace, pitch) and its exact words; **Play**
+  voice** (vendor, model, speaker, pitch) at **its own speed** and its exact
+  words; **Play**
   a recording, **Record** one, a line, or everything not yet recorded (the
   estimated characters and price are shown first, from the Prices page).
+  Each clinic may have its own voice: a shared line is then recorded once
+  per voice (each take names the clinics it serves) and only plays in that
+  voice. A take recorded at a speed more than 0.05× from the clinic's live
+  voice is flagged ("it may sound different from her replies").
+  Each line has its own **Speed** (0.70× to 1.30×; migration 0017 set the
+  existing ones to 0.90×, the speed they were recorded at), apart from the
+  live voice's `SARVAM_TTS_PACE`: changing either never un-records the
+  other. A line at a new speed is said live until recorded again.
   Nothing records by itself, and recording stops at the first failure
   (problem "Recording a voice clip failed"). Edited words or a new voice
   are said live until recorded; old takes stay, so going back to an old
@@ -330,12 +375,14 @@ not tried again since") instead of "fixed".
 | Patients couldn't get through | the call page reports it (by reason) | yes | a call connects at that clinic, or 2 quiet hours |
 | Server error | an unhandled API error (route and error type only) | no | that same page answers without an error, or 15 quiet minutes |
 | Callers can't book | no active doctor, or one without weekly hours | yes | it's fixed |
+| A doctor has no specialty | an active doctor saved without one (it is required now) | yes | the specialty is filled in |
 | Clinic paused | paused in the admin panel | yes | turned back on |
 | Bookings need a call | upcoming bookings flagged (leave, holiday...) | yes | none left |
 | LiveKit minutes | 80% (urgent at 95%) of the monthly allowance (Prices page; 1,000 by default) | no | next month |
 | Price missing | a call in the last 35 days used a model with no price that day, or a dollar price with no rate; Open fills in the missing price | no | the price or rate is added (at once: the save re-checks) |
 | Expired transcripts not deleted | the purge fails | no | the next purge works |
 | Recording a voice clip failed | an admin's Record fails (vendor error, timeout) | no | a recording works, or a quiet day |
+| Recorded lines no longer match a clinic's voice | lines recorded in an earlier voice of that clinic (speaker, pitch or voice model changed); calls say them live | no | they are recorded again, or the voice switches back |
 | Hindi name suggestions failing | a name's Hindi suggestion fails (OpenAI) | no | the next suggestion works, or a quiet hour |
 | Phrase translation failing | Suggest Hindi fails (OpenAI) | no | a suggestion works, or a quiet hour |
 | Fixed phrases unreadable | a call can't read its phrases: it says the built-in words live | no | the clinic's next call reads them, or a quiet hour |
@@ -426,6 +473,24 @@ instructions in its README); every action below is an `/api` endpoint here.
   English, whatever language the caller used ("आँखों से धुंधला दिखता है" →
   "Blurred vision"), since the dashboard is English only. It is shown on the row; staff can add or change it. It is health
   information: shown to the clinic, never written to logs.
+- **The right doctor for the reason.** The receptionist asks why the caller
+  is coming before it looks for times, and matches it to the doctors'
+  specialties. A reason clearly outside all of them (fever, with only an eye
+  specialist) is declined kindly and nothing is booked; it may suggest the
+  obvious type of doctor ("general physician"), never a named doctor or
+  clinic elsewhere, and never guesses the illness. With several doctors it
+  picks the one who fits. When unsure it books, marked **Check reason** on
+  Today and in the diary ("The receptionist wasn't sure this doctor sees
+  this"); staff clear it from the appointment's menu, *Reason checked*. A
+  caller who won't say why is still booked, unmarked. The slot search can't
+  run without the model's verdict on the reason (`reason_fits`): "outside"
+  returns no times at all, only the decline. Before every read-back,
+  `check_booking` sets the reason beside the doctor's specialty for a second
+  look. The model makes the call, so it is graded by live evals
+  (`tests/test_live.py`, "the right doctor for the reason").
+- **Every doctor has a specialty** ("General Physician" counts): the form and
+  the API refuse a blank one, and a doctor saved blank before is a problem
+  until it is filled in.
 - **Clinic settings**: details, booking rules, the receptionist link, doctors, weekly
   hours (any number of sessions a day), leave and holidays, FAQ answers (each editable in place), and (admins) the
   team. Everything the agent knows about a clinic is entered here.
@@ -577,20 +642,19 @@ write the same tables through `store/repo.py`.
   (`test_the_rules_stay_short`): a long prompt is paid for on every turn, and
   the model follows a short one better.
 - **Booking** (three tools, rules in `booking.py`):
-  - `find_available_slots(date, doctor?, part_of_day?)` returns **every**
-    free start time that day per doctor, **one by one** under fixed parts of
-    the day: morning before 12:00, afternoon 12:00 to before 17:00, evening
-    17:00 on ("morning: 10:00, 10:15, 11:30; afternoon: 12:30, 14:00"). It
-    marks the clinic's "free times offered at once" as the ones to suggest
-    first. The agent suggests those, and answers "anything later / in the
-    afternoon?" from the full list, offering only the times under that label
-    and never summing them up as a range. Ranges used to hide booked times
-    inside them ("10:00 to 13:30" with 11:00 taken), and the agent offered
-    those. Each time carries its Hindi words, written by code (`spoken.py`):
-    "12:30 (साढ़े बारह बजे)". The agent says only those words; left to
-    itself it said "बारह साढ़े बजे" and "सत्रह बजे". With nothing free it says why (clinic
-    closed, doctor on leave, doesn't sit that day or that part of the day, no
-    times left today, fully booked) and gives the next free day.
+  - `find_available_slots(date, reason_fits, from_time?, doctor?)` returns
+    **only the next few free times** from `from_time` (the clinic's "free
+    times offered at once", default 3), one by one, per doctor, and says
+    whether more are free later that day. "Evening?" is asked again from
+    17:00, "after seven?" from 19:00, so the agent only ever sees the times it
+    may offer (Harsh, 2026-11-10: from a whole-day list it read out 5-6).
+    A refused time ("not free at 17:00") offers the next few after it the
+    same way. Each time carries its Hindi words, written by code
+    (`spoken.py`): "12:30 (साढ़े बारह बजे)"; left to itself the agent said
+    "बारह साढ़े बजे" and "सत्रह बजे". With nothing free it says why (clinic
+    closed, doctor on leave, doesn't sit that day, nothing from that time,
+    no times left today, fully booked) and gives the next free day's first
+    few.
   - `check_booking(doctor, date, time, name, phone, reason?)` books
     **nothing**. It checks everything a booking would (doctor, day, the time
     still free, a 10-digit Indian mobile, +91 / 0 / spaces accepted), keeps
@@ -644,7 +708,8 @@ write the same tables through `store/repo.py`.
   random, never the same twice running) and the two fixed goodbyes (empty
   `end_call` goodbye, time limit). Each call loads them once at its start:
   a phrase recorded for the call's exact voice (vendor, model, speaker,
-  pace, pitch, sample rate) and exact words plays that recording, with no
+  pitch, sample rate), at the phrase's own speed, and exact words plays that
+  recording, with no
   voice-vendor call; anything else is said live, as before. A recording is
   made only when an admin asks (admin page: coming). If the phrases can't
   be read at all, the call says them live in their built-in words and the
@@ -796,7 +861,24 @@ rather than silently ignored.
 
 ## Configuration
 
-Every setting is in `.env.example` with a comment. The ones worth knowing:
+**How the receptionist behaves now lives in the database, not `.env`**
+(Harsh, 2026-11-10; `clinic_agent/receptionist_settings.py`). Every clinic
+shares the rules text, the brain (`HINDI_LLM` and the model names), the
+hearing settings, the turn-taking timings and whether the greeting can be
+talked over. Each clinic sets its own instructions, directions, voice model
+and speaker, live speed, pitch and maximum call length. A call reads
+them when it starts (`clinic_agent/call_settings.py`), so a change applies
+from the next call without a restart. The first
+`python -m clinic_agent.store.migrations` after this change copies those
+lines from your `.env` into the database once (a clinic's setting goes to
+every clinic) and lists them for you to delete. After that, a leftover
+line stops the worker and the API with a message naming it, so nothing is
+silently ignored. The table below still names those settings by their old
+`.env` names for what they do; set them in the dashboard. Shared
+settings are on **Admin > Receptionist**; each clinic's own on its
+**Receptionist** tab in Clinic settings (admins only).
+
+Every other setting is in `.env.example` with a comment. The ones worth knowing:
 
 | Setting | Default | Why you would change it |
 |---|---|---|
@@ -809,7 +891,7 @@ Every setting is in `.env.example` with a comment. The ones worth knowing:
 | `SARVAM_TTS_SPEAKER` | `suhani` | Any voice of the chosen model (a woman's: the prompt says so); v2 names such as `anushka` are rejected by `bulbul:v3`. |
 | `SARVAM_TTS_CODEC` | `linear16` | Raw PCM: compressed formats cost a decode per chunk. |
 | `SARVAM_TTS_LANGUAGE` | `hi-IN` | The replies are Devanagari. |
-| `SARVAM_TTS_PACE` | `1` | Speed of the voice, 0.5 to 2. Restart to hear a change. |
+| `SARVAM_TTS_PACE` | `1` | Speed of the live voice, 0.5 to 2. Restart to hear a change. Recorded lines keep their own speed (Voice page). |
 | `SARVAM_TTS_PITCH` | `0` | Pitch, set once for every reply: -0.5 (lower) to 0.5 (higher). Only `bulbul:v4-flash` applies it. Temperature is not a setting: v4-flash fixes it at 0.6 itself. A change in either makes new voice clips (the old ones stay for going back). |
 | `DATABASE_URL` | `sqlite:///data/clinic.db` | `postgresql+psycopg://user:pass@host:port/db` for production. Run the migrations command after changing it. |
 | `PUBLIC_BASE_URL` | `http://localhost:8080` | Where the call-link server is reachable; the dashboard builds each clinic's link from it. Your tunnel's https address for a demo from outside. |

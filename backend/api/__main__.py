@@ -5,7 +5,7 @@ import sys
 
 import uvicorn
 
-from clinic_agent.config import ConfigError, load_settings
+from clinic_agent.config import ConfigError, load_settings, refuse_moved_settings
 from clinic_agent.store.migrations import SchemaOutdated
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -14,6 +14,7 @@ try:
     from api.app import create_app
 
     cfg = load_settings()
+    refuse_moved_settings()
     app = create_app(cfg)
 except (ConfigError, SchemaOutdated) as err:
     sys.exit(f"configuration error: {err}")

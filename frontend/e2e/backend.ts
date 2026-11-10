@@ -41,3 +41,17 @@ export function testCallThatBooked(hour = 11): number {
   ].join("\n")], { cwd: BACKEND, stdio: ["ignore", "pipe", "pipe"] });
   return Number(String(out).trim());
 }
+
+/** A booking today the receptionist wasn't sure fits the doctor (marked "Check reason"). */
+export function unsureBookingToday(name: string, hour = 12) {
+  execFileSync("uv", ["run", "python", "-c", [
+    "from datetime import datetime, time",
+    "from clinic_agent.context import clinic_now",
+    "from clinic_agent.store import repo",
+    "from clinic_agent.store.db import sessions_for",
+    "with sessions_for('sqlite:///data/e2e.db')() as s:",
+    "    clinic = repo.get_clinic(s, 1)",
+    "    today = clinic_now(clinic.timezone).date()",
+    `    repo.book(s, 1, clinic.doctors[0].id, datetime.combine(today, time(${Number(hour)})), ${JSON.stringify(name)}, '9820011111', reason='Headache', reason_unsure=True)`,
+  ].join("\n")], { cwd: BACKEND, stdio: "pipe" });
+}

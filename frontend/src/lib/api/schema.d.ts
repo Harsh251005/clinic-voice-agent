@@ -4,6 +4,28 @@
  */
 
 export interface paths {
+    "/api/admin/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admins
+         * @description Who is an admin: ADMIN_EMAILS in .env, read-only here on purpose
+         *     (Harsh, 2026-11-10): nobody can make themselves admin from the dashboard
+         *     or the database, only whoever controls the server's .env.
+         */
+        get: operations["admins_api_admin_admins_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/calls": {
         parameters: {
             query?: never;
@@ -106,6 +128,27 @@ export interface paths {
         get?: never;
         /** Set Active */
         put: operations["set_active_api_admin_clinics__clinic_id__active_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/clinics/{clinic_id}/receptionist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Clinic */
+        get: operations["read_clinic_api_admin_clinics__clinic_id__receptionist_get"];
+        /**
+         * Save Clinic
+         * @description Only the fields sent change; each is checked (422 with the reason).
+         */
+        put: operations["save_clinic_api_admin_clinics__clinic_id__receptionist_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -414,6 +457,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/receptionist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["read_api_admin_receptionist_get"];
+        /**
+         * Save
+         * @description Only the fields sent change; each is checked (422 with the reason).
+         */
+        put: operations["save_api_admin_receptionist_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/voice": {
         parameters: {
             query?: never;
@@ -475,6 +539,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/voice/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Impact
+         * @description Before a clinic's voice is changed (its Receptionist tab): how many of
+         *     its lines are recorded in its voice now, and how many would be in the one
+         *     tried out. The others are said live until recorded.
+         */
+        get: operations["impact_api_admin_voice_impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/voice/phrases/{phrase_id}": {
         parameters: {
             query?: never;
@@ -496,6 +582,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/voice/phrases/{phrase_id}/pace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Phrase Pace
+         * @description How fast this phrase's recording is spoken. Takes at the old speed stay
+         *     but no longer play: the phrase is said live until recorded again.
+         */
+        put: operations["phrase_pace_api_admin_voice_phrases__phrase_id__pace_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/voice/record": {
         parameters: {
             query?: never;
@@ -507,9 +614,10 @@ export interface paths {
         put?: never;
         /**
          * Record
-         * @description Record the asked takes in the current voice, one after another (a take
-         *     already recorded is recorded again: a new take). Stops at the first
-         *     failure: a vendor out of credits would fail them all.
+         * @description Record the asked takes, each in the voice of the clinics it serves and
+         *     at its phrase's own speed, one after another (a take already recorded is
+         *     recorded again: a new take). Stops at the first failure: a vendor out of
+         *     credits would fail them all.
          */
         post: operations["record_api_admin_voice_record_post"];
         delete?: never;
@@ -677,6 +785,26 @@ export interface paths {
         put?: never;
         /** Cancel */
         post: operations["cancel_api_clinics__clinic_id__appointments__appointment_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clinics/{clinic_id}/appointments/{appointment_id}/reason-checked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reason Checked
+         * @description Staff checked a reason the receptionist wasn't sure fits the doctor: clear the mark.
+         */
+        post: operations["reason_checked_api_clinics__clinic_id__appointments__appointment_id__reason_checked_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1186,6 +1314,13 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** Admins */
+        Admins: {
+            /** Emails */
+            emails: string[];
+            /** Sign In */
+            sign_in: string;
+        };
         /** AllowanceIn */
         AllowanceIn: {
             /**
@@ -1259,6 +1394,11 @@ export interface components {
             problem?: string | null;
             /** Reason */
             reason: string;
+            /**
+             * Reason Unsure
+             * @default false
+             */
+            reason_unsure: boolean;
             /**
              * Source
              * @enum {string}
@@ -1653,6 +1793,59 @@ export interface components {
             /** Slots Offered */
             slots_offered: number;
         };
+        /**
+         * ClinicReceptionistIn
+         * @description Any of the fields; only those sent change. tts_pitch null = the voice's own.
+         */
+        ClinicReceptionistIn: {
+            /** Directions */
+            directions?: string | null;
+            /** Instructions */
+            instructions?: string | null;
+            /** Max Call Minutes */
+            max_call_minutes?: number | null;
+            /** Tts Model */
+            tts_model?: string | null;
+            /** Tts Pace */
+            tts_pace?: number | null;
+            /** Tts Pitch */
+            tts_pitch?: number | null;
+            /** Tts Speaker */
+            tts_speaker?: string | null;
+        };
+        /** ClinicReceptionistOut */
+        ClinicReceptionistOut: {
+            /** Clinic Id */
+            clinic_id: number;
+            /** Clinic Name */
+            clinic_name: string;
+            /** Directions */
+            directions: string;
+            /** Directions Max Chars */
+            directions_max_chars: number;
+            /** Instructions */
+            instructions: string;
+            /** Instructions Max Words */
+            instructions_max_words: number;
+            /** Limits */
+            limits: {
+                [key: string]: components["schemas"]["Limit"];
+            };
+            /** Max Call Minutes */
+            max_call_minutes: number;
+            /** Model Default */
+            model_default: string;
+            /** Speaker Default */
+            speaker_default: string;
+            /** Tts Model */
+            tts_model: string;
+            /** Tts Pace */
+            tts_pace: number;
+            /** Tts Pitch */
+            tts_pitch: number | null;
+            /** Tts Speaker */
+            tts_speaker: string;
+        };
         /** ClinicSummary */
         ClinicSummary: {
             /** Id */
@@ -2026,6 +2219,15 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** Limit */
+        Limit: {
+            /** Default */
+            default: number | null;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+        };
         /** Me */
         Me: {
             /** Clinics */
@@ -2145,11 +2347,13 @@ export interface components {
             name_hi: string;
             /** Slot Minutes */
             slot_minutes: number;
-            /**
-             * Specialty
-             * @default
-             */
+            /** Specialty */
             specialty: string;
+        };
+        /** PaceIn */
+        PaceIn: {
+            /** Pace */
+            pace: number;
         };
         /** Pattern */
         Pattern: {
@@ -2183,6 +2387,8 @@ export interface components {
              * @constant
              */
             language: "hi";
+            /** Pace */
+            pace: number;
             /** Slot */
             slot: number;
             /** Source */
@@ -2446,6 +2652,80 @@ export interface components {
             reason: string;
         };
         /**
+         * SystemSettingsIn
+         * @description Any of the fields; only those sent change.
+         */
+        SystemSettingsIn: {
+            /** Greeting Interruptible */
+            greeting_interruptible?: boolean | null;
+            /** Hindi Llm */
+            hindi_llm?: ("sarvam" | "openai") | null;
+            /** Interrupt Min Speech */
+            interrupt_min_speech?: number | null;
+            /** Min Endpointing Delay */
+            min_endpointing_delay?: number | null;
+            /** Number Endpointing Delay */
+            number_endpointing_delay?: number | null;
+            /** Openai Llm Model */
+            openai_llm_model?: string | null;
+            /** Rules */
+            rules?: string | null;
+            /** Sarvam Llm Model */
+            sarvam_llm_model?: string | null;
+            /** Sarvam Stt Language */
+            sarvam_stt_language?: string | null;
+            /** Sarvam Stt Mode */
+            sarvam_stt_mode?: string | null;
+            /** Sarvam Stt Model */
+            sarvam_stt_model?: string | null;
+            /** Vad Min Silence */
+            vad_min_silence?: number | null;
+        };
+        /** SystemSettingsOut */
+        SystemSettingsOut: {
+            /** Blank Means */
+            blank_means: {
+                [key: string]: string;
+            };
+            /** Default Rules */
+            default_rules: string;
+            /** Greeting Interruptible */
+            greeting_interruptible: boolean;
+            /**
+             * Hindi Llm
+             * @enum {string}
+             */
+            hindi_llm: "sarvam" | "openai";
+            /** Interrupt Min Speech */
+            interrupt_min_speech: number;
+            /** Limits */
+            limits: {
+                [key: string]: components["schemas"]["Limit"];
+            };
+            /** Llm Vendors */
+            llm_vendors: string[];
+            /** Min Endpointing Delay */
+            min_endpointing_delay: number;
+            /** Number Endpointing Delay */
+            number_endpointing_delay: number;
+            /** Openai Llm Model */
+            openai_llm_model: string;
+            /** Rules */
+            rules: string;
+            /** Rules Max Words */
+            rules_max_words: number;
+            /** Sarvam Llm Model */
+            sarvam_llm_model: string;
+            /** Sarvam Stt Language */
+            sarvam_stt_language: string;
+            /** Sarvam Stt Mode */
+            sarvam_stt_mode: string;
+            /** Sarvam Stt Model */
+            sarvam_stt_model: string;
+            /** Vad Min Silence */
+            vad_min_silence: number;
+        };
+        /**
          * Take
          * @description A phrase as one clinic's calls say it (the shared greeting names each
          *     clinic, so it has one take per clinic; every other phrase has one).
@@ -2459,6 +2739,8 @@ export interface components {
             duration_s: number | null;
             /** Key */
             key: string | null;
+            /** Live Pace */
+            live_pace: number | null;
             /** Recorded At */
             recorded_at: string | null;
             /** Spoken */
@@ -2686,6 +2968,15 @@ export interface components {
             /** Spoken Name */
             spoken_name: string;
         };
+        /** VoiceImpact */
+        VoiceImpact: {
+            /** Lines */
+            lines: number;
+            /** Recorded After */
+            recorded_after: number;
+            /** Recorded Now */
+            recorded_now: number;
+        };
         /**
          * VoiceOut
          * @description The voice calls use now: recordings are kept per voice.
@@ -2710,6 +3001,10 @@ export interface components {
             clinics: components["schemas"]["VoiceClinic"][];
             /** Max Chars */
             max_chars: number;
+            /** Pace Max */
+            pace_max: number;
+            /** Pace Min */
+            pace_min: number;
             /** Phrases */
             phrases: components["schemas"]["PhraseOut"][];
             /** Rupees Per 1000 Chars */
@@ -2717,6 +3012,8 @@ export interface components {
             voice: components["schemas"]["VoiceOut"] | null;
             /** Voice Problem */
             voice_problem: string;
+            /** Voices Differ */
+            voices_differ: boolean;
         };
         /** Week */
         Week: {
@@ -2762,6 +3059,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admins_api_admin_admins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Admins"];
+                };
+            };
+        };
+    };
     calls_api_admin_calls_get: {
         parameters: {
             query?: {
@@ -2942,6 +3259,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminClinic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_clinic_api_admin_clinics__clinic_id__receptionist_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicReceptionistOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_clinic_api_admin_clinics__clinic_id__receptionist_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClinicReceptionistIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicReceptionistOut"];
                 };
             };
             /** @description Validation Error */
@@ -3690,6 +4073,59 @@ export interface operations {
             };
         };
     };
+    read_api_admin_receptionist_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemSettingsOut"];
+                };
+            };
+        };
+    };
+    save_api_admin_receptionist_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SystemSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     voice_page_api_admin_voice_get: {
         parameters: {
             query?: never;
@@ -3807,6 +4243,40 @@ export interface operations {
             };
         };
     };
+    impact_api_admin_voice_impact_get: {
+        parameters: {
+            query: {
+                clinic_id: number;
+                model?: string;
+                speaker?: string;
+                pitch?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceImpact"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     edit_phrase_api_admin_voice_phrases__phrase_id__put: {
         parameters: {
             query?: never;
@@ -3819,6 +4289,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PhraseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoicePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    phrase_pace_api_admin_voice_phrases__phrase_id__pace_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                phrase_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaceIn"];
             };
         };
         responses: {
@@ -4201,6 +4706,38 @@ export interface operations {
         };
     };
     cancel_api_clinics__clinic_id__appointments__appointment_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: number;
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reason_checked_api_clinics__clinic_id__appointments__appointment_id__reason_checked_post: {
         parameters: {
             query?: never;
             header?: never;

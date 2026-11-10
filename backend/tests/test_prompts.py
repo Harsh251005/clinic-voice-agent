@@ -14,7 +14,7 @@ def test_facts_come_from_the_database(db):
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
     assert "receptionist of Demo Family Clinic" in text
     assert "Shop 4, Sunrise Apartments, Borivali East, Mumbai" in text
-    assert "Dr. Asha Mehta (General Physician, fee ₹500)" in text
+    assert "Dr. Asha Mehta (say \"Dr. Asha\"; the full name only if asked: Dr. Asha Mehta) (General Physician, fee ₹500)" in text
     assert "Q: Is there parking? A: Two-wheeler parking only" in text
     assert "Monday, 21 September 2026, 15:30" in text
 
@@ -92,7 +92,10 @@ def test_the_only_doctor_is_never_asked_about(db):
     repo.update_doctor(s, repo.get_clinic(s, clinic_id).doctors[1].id, active=False)
     s.expire_all()
     one = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
-    assert "the clinic's only one: every appointment is with them, so never ask which doctor" in one
+    assert "the clinic's only one, so never ask which doctor" in one
+    # Not "every appointment is with them": that read as "book whatever the caller says"
+    # (Harsh, 2026-11-09: fever booked with an eye specialist).
+    assert "every appointment" not in one
 
 
 def test_the_model_knows_the_greeting_was_said_and_never_greets_again(db):
@@ -107,7 +110,20 @@ def test_visit_reason_is_asked_for_in_english():
     # The dashboard is English only: the agent speaks Hindi but files the reason in English.
     from clinic_agent.prompts import RULES
 
-    assert "pass it in short English" in " ".join(RULES["hi"].split())
+    assert "pass the reason in short English" in " ".join(RULES["hi"].split())
+
+
+def test_a_reason_outside_every_specialty_is_declined_not_booked():
+    # Harsh, 2026-11-09: "fever" was booked with the clinic's only doctor, an eye
+    # specialist. The reason comes first and is matched to the specialties.
+    rules = _rules("hi")
+    assert "First ask briefly why they are coming" in rules
+    right = rules[rules.index("Right doctor:"):rules.index("Cancel or move:")]
+    for rule in ["match the reason to each specialty", "book nothing",
+                 "suggest a type of doctor only if obvious", "never one not in CLINIC FACTS",
+                 "never diagnose", "Unsure: book"]:
+        assert rule in right, rule
+    assert rules.index("First ask briefly why") < rules.index("find_available_slots")
 
 
 def _rules(language):
@@ -153,12 +169,24 @@ def test_the_hindi_line_says_names_as_the_clinic_spelt_them(db):
     clinic = repo.get_clinic(s, clinic_id)
     hindi = build_instructions(clinic, [], NOW, "hi")
     assert "- Name: Demo Family Clinic (in Hindi: डेमो फ़ैमिली क्लिनिक)" in hindi
-    assert f"{clinic.doctors[0].name} (in Hindi: डॉक्टर आशा मेहता)" in hindi
+    assert f'{clinic.doctors[0].name} (say "डॉक्टर आशा"; the full name only if asked: डॉक्टर आशा मेहता)' in hindi
+
+
+def test_doctors_are_called_by_first_name_unless_two_share_it():
+    # Harsh, 2026-11-10: "डॉक्टर + first name"; the full name only if the caller asks.
+    from clinic_agent.prompts import _doctor_named
+    assert _doctor_named("Dr. Harsh Dharnidharka", "डॉक्टर हर्ष धरनिधरका", "hi", ["harsh"]) == (
+        'Dr. Harsh Dharnidharka (say "डॉक्टर हर्ष"; the full name only if asked: डॉक्टर हर्ष धरनिधरका)')
+    assert _doctor_named("Dr. Rohan Iyer", "", "hi", ["rohan"]).startswith('Dr. Rohan Iyer (say "Dr. Rohan";')
+    assert _doctor_named("Dr. Mehra", "", "hi", ["mehra"]) == "Dr. Mehra"  # one name: nothing to shorten
+    assert _doctor_named("Dr. Harsh Shah", "", "hi", ["harsh", "harsh"]) == "Dr. Harsh Shah"  # two Harshes
 
 
 def test_the_hindi_line_speaks_everyday_hindi():
     rules = _rules("hi")
     assert 'never bookish: "ज़रा", "खाली है", not "कृपया", "उपलब्ध है"' in rules
     assert 'varied acknowledgement ("जी", "अच्छा", "ठीक है")' in rules
-    assert "Never repeat what is confirmed" in rules
+    assert "Never repeat confirmed details" in rules
+    # Harsh, 2026-11-10: replies ran ~3 sentences / 30 words; keep turns short.
+    assert "Under 20 words and one question per reply, except read-backs" in rules
     assert "no dashes, brackets or lists" in rules

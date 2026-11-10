@@ -50,6 +50,12 @@ def clip_key(voice: dict, text: str) -> str:
     return hashlib.sha256("\x1f".join(str(p) for p in [*parts, text]).encode()).hexdigest()
 
 
+def at_pace(voice: dict, pace: float) -> dict:
+    """The voice as it records a phrase: its own speed (Phrase.pace), not the
+    live voice's, so changing either never un-records the other."""
+    return {**voice, "pace": pace}
+
+
 @dataclass(frozen=True)
 class Said:
     """A phrase ready to say: its words, and its recording if there is one
@@ -95,9 +101,10 @@ def load(s: Session, clinic, languages: Iterable[str], voice_of: Callable[[str],
         voice = voice_of(language)
         rows = sorted(repo.phrases_for_call(s, clinic.id, language), key=lambda p: p.slot)
         texts = [spoken(p.text, clinic) for p in rows]
-        clips = repo.clips_by_key(s, [clip_key(voice, t) for t in texts]) if voice else {}
-        for row, text in zip(rows, texts):
-            clip = clips.get(clip_key(voice, text)) if voice else None
+        keys = [clip_key(at_pace(voice, p.pace), t) for p, t in zip(rows, texts)] if voice else []
+        clips = repo.clips_by_key(s, keys) if voice else {}
+        for i, (row, text) in enumerate(zip(rows, texts)):
+            clip = clips.get(keys[i]) if voice else None
             said.setdefault((row.kind, language), []).append(
                 Said(text, clip.pcm, clip.sample_rate, kind=row.kind) if clip and _playable(clip) else Said(text, kind=row.kind))
     return Phrasebook(said, name)
@@ -202,3 +209,14 @@ def _keep(sessions: Sessions, identity: dict, text: str, pcm: bytes, sample_rate
 def _report(sessions: Sessions, identity: dict, why: str) -> None:
     with sessions() as s:
         incidents.report(s, "voice_clip_failed", utc_now(), subject=identity["vendor"], detail=why[:200])
+
+
+def stale_lines(s: Session, clinic, voice: dict, language: str = "hi") -> int:
+    """This clinic's lines recorded in some voice but not in `voice`, its
+    current one (at each phrase's own speed): they are said live until
+    recorded again, so the admin is told (Harsh, 2026-11-10)."""
+    lines = [(p, spoken(p.text, clinic)) for p in repo.phrases_for_call(s, clinic.id, language)]
+    ever = repo.recorded_texts(s, [words for _, words in lines])
+    current = repo.clip_dates(s, [clip_key(at_pace(voice, p.pace), words) for p, words in lines])
+    current_texts = {c.text for c in current.values()}
+    return sum(1 for _, words in lines if words in ever and words not in current_texts)

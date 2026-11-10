@@ -100,7 +100,7 @@ async def test_entrypoint_refuses_a_real_clinics_call_without_a_known_language(e
     import json
 
     import main
-    from clinic_agent.store import migrations
+    from clinic_agent.store import migrations, repo
     from clinic_agent.store.db import make_engine, session_factory
     from seeds.demo_clinic import seed_demo
 
@@ -130,11 +130,11 @@ def test_the_worker_registers_under_the_name_call_passes_dispatch(monkeypatch):
 
 
 async def test_entrypoint_refuses_a_call_on_a_line_that_is_off(env, tmp_path):
-    # Its brain's key is missing (HINDI_LLM=openai, only a Sarvam key set):
-    # the worker refuses to start like that, so only a worker started
-    # before .env changed can get here.
+    # Its brain's key is missing (brain set to openai in the dashboard, only a
+    # Sarvam key set): the worker refuses to start like that, so only a
+    # change made after the worker started can get here.
     import main
-    from clinic_agent.store import migrations
+    from clinic_agent.store import migrations, repo
     from clinic_agent.store.db import make_engine, session_factory
     from seeds.demo_clinic import seed_demo
 
@@ -143,8 +143,8 @@ async def test_entrypoint_refuses_a_call_on_a_line_that_is_off(env, tmp_path):
     migrations.upgrade(engine)
     with session_factory(engine)() as s:
         clinic_id = seed_demo(s)
+        repo.update_system_settings(s, hindi_llm="openai")
     env.setenv("DATABASE_URL", url)
-    env.setenv("HINDI_LLM", "openai")
 
     ctx = _Ctx(metadata_for(clinic_id, "hi"))
     await main.entrypoint(ctx)

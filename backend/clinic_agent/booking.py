@@ -36,6 +36,16 @@ class Changed(str):
         return obj
 
 
+class ReadBack(str):
+    """check_slot's details to read back, carrying the doctor's specialty so
+    the tool can set it beside the visit reason before anything is booked."""
+
+    def __new__(cls, text: str, specialty: str) -> ReadBack:
+        obj = super().__new__(cls, text)
+        obj.specialty = specialty
+        return obj
+
+
 def normalise_phone(raw: str) -> str:
     """A 10-digit Indian mobile number, accepting +91 / 0 prefixes and spaces."""
     digits = re.sub(r"\D", "", raw)
@@ -70,8 +80,12 @@ def find_slots(
     day: date,
     now: datetime,
     doctor_name: str | None = None,
-    part_of_day: str | None = None,
+    from_time: time | None = None,
 ) -> str:
+    """The next few free times (the clinic's "free times offered at once")
+    from `from_time` on `day`, per doctor. Harsh, 2026-11-10: the agent
+    offered 5-6 times from a whole-day list; now it only ever sees the few
+    it may offer, and asks again from a later time for more."""
     clinic = repo.get_clinic(s, clinic_id)
     _check_day(day, now, clinic)
     doctors = [resolve_doctor(clinic, doctor_name)] if doctor_name else [d for d in clinic.doctors if d.active]
@@ -80,16 +94,17 @@ def find_slots(
     last_day = now.date() + timedelta(days=clinic.booking_window_days)
     time_off = repo.time_off_overlapping(s, clinic.id, day, last_day)
 
+    after = from_time or time.min
     lines = []
     for doctor in doctors:
-        slots = _day_slots(s, doctor, day, time_off, now, part_of_day)
-        if slots:
-            lines.append(f"{doctor.name} on {_day(day)}: {_free(slots, clinic)}.")
+        day_slots = _day_slots(s, doctor, day, time_off, now)
+        if slots := [t for t in day_slots if t.time() >= after]:
+            lines.append(f"{doctor.name} on {_day(day)}: {_offer(slots, clinic)}")
             continue
-        why = _why_none(doctor, day, time_off, now, part_of_day)
-        nxt = _next_free(s, doctor, day, last_day, time_off, now, part_of_day)
+        why = f"no free times from {after:%H:%M}" if day_slots else _why_none(doctor, day, time_off, now)
+        nxt = _next_free(s, doctor, day, last_day, time_off, now)
         tail = (
-            f" Next free day: {_day(nxt[0].date())}, {_free(nxt, clinic)}."
+            f" Next free day: {_day(nxt[0].date())}, {_offer(nxt, clinic)}"
             if nxt else f" Nothing free up to {_day(last_day)}."
         )
         lines.append(f"{doctor.name} on {_day(day)}: none - {why}.{tail}")
@@ -112,9 +127,10 @@ def check_slot(
     confirms a time that isn't free.
     """
     clinic, doctor, _, phone = _bookable(s, clinic_id, doctor_name, day, start, patient_name, patient_phone, now)
-    return (
+    return ReadBack(
         f"{doctor.name}, {_day(day)}, {start:%H:%M} ({hindi_time(start)}), "
-        f"for {patient_name.strip()}, mobile {' '.join(phone)}"
+        f"for {patient_name.strip()}, mobile {' '.join(phone)}",
+        doctor.specialty.strip(),
     )
 
 
@@ -128,6 +144,7 @@ def book_slot(
     patient_phone: str,
     now: datetime,
     reason: str = "",
+    reason_unsure: bool = False,
 ) -> str:
     clinic, doctor, starts_at, phone = _bookable(
         s, clinic_id, doctor_name, day, start, patient_name, patient_phone, now
@@ -135,13 +152,12 @@ def book_slot(
     try:
         appt = repo.book(
             s, clinic.id, doctor.id, starts_at, patient_name.strip(), phone,
-            source="voice", reason=_reason(reason),
+            source="voice", reason=_reason(reason), reason_unsure=reason_unsure and bool(reason.strip()),
         )
     except repo.SlotTaken:
         time_off = repo.time_off_overlapping(s, clinic.id, day, day)
-        free = _day_slots(s, doctor, day, time_off, now, None)
-        offer = f" That day: {_free(free, clinic)}." if free else ""
-        raise BookingError(f"That time was just taken by another caller.{offer}") from None
+        free = _day_slots(s, doctor, day, time_off, now)
+        raise BookingError(f"That time was just taken by another caller.{_near(free, starts_at, clinic)}") from None
     return Changed(
         f"Booked, appointment number {appt.id}: {doctor.name}, {_day(day)} at {start:%H:%M}, "
         f"for {appt.patient.name}, mobile {phone}.",
@@ -160,9 +176,9 @@ def _bookable(s, clinic_id, doctor_name, day, start, patient_name, patient_phone
 
     starts_at = datetime.combine(day, start)
     time_off = repo.time_off_overlapping(s, clinic.id, day, day)
-    free = _day_slots(s, doctor, day, time_off, now, None)
+    free = _day_slots(s, doctor, day, time_off, now)
     if starts_at not in free:
-        offer = f" That day: {_free(free, clinic)}." if free else ""
+        offer = _near(free, starts_at, clinic)
         raise BookingError(f"{doctor.name} is not free at {start:%H:%M} on {_day(day)}.{offer}")
     return clinic, doctor, starts_at, phone
 
@@ -299,9 +315,9 @@ def _move_plan(s, clinic_id, appointment_id, patient_phone, patient_name, day, s
     if doctor.id == appt.doctor_id and starts_at == appt.starts_at:
         raise BookingError(f"Appointment {appt.id} is already at that time.")
     time_off = repo.time_off_overlapping(s, clinic.id, day, day)
-    free = _day_slots(s, doctor, day, time_off, now, None)
+    free = _day_slots(s, doctor, day, time_off, now)
     if starts_at not in free:
-        offer = f" That day: {_free(free, clinic)}." if free else ""
+        offer = _near(free, starts_at, clinic)
         raise BookingError(f"{doctor.name} is not free at {start:%H:%M} on {_day(day)}.{offer}")
     return appt, doctor, starts_at
 
@@ -324,7 +340,7 @@ def free_times(s: Session, clinic_id: int, doctor_id: int, day: date, now: datet
     booked for right now."""
     doctor = repo.in_clinic(s, Doctor, doctor_id, clinic_id)
     time_off = repo.time_off_overlapping(s, clinic_id, day, day)
-    return _day_slots(s, doctor, day, time_off, now, None, lead_minutes=0)
+    return _day_slots(s, doctor, day, time_off, now, lead_minutes=0)
 
 
 class DayPlan(NamedTuple):
@@ -343,7 +359,7 @@ def day_plan(s: Session, doctor: Doctor, day: date, time_off: list[TimeOff], now
             off = f"{label}: {t.reason}" if t.reason else label
             if t.doctor_id is None:
                 break  # the clinic closing says more than one doctor's leave
-    free = [] if off or not doctor.active else _day_slots(s, doctor, day, time_off, now, None, lead_minutes=0)
+    free = [] if off or not doctor.active else _day_slots(s, doctor, day, time_off, now, lead_minutes=0)
     return DayPlan(sittings, off, free)
 
 
@@ -485,7 +501,7 @@ def _off_pairs(time_off: list[TimeOff]):
     return [(t.doctor_id, t.date_from, t.date_to) for t in time_off]
 
 
-def _day_slots(s, doctor: Doctor, day: date, time_off, now, part_of_day, lead_minutes: int = 30) -> list[datetime]:
+def _day_slots(s, doctor: Doctor, day: date, time_off, now, lead_minutes: int = 30) -> list[datetime]:
     if scheduling.is_off(day, doctor.id, _off_pairs(time_off)):
         return []
     sittings = [(h.start, h.end) for h in doctor.hours if h.weekday == day.weekday()]
@@ -493,11 +509,11 @@ def _day_slots(s, doctor: Doctor, day: date, time_off, now, part_of_day, lead_mi
         return []
     return scheduling.free_slots(
         day, sittings, doctor.slot_minutes, repo.booked_intervals(s, doctor.id, day),
-        now, lead_minutes=lead_minutes, part_of_day=part_of_day,
+        now, lead_minutes=lead_minutes,
     )
 
 
-def _why_none(doctor: Doctor, day: date, time_off: list[TimeOff], now: datetime, part_of_day) -> str:
+def _why_none(doctor: Doctor, day: date, time_off: list[TimeOff], now: datetime) -> str:
     for t in time_off:
         if t.date_from <= day <= t.date_to:
             if t.doctor_id is None:
@@ -507,20 +523,16 @@ def _why_none(doctor: Doctor, day: date, time_off: list[TimeOff], now: datetime,
     sittings = [(h.start, h.end) for h in doctor.hours if h.weekday == day.weekday()]
     if not sittings:
         return f"doctor does not sit on {day:%A}s"
-    # "Fully booked" only if bookings are the reason, not the clock or the part of day.
-    def unbooked(at: datetime) -> list[datetime]:
-        return scheduling.free_slots(day, sittings, doctor.slot_minutes, [], at, part_of_day=part_of_day)
-    if not unbooked(datetime.combine(day, time.min) - timedelta(days=1)):
-        return f"doctor does not sit in the {part_of_day} on {day:%A}s"
-    if not unbooked(now):
-        return f"no {f'{part_of_day} ' if part_of_day else ''}times left today"
-    return f"fully booked{f' in the {part_of_day}' if part_of_day else ''}"
+    # "Fully booked" only if bookings are the reason, not the clock.
+    if not scheduling.free_slots(day, sittings, doctor.slot_minutes, [], now):
+        return "no times left today"
+    return "fully booked"
 
 
-def _next_free(s, doctor, day, last_day, time_off, now, part_of_day) -> list[datetime]:
+def _next_free(s, doctor, day, last_day, time_off, now) -> list[datetime]:
     d = day + timedelta(days=1)
     while d <= last_day:
-        if slots := _day_slots(s, doctor, d, time_off, now, part_of_day):
+        if slots := _day_slots(s, doctor, d, time_off, now):
             return slots
         d += timedelta(days=1)
     return []
@@ -539,26 +551,24 @@ def _said(slots: list[datetime]) -> str:
     return ", ".join(f"{t:%H:%M} ({hindi_time(t.time())})" for t in slots)
 
 
-def _free(slots: list[datetime], clinic: Clinic) -> str:
-    """Every free start time, one by one, under the clinic's fixed parts of
-    the day, plus the few to suggest first.
-
-    The whole day goes to the LLM, not just the first few times, so "anything
-    after eleven?" is answered from what is really free. Each time is listed
-    on its own: ranges with gaps ("10:00 to 13:30") made the LLM offer booked
-    times inside them. The labels fix what "afternoon" means (12:00-17:00)
-    instead of leaving it to the LLM. Each time carries its Hindi words
-    (spoken.py), which the LLM got wrong on its own.
-    """
-    parts = [
-        f"{part}: {_said(times)}"
-        for part, (start, end) in scheduling.PARTS_OF_DAY.items()
-        if (times := [t for t in slots if start <= t.time() < end])
-    ]
-    return (
-        f"free start times - {'; '.join(parts)} ({len(slots)} in all); "
-        f"suggest first {_times(slots[: clinic.slots_offered])}"
+def _offer(slots: list[datetime], clinic: Clinic) -> str:
+    """Only the first few free times, each with its Hindi words (spoken.py;
+    the LLM got them wrong on its own), and how to ask for later ones."""
+    shown = slots[: max(clinic.slots_offered, 1)]
+    more = (
+        f"More later that day: for those, call again with from_time after {shown[-1]:%H:%M}."
+        if len(slots) > len(shown) else "No more free times that day."
     )
+    return f"offer these free times: {_said(shown)}. Never offer any other time. {more}"
+
+
+def _near(free: list[datetime], wanted: datetime, clinic: Clinic) -> str:
+    """After a refused time: the few free times from it (or the day's last few)."""
+    if not free:
+        return ""
+    later = [t for t in free if t >= wanted]
+    shown = later or free[-max(clinic.slots_offered, 1):]
+    return f" That day, {_offer(shown, clinic)}"
 
 
 HONORIFICS = {"ji", "mr", "mrs", "ms", "miss", "shri", "shrimati", "smt", "kumari", "dr", "doctor"}

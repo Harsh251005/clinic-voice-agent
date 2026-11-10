@@ -10,13 +10,21 @@ are `sarvam`, the LLM `sarvam` or `openai` — never add others
 (`test_only_the_allowed_vendors_are_registered` enforces it). **One language
 line, Hindi** (Harsh, 2026-11-08: Hindi first, reliable and production-ready
 before anything else; `clinic_agent/lines.py`): Sarvam STT + TTS, and the
-LLM set by `HINDI_LLM` (`sarvam` default, `openai` to compare). The English
+LLM chosen on Admin > Receptionist (`sarvam` default, `openai` to compare). The English
 line and its vendor were removed; leftover `ELEVENLABS_*` and `*_PROVIDER`
 lines in `.env` are refused at startup, never silently ignored. The dispatch
 still names the language (always `hi`) so a second line later is one entry.
-A missing key stops the worker with a one-line error. Every vendor keeps its
-own model/voice settings (`SARVAM_TTS_SPEAKER`, `OPENAI_LLM_MODEL`, …). Live
-tests use OpenAI only, as text (never Sarvam).
+A missing key stops the worker with a one-line error. **How the receptionist
+behaves lives in the database, set in the dashboard** (Harsh, 2026-11-10;
+`clinic_agent/receptionist_settings.py`): what every clinic shares
+(`system_settings`: rules text, brain + model names, hearing, turn-taking,
+greeting interruptible; Admin > Receptionist) and what each clinic sets
+(`clinics`: instructions, directions, voice model + speaker (saved and
+checked together: a pair the vendor refuses is a 422), live speed, pitch,
+longest call; its Receptionist tab, admins only). `.env` keeps only
+secrets and plumbing; a leftover moved line (`MOVED_ENV`) stops the worker
+and the API (`refuse_moved_settings`), after the migrations command copied
+it in once. Live tests use OpenAI only, as text (never Sarvam).
 
 Current state (2026-11-08): Stages 2, 3 and 5 built, Stage 4 in progress; one Hindi line (the English line and ElevenLabs removed, their data deleted by migration 0013; `docs/decisions.md` #13).
 Built: clinic database (Postgres + Alembic), free-slot rules, booking +
@@ -29,10 +37,12 @@ goodbyes) played from admin-made recordings, live when there are none. Not yet: 
 by spoken mobile number until caller ID exists), vendor fallback, the
 patient front door. Plans: `~/.claude/plans/` (current:
 `per-clinic-agent-and-language-lines.md`; also `portfolio-ready.md`,
-`stage-4-pb-fallback-and-alerts.md`). The
-instructions (`clinic_agent/prompts.py`) may only describe what is built: no
-promised checks, holds, messages or callbacks. Add a capability to them in the
-same change that builds it.
+`stage-4-pb-fallback-and-alerts.md`, `admin-configurable.md`). The
+default instructions (`clinic_agent/prompts.py` `RULES`) may only describe
+what is built: no promised checks, holds, messages or callbacks. Add a
+capability to them in the same change that builds it. The admin may replace
+them on Admin > Receptionist (their wording is then the admin's call, as with
+the greeting); live evals grade only the default.
 
 ## Commands
 
@@ -86,9 +96,9 @@ The pipeline is split so each concern lives in exactly one module:
   from argv before LiveKit's CLI; the old `--language` is refused. Each job loads
   the clinic (`context.load_clinic`, off the event loop), builds instructions,
   builds a session and starts `ClinicAgent` in the room, then starts
-  `call_limit.end_after` (`MAX_CALL_MINUTES`), cancelled on job shutdown.
-  The fixed greeting (`voice_clips`, said in `on_enter`, uninterruptible,
-  never model-written; its words are the admin's, nothing required) opens
+  `call_limit.end_after` (the clinic's `max_call_minutes`), cancelled on job shutdown.
+  The fixed greeting (`voice_clips`, said in `on_enter`, uninterruptible
+  unless Admin > Receptionist allows it, never model-written; its words are the admin's, nothing required) opens
   the call; the prompt's Opening rule tells the model it was said.
 - `clinic_agent/voice_clips.py` — the **fixed phrases** (greeting, fillers,
   fixed goodbyes): `for_call` loads them once per call with any recording
@@ -130,10 +140,17 @@ The pipeline is split so each concern lives in exactly one module:
   finished one via `repo.erase_test_call` (all or nothing; moves record
   `undo` so they can be put back). Patients' calls are never erasable.
 - `clinic_agent/config.py` — the **only** place that reads `os.environ`.
-  Frozen `Settings` dataclass; a new setting means a field, a line in
-  `load_settings()`, and an entry in `.env.example`.
+  Frozen `Settings` dataclass; a new secret or plumbing setting means a
+  field, a line in `load_settings()`, and an entry in `.env.example`. A
+  setting for how the receptionist behaves goes in
+  `receptionist_settings.py` instead (a column, a migration, a field on the
+  admin page), never `.env`.
+- `clinic_agent/call_settings.py` — a call's settings: `merge` lays the
+  `system_settings` row and the clinic's own over `.env` into a plain
+  `Settings` (plus the rules text and greeting switch). Read at job start
+  (`context.load_clinic`), so dashboard changes apply from the next call.
 - `clinic_agent/lines.py` — the Hindi line (`line_for(cfg, language)`:
-  which vendor per part, the LLM from `HINDI_LLM`) and `available(cfg)`:
+  which vendor per part, the LLM from `cfg.hindi_llm`) and `available(cfg)`:
   whether it has its keys.
 - `clinic_agent/session.py` — the **only** place STT + LLM + TTS are combined
   into an `AgentSession`, from the call's line. `text_only=True` (from `console --text`, detected in
@@ -201,6 +218,11 @@ The pipeline is split so each concern lives in exactly one module:
   repeating**: the first call is only the check and read-back, the same
   call again acts once the caller has spoken (`confirmed` in the wrapper).
   Never go back to trusting a `caller_confirmed` flag.
+  **The right doctor for the reason** (Harsh, 2026-11-09): the model judges
+  whether the reason fits a specialty (no code can); `check_booking` sets the
+  reason beside the specialty before the read-back (`fit_gate`), and
+  `reason_fits="unsure"` books with `appointments.reason_unsure` ("Check
+  reason" in the dashboard). A doctor's specialty is required.
 - `clinic_agent/store/` — clinic data (SQLAlchemy, sync). `repo.py` holds every
   query; writes commit before returning; callers see `repo.NotFound` /
   `repo.SlotTaken`, never SQLAlchemy errors. **Only `store/` imports
@@ -242,6 +264,10 @@ enforced by `tests/test_boundaries.py`; outside `store/`, type-hint sessions
 with `Session` / `Sessions` from `store/db.py`.
 
 ## Deliberate choices — don't "fix" these
+
+(Settings named in capitals below are the old `.env` names; since 2026-11-10
+they are fields set in the dashboard, see `receptionist_settings.py`. The
+defaults when blank live in `providers/defaults.py`.)
 
 - **Turn detection is `"stt"`**, set explicitly in `session.py` (omitting it
   falls back to LiveKit's own turn-detector model).

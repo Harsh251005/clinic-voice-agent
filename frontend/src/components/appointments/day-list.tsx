@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { visitInfo } from "@/lib/visit";
 import { AppointmentMenu, statusWords } from "./actions";
 import type { Slot } from "./appointment-form";
+import { ReasonCheckTag } from "./reason-check";
 
 type Appointment = Schemas["Appointment"];
 
@@ -98,6 +99,7 @@ export function DayList({ clinic, data, today, onBook }: {
                         </span>
                       )}
                       <StatusTag appt={row.appt} />
+                      {row.appt.reason_unsure && <ReasonCheckTag className="mt-1.5 ml-1.5" />}
                     </span>
                     <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden />
                   </button>

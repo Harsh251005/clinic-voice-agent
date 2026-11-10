@@ -53,6 +53,7 @@ class _Checked:
     patient_name: str
     patient_phone: str
     reason: str
+    reason_unsure: bool  # booked marked for the clinic to check the reason fits the doctor
     caller_turns: int  # caller messages heard when it was checked
 
 
@@ -63,6 +64,27 @@ class _Pending:
     action: str  # "cancel" | "move"
     key: tuple  # what exactly: the same call again means "they said yes"
     caller_turns: int  # caller messages heard when it was read back
+
+
+OUTSIDE_SPECIALTY = (
+    "No times: this reason is outside the doctor's specialty, so it is not booked here. "
+    "Kindly tell the caller this clinic's doctor doesn't see it, suggesting a type of doctor "
+    "only if obvious. Never say the doctor will see it, and offer no times."
+)
+
+
+def fit_gate(reason: str, specialty: str) -> str:
+    """A second look before the read-back (Harsh, 2026-11-09: "fever" was
+    booked with an eye specialist): the reason, beside the doctor's specialty.
+    The model judges; nothing in code can tell what a specialty treats."""
+    if not (reason.strip() and specialty):
+        return ""
+    return (
+        f"First, the reason given is \"{reason.strip()}\" and the doctor is a {specialty}. "
+        f"If that reason is clearly outside this specialty, don't read back and never book it: "
+        f"kindly tell the caller this doctor doesn't see it, suggesting a type of doctor only "
+        f"if obvious. Otherwise: "
+    )
 
 
 def _caller_turns(ctx: RunContext | None) -> int | None:
@@ -92,7 +114,7 @@ def booking_tools(link: ClinicLink) -> list:
             raise ToolError(str(err)) from None
         if isinstance(result, booking.Changed) and link.on_change:
             link.on_change(result.appointment_id, result.action, result.undo)
-        return str(result)
+        return result if isinstance(result, booking.ReadBack) else str(result)
 
     async def confirmed(ctx: RunContext | None, action: str, key: tuple, check: Callable, act: Callable, args: tuple,
                         ask: str, read_back: Callable[[str], str]) -> str:
@@ -118,30 +140,41 @@ def booking_tools(link: ClinicLink) -> list:
     async def find_available_slots(
         ctx: RunContext,
         date: str,
+        reason_fits: Literal["fits", "unsure", "outside", "none"],
+        from_time: str = "",
         doctor_name: str = "",
-        part_of_day: Literal["any", "morning", "afternoon", "evening"] = "any",
     ) -> str:
-        """Find every free appointment time on one day. Offer the caller only times this returns.
+        """Find the next few free appointment times on one day, from a time.
+        Offer the caller only the times this returns, never any other.
 
-        It lists every free start time one by one, with its Hindi words in
-        brackets ("12:30 (साढ़े बारह बजे)"), grouped as morning
-        (before 12:00), afternoon (12:00 to before 17:00) and evening (17:00
-        on), and which few to suggest first. Suggest those, and answer
-        "anything later / in the evening?" from the full list
-        without calling again: for a part of the day, offer only the times
-        under that label. Call again only for another day or doctor.
+        Judge the reason before searching (reason_fits): a reason outside
+        the doctor's specialty gets no times, only a kind decline.
+
+        Each time comes with its Hindi words in brackets ("12:30 (साढ़े
+        बारह बजे)"). For later times ("anything in the evening?",
+        "after seven?") call again with a later from_time.
 
         Args:
             date: The day as YYYY-MM-DD. Work out words like aaj, kal, parson or
                 Monday from the current date in CLINIC FACTS.
+            reason_fits: The caller's reason beside the specialty in CLINIC
+                FACTS of the doctor (or doctors) searched: "fits" if that
+                specialty clearly treats it; "unsure" if you can't tell;
+                "outside" if it clearly doesn't (fever for an eye specialist);
+                "none" if no reason was given, or when moving an appointment.
+            from_time: The earliest time the caller wants, as HH:MM (24-hour):
+                "after 12:30" is "12:30", afternoon "12:00", evening "17:00".
+                Empty for the earliest free time.
             doctor_name: A doctor from CLINIC FACTS if the caller named one or
                 described one (e.g. the children's doctor); empty for any doctor.
-            part_of_day: Only if the caller asked for morning (before 12:00),
-                afternoon (12:00 to before 17:00) or evening (17:00 on).
         """
+        if reason_fits == "outside":
+            # Harsh, 2026-11-10: the model offered times for a fever with an eye
+            # specialist; the reason is now judged before any time is found.
+            return OUTSIDE_SPECIALTY
         return await run(
             ctx, booking.find_slots, _date(date), clinic_now(link.timezone),
-            doctor_name or None, None if part_of_day == "any" else part_of_day,
+            doctor_name or None, _time(from_time) if from_time.strip() else None,
         )
 
     @function_tool
@@ -153,6 +186,7 @@ def booking_tools(link: ClinicLink) -> list:
         patient_name: str,
         patient_phone: str,
         reason: str = "",
+        reason_fits: Literal["yes", "unsure"] = "yes",
     ) -> str:
         """Check a booking and get the details to read back. Books nothing.
 
@@ -170,6 +204,11 @@ def booking_tools(link: ClinicLink) -> list:
                 short, plain English in Roman letters, translated from whatever
                 the caller said, never Devanagari (e.g. "Blurred vision for 2
                 days", "Tooth pain"). Empty if the caller didn't want to say.
+            reason_fits: Whether the reason is something the doctor's specialty
+                (in CLINIC FACTS) treats: "yes" if it clearly is, or no reason
+                was given; "unsure" if you can't tell, and the clinic will be
+                asked to check. A reason clearly outside the specialty is never
+                booked: don't call this, kindly decline instead.
         """
         day, start = _date(date), _time(time)
         details = await run(
@@ -177,11 +216,13 @@ def booking_tools(link: ClinicLink) -> list:
             patient_name, patient_phone, clinic_now(link.timezone),
         )
         checked[:] = [_Checked(
-            doctor_name, day, start, patient_name, patient_phone, reason, _caller_turns(ctx) or 0,
+            doctor_name, day, start, patient_name, patient_phone, reason,
+            reason_fits == "unsure", _caller_turns(ctx) or 0,
         )]
-        return (
-            f"Not booked yet. Read this back to the caller in one sentence, the number "
-            f"digit by digit, and ask if it is correct: {details}. If they say yes, call "
+        return fit_gate(reason, details.specialty) + (
+            f"Not booked yet. Read this back to the caller in one sentence, the doctor as "
+            f"CLINIC FACTS says to say them, the number digit by digit, and ask if it is "
+            f"correct: {details}. If they say yes, call "
             f"book_appointment. If anything is wrong, fix it and call check_booking again."
         )
 
@@ -203,7 +244,7 @@ def booking_tools(link: ClinicLink) -> list:
             )
         result = await run(
             ctx, booking.book_slot, c.doctor_name, c.day, c.start,
-            c.patient_name, c.patient_phone, clinic_now(link.timezone), c.reason,
+            c.patient_name, c.patient_phone, clinic_now(link.timezone), c.reason, c.reason_unsure,
         )
         checked.clear()
         return result

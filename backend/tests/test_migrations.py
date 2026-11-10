@@ -149,6 +149,7 @@ def test_elevenlabs_and_the_english_line_leave_no_trace(tmp_path):
     # 0013 (Harsh, 2026-11-08): Hindi only. Calls that ran on ElevenLabs go,
     # with everything tied to them; Hindi calls and their costs stay.
     from datetime import date
+    from types import SimpleNamespace
 
     from alembic import command
     from sqlalchemy import func, select, text
@@ -160,20 +161,23 @@ def test_elevenlabs_and_the_english_line_leave_no_trace(tmp_path):
         command.upgrade(migrations._config(conn), "0012")  # 0013 changes no schema: today's models fit (bar incidents, below)
     now = utc_now()
     with session_factory(engine)() as s:
-        clinic = m.Clinic(name="Cure", slug="cure")
-        s.add(clinic)
-        s.flush()
+        # Written as 0012 had clinics: the receptionist settings (0018) did not exist yet.
+        clinic = SimpleNamespace(id=s.execute(text(
+            "INSERT INTO clinics (name, slug, address, phone, timezone, booking_window_days, slots_offered)"
+            " VALUES ('Cure', 'cure', '', '', 'Asia/Kolkata', 30, 3) RETURNING id")).scalar_one())
         doctor = m.Doctor(clinic_id=clinic.id, name="Dr. A")
         patient = m.Patient(clinic_id=clinic.id, name="Harsh", phone="9876503112")
         s.add_all([doctor, patient])
         s.flush()
 
         def appt(hour):
-            a = m.Appointment(clinic_id=clinic.id, doctor_id=doctor.id, patient_id=patient.id,
-                              starts_at=datetime(2026, 10, 13, hour), ends_at=datetime(2026, 10, 13, hour, 30))
-            s.add(a)
-            s.flush()
-            return a.id
+            # Written as 0012 had them: reason_unsure (0016) did not exist yet.
+            return s.execute(text(
+                "INSERT INTO appointments (clinic_id, doctor_id, patient_id, starts_at, ends_at, status, source,"
+                " reason, created_at) VALUES (:c, :d, :p, :start, :end, 'booked', 'voice', '', :now) RETURNING id"),
+                {"c": clinic.id, "d": doctor.id, "p": patient.id, "now": now.isoformat(" "),
+                 "start": datetime(2026, 10, 13, hour).isoformat(" "),
+                 "end": datetime(2026, 10, 13, hour, 30).isoformat(" ")}).scalar_one()
 
         english_booked, moved_later, hindi_booked = appt(10), appt(11), appt(12)
 

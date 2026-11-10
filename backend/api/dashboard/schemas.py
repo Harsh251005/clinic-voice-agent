@@ -46,6 +46,17 @@ def hindi_name(value: str | None) -> str | None:
     return value
 
 
+def required_specialty(value: str | None) -> str | None:
+    """Never blank, not even spaces: the receptionist matches reasons to it."""
+    if value is None:
+        return None
+    value = " ".join(value.split())
+    if not value:
+        raise PydanticCustomError(
+            "specialty", "Add the doctor's specialty, for example General Physician or Eye Specialist.")
+    return value
+
+
 class Doctor(BaseModel):
     id: int
     name: str
@@ -127,7 +138,14 @@ class DoctorIn(BaseModel):
     @classmethod
     def _hindi(cls, value: str | None) -> str | None:
         return hindi_name(value)
-    specialty: str = Field(default="", max_length=200)
+    # Required (Harsh, 2026-11-09), "General Physician" included: the receptionist
+    # matches each caller's reason to it before booking.
+    specialty: str = Field(min_length=1, max_length=200)
+
+    @field_validator("specialty")
+    @classmethod
+    def _specialty(cls, value: str | None) -> str | None:
+        return required_specialty(value)
     fee: int = Field(ge=0)
     slot_minutes: int = Field(ge=5, le=120)
 
@@ -144,7 +162,12 @@ class DoctorPatch(BaseModel):
     @classmethod
     def _hindi(cls, value: str | None) -> str | None:
         return hindi_name(value)
-    specialty: str | None = Field(default=None, max_length=200)
+    specialty: str | None = Field(default=None, min_length=1, max_length=200)
+
+    @field_validator("specialty")
+    @classmethod
+    def _specialty(cls, value: str | None) -> str | None:
+        return required_specialty(value)
     fee: int | None = Field(default=None, ge=0)
     slot_minutes: int | None = Field(default=None, ge=5, le=120)
     active: bool | None = None
@@ -199,6 +222,8 @@ class Appointment(BaseModel):
     source: Literal["voice", "dashboard"]
     visit: Visit | None = None  # what happened at the clinic, as staff marked it
     reason: str  # why the patient is coming; "" if not given
+    # The receptionist couldn't tell whether the reason fits the doctor: check it.
+    reason_unsure: bool = False
     # Why a booking can't go ahead as booked (leave, holiday, hours changed,
     # doctor inactive): staff should call the patient. None when it's fine.
     problem: str | None = None
@@ -730,6 +755,7 @@ class Take(BaseModel):
     key: str | None  # its recording's name for the current voice; None without a voice
     recorded_at: datetime | None  # None: not recorded for this voice and these words
     duration_s: float | None
+    live_pace: float | None  # the live voice's speed on the calls it serves (to flag a different recording speed)
 
 
 class PhraseOut(BaseModel):
@@ -741,6 +767,7 @@ class PhraseOut(BaseModel):
     clinic_name: str
     source: str  # the English the admin wrote
     text: str  # the Hindi that is spoken
+    pace: float  # how fast its recording is spoken (apart from the live voice)
     takes: list[Take]
 
 
@@ -754,10 +781,17 @@ class VoiceClinic(BaseModel):
 class VoicePage(BaseModel):
     voice: VoiceOut | None
     voice_problem: str  # why there is no voice (no key...); "" when there is one
+    voices_differ: bool  # clinics have different voices: shared lines are recorded once per voice
     rupees_per_1000_chars: float | None  # the voice's price today; None when no price is set
     max_chars: int
+    pace_min: float  # the speeds a recording may have
+    pace_max: float
     phrases: list[PhraseOut]
     clinics: list[VoiceClinic]
+
+
+class PaceIn(BaseModel):
+    pace: float
 
 
 class PhraseIn(BaseModel):
@@ -787,3 +821,91 @@ class RecordOut(BaseModel):
     recorded: int
     failed: str  # "" when every take was recorded; else why it stopped
     page: VoicePage
+
+
+# ---------- Admin > Receptionist (clinic_agent/receptionist_settings.py SYSTEM) ----------
+
+class Limit(BaseModel):
+    low: float | None
+    high: float | None
+    default: float | None
+
+
+class SystemSettingsBase(BaseModel):
+    rules: str  # "" = the default rules (default_rules)
+    hindi_llm: Literal["sarvam", "openai"]
+    sarvam_llm_model: str
+    openai_llm_model: str
+    sarvam_stt_model: str
+    sarvam_stt_language: str
+    sarvam_stt_mode: str
+    min_endpointing_delay: float
+    number_endpointing_delay: float
+    interrupt_min_speech: float
+    vad_min_silence: float
+    greeting_interruptible: bool
+
+
+class SystemSettingsOut(SystemSettingsBase):
+    default_rules: str  # the rules in code, used while `rules` is blank
+    rules_max_words: int
+    blank_means: dict[str, str]  # what a blank text field uses: the vendor's own default
+    limits: dict[str, Limit]  # each number's allowed range and default
+    llm_vendors: list[str]
+
+
+class SystemSettingsIn(BaseModel):
+    """Any of the fields; only those sent change."""
+    rules: str | None = Field(default=None, max_length=10_000)
+    hindi_llm: Literal["sarvam", "openai"] | None = None
+    sarvam_llm_model: str | None = Field(default=None, max_length=100)
+    openai_llm_model: str | None = Field(default=None, max_length=100)
+    sarvam_stt_model: str | None = Field(default=None, max_length=100)
+    sarvam_stt_language: str | None = Field(default=None, max_length=20)
+    sarvam_stt_mode: str | None = Field(default=None, max_length=30)
+    min_endpointing_delay: float | None = None
+    number_endpointing_delay: float | None = None
+    interrupt_min_speech: float | None = None
+    vad_min_silence: float | None = None
+    greeting_interruptible: bool | None = None
+
+
+# ---------- a clinic's Receptionist tab (receptionist_settings.CLINIC), admins only ----------
+
+class ClinicReceptionistOut(BaseModel):
+    clinic_id: int
+    clinic_name: str
+    instructions: str  # added after the main rules on this clinic's calls
+    directions: str  # said when a caller asks the way
+    tts_model: str  # "" = model_default
+    tts_speaker: str  # "" = speaker_default
+    tts_pace: float  # live voice speed
+    tts_pitch: float | None  # None = the voice's own
+    max_call_minutes: float
+    speaker_default: str
+    model_default: str
+    instructions_max_words: int
+    directions_max_chars: int
+    limits: dict[str, Limit]
+
+
+class ClinicReceptionistIn(BaseModel):
+    """Any of the fields; only those sent change. tts_pitch null = the voice's own."""
+    instructions: str | None = Field(default=None, max_length=5_000)
+    directions: str | None = Field(default=None, max_length=1_000)
+    tts_model: str | None = Field(default=None, max_length=100)
+    tts_speaker: str | None = Field(default=None, max_length=50)
+    tts_pace: float | None = None
+    tts_pitch: float | None = None
+    max_call_minutes: float | None = None
+
+
+class VoiceImpact(BaseModel):
+    lines: int  # the lines this clinic's calls say
+    recorded_now: int  # recorded in its current voice
+    recorded_after: int  # recorded in the voice being tried out
+
+
+class Admins(BaseModel):
+    emails: list[str]  # ADMIN_EMAILS: see every clinic, including patients' transcripts (each opening logged)
+    sign_in: str  # "google" or "off" (local development: everyone is an admin)

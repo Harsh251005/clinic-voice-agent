@@ -157,6 +157,25 @@ def backup(engine: Engine, why: str = "upgrading") -> None:
     logger.info("backed up %s to %s before %s", src, dst, why)
 
 
+def copy_from_env(url: str) -> None:
+    """Once ever: the behaviour settings still in .env go into the database,
+    where the admin edits them (Harsh, 2026-11-10), then the admin is told
+    which lines to delete."""
+    from clinic_agent.config import moved_settings
+    from clinic_agent.store import repo
+    from clinic_agent.store.db import make_engine, session_factory
+
+    env = moved_settings()
+    with session_factory(make_engine(url))() as s:
+        copied = repo.copy_settings_from_env(s, env)
+    if copied:
+        print("Copied into the dashboard (Admin > Receptionist and each clinic's Receptionist tab): "
+              + ", ".join(copied) + ". Delete these lines from .env now.")
+    elif env:
+        print("These .env lines are no longer read (set them in the dashboard instead); delete them: "
+              + ", ".join(env))
+
+
 if __name__ == "__main__":
     from clinic_agent.config import load_settings
     from clinic_agent.store.db import make_engine
@@ -168,3 +187,4 @@ if __name__ == "__main__":
     except SchemaOutdated as err:
         raise SystemExit(f"migration error: {err}") from None
     print(f"{url.split('@')[-1]}: schema at {head()}")
+    copy_from_env(url)

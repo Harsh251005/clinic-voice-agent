@@ -51,6 +51,9 @@ KINDS = {
     "server_error": Kind("warning", clinic_sees=False, quiet_minutes=15),
     "no_doctors": Kind("warning", clinic_sees=True),
     "doctor_no_hours": Kind("warning", clinic_sees=True),
+    # The receptionist can't tell which visits this doctor sees (Harsh, 2026-11-09:
+    # specialty required). Saved blank before it was; closes once it is filled in.
+    "doctor_no_specialty": Kind("warning", clinic_sees=True),
     "clinic_paused": Kind("info", clinic_sees=True),
     "bookings_need_call": Kind("warning", clinic_sees=True),
     "livekit_minutes": Kind("warning", clinic_sees=False),
@@ -63,6 +66,9 @@ KINDS = {
     "phrase_translation_failing": Kind("warning", clinic_sees=False, quiet_minutes=60),
     # A call could not read its phrases or recordings; it said them all live.
     "voice_clips_unread": Kind("warning", clinic_sees=False, quiet_minutes=60),
+    # Lines recorded in an earlier voice of this clinic, said live now (Harsh,
+    # 2026-11-10). Closes once they are recorded again, or the voice goes back.
+    "recordings_stale": Kind("warning", clinic_sees=False),
 }
 
 def clinic_sees(kind: str) -> bool:
@@ -126,11 +132,11 @@ def route_works(s: Session, route: str, now: datetime) -> None:
             repo.resolve_incident(s, inc.id, now, how="fixed")
 
 
-def sync(s: Session, now: datetime, *, max_call_minutes: int) -> None:
+def sync(s: Session, now: datetime, *, max_call_minutes: float | None = None, voice_of=None) -> None:
     """Re-check every condition; open, update and close incidents to match.
     `now` is naive UTC."""
     held = set()
-    for f in findings(s, now, max_call_minutes=max_call_minutes):
+    for f in findings(s, now, max_call_minutes=max_call_minutes, voice_of=voice_of):
         row = repo.hold_incident(s, kind=f.kind, severity=f.severity or KINDS[f.kind].severity, now=now,
                                  clinic_id=f.clinic_id, subject=f.subject, detail=f.detail)
         held.add(row.key)
@@ -148,15 +154,37 @@ def sync(s: Session, now: datetime, *, max_call_minutes: int) -> None:
     repo.delete_old_incidents(s, now - KEEP_RESOLVED)
 
 
-def findings(s: Session, now: datetime, *, max_call_minutes: int) -> list[Finding]:
-    """Every condition true right now."""
-    out = [*_receptionist(s, now), *_vendors(s, now), *_minutes(s, now, max_call_minutes), *_unpriced(s, now)]
-    calls = repo.patient_calls_since(s, dropped_before(now, max_call_minutes) - FAILING_WINDOW, with_tests=True)
-    for clinic in repo.list_clinics(s):
+def findings(s: Session, now: datetime, *, max_call_minutes: float | None = None, voice_of=None) -> list[Finding]:
+    """Every condition true right now. Call lengths are each clinic's own
+    limit (Admin > clinic > Receptionist); `max_call_minutes` overrides it (tests)."""
+    clinics = repo.list_clinics(s)
+
+    def limit(clinic) -> float:
+        return max_call_minutes if max_call_minutes is not None else clinic.max_call_minutes
+
+    longest = max_call_minutes if max_call_minutes is not None else repo.longest_call_minutes(s)
+    out = [*_receptionist(s, now), *_vendors(s, now), *_minutes(s, now, longest), *_unpriced(s, now)]
+    calls = repo.patient_calls_since(s, dropped_before(now, longest) - FAILING_WINDOW, with_tests=True)
+    for clinic in clinics:
         out += _setup(clinic)
         if clinic.active:
-            out += _failing_calls(clinic.id, calls, now, max_call_minutes, clinic.timezone)
+            out += _failing_calls(clinic.id, calls, now, limit(clinic), clinic.timezone)
             out += _bookings_need_call(s, clinic)
+    if voice_of is not None:
+        out += _stale_recordings(s, clinics, voice_of)
+    return out
+
+
+def _stale_recordings(s: Session, clinics, voice_of) -> list[Finding]:
+    """`voice_of(system, clinic)`: the clinic's voice identity, or None (no voice key)."""
+    from clinic_agent import voice_clips  # imports LiveKit: only when the API asks
+
+    system = repo.system_settings(s)
+    out = []
+    for clinic in clinics:
+        voice = voice_of(system, clinic)
+        if voice and (n := voice_clips.stale_lines(s, clinic, voice)):
+            out.append(Finding("recordings_stale", clinic.id, detail=str(n)))
     return out
 
 
@@ -239,7 +267,7 @@ def _connected_since(s: Session, now: datetime) -> dict[int, datetime]:
     return latest
 
 
-def _minutes(s: Session, now: datetime, max_call_minutes: int) -> list[Finding]:
+def _minutes(s: Session, now: datetime, max_call_minutes: float) -> list[Finding]:
     month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     cap = timedelta(minutes=max_call_minutes)
     used = sum(
@@ -282,10 +310,14 @@ def _setup(clinic) -> list[Finding]:
     doctors = [d for d in clinic.doctors if d.active]
     if not doctors:
         return [Finding("no_doctors", clinic.id)]
-    return [Finding("doctor_no_hours", clinic.id, subject=str(d.id), detail=d.name) for d in doctors if not d.hours]
+    return [
+        *(Finding("doctor_no_hours", clinic.id, subject=str(d.id), detail=d.name) for d in doctors if not d.hours),
+        *(Finding("doctor_no_specialty", clinic.id, subject=str(d.id), detail=d.name)
+          for d in doctors if not d.specialty.strip()),
+    ]
 
 
-def _failing_calls(clinic_id: int, calls, now: datetime, max_call_minutes: int, timezone: str = "Asia/Kolkata") -> list[Finding]:
+def _failing_calls(clinic_id: int, calls, now: datetime, max_call_minutes: float, timezone: str = "Asia/Kolkata") -> list[Finding]:
     """Calls that went wrong in the last hour: failed, ended by an error, or
     dropped (never finished, and now past the time limit: the worker died).
     Only those after the clinic's last call that ended well count: one good
@@ -313,7 +345,7 @@ def _failing_calls(clinic_id: int, calls, now: datetime, max_call_minutes: int, 
     return [Finding("calls_failing", clinic_id, detail=f"{len(bad)}|{','.join(times)}"[:300])]
 
 
-def dropped_before(now: datetime, max_call_minutes: int) -> datetime:
+def dropped_before(now: datetime, max_call_minutes: float) -> datetime:
     """An unfinished call that started before this was dropped, as the admin panel counts it."""
     return now - timedelta(minutes=max_call_minutes) - DROPPED_GRACE
 

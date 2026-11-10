@@ -11,8 +11,9 @@ import { ClinicDetails } from "@/components/setup/clinic-details";
 import { Doctors } from "@/components/setup/doctors";
 import { Faq } from "@/components/setup/faq";
 import { Hours } from "@/components/setup/hours";
+import { Receptionist } from "@/components/setup/receptionist";
 import { TimeOff } from "@/components/setup/time-off";
-import { useClinic } from "@/lib/queries";
+import { useClinic, useMe } from "@/lib/queries";
 
 const TABS = [
   { id: "clinic", label: "Clinic details", Panel: ClinicDetails },
@@ -22,6 +23,8 @@ const TABS = [
   { id: "time-off", label: "Leave & holidays", Panel: TimeOff },
   { id: "faq", label: "Common questions", Panel: Faq },
 ] as const;
+// Admins only (Harsh, 2026-11-10): how this clinic's receptionist behaves.
+const ADMIN_TABS = [{ id: "receptionist", label: "Receptionist", Panel: Receptionist }] as const;
 
 function Setup() {
   const clinicId = Number(useParams<{ clinicId: string }>().clinicId);
@@ -30,7 +33,9 @@ function Setup() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const tabs = TABS; // the team is managed in the admin panel (Clinics)
+  const me = useMe();
+  // The team is managed in the admin panel (Clinics); the receptionist's own settings only by admins.
+  const tabs = me.data?.is_admin ? [...TABS, ...ADMIN_TABS] : TABS;
   const tab = tabs.some((t) => t.id === search.get("tab")) ? search.get("tab")! : "clinic";
 
   return (

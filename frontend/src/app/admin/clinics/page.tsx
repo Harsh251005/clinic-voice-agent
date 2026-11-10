@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/app/page-header";
+import { Admins } from "@/components/admin/admins";
 import { ActiveBadge, Empty } from "@/components/admin/bits";
 import { SEVERITY_DOT, SEVERITY_WORD, worstByClinic } from "@/components/problems/problems";
 import { useAdminClinics, when } from "@/lib/admin";
@@ -31,6 +32,7 @@ export default function ClinicsPage() {
           {clinics.data.map((c) => <Row key={c.id} c={c} problem={worst.get(c.id)} />)}
         </ul>
       )}
+      <Admins />
     </div>
   );
 }

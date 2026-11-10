@@ -3,7 +3,7 @@
 // visit, edit, cancel (with Undo instead of an "are you sure?"), restore.
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Pencil, Phone, RotateCcw, X } from "lucide-react";
+import { Check, Pencil, Phone, RotateCcw, SearchCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -14,6 +14,7 @@ import { formatPhone } from "@/lib/phone";
 import { keys } from "@/lib/queries";
 import { VISITS, visitInfo, type Visit } from "@/lib/visit";
 import { AppointmentDialog } from "./appointment-form";
+import { REASON_CHECK_HELP } from "./reason-check";
 
 type Appointment = Schemas["Appointment"];
 
@@ -64,7 +65,17 @@ function useAppointmentActions(clinicId: number) {
     onError: (err) => toast.error(err.message),
   });
 
-  return { cancel, restore, visit };
+  const reasonChecked = useMutation({
+    mutationFn: (a: Appointment) =>
+      unwrap(api.POST("/api/clinics/{clinic_id}/appointments/{appointment_id}/reason-checked", path(a))),
+    onSuccess: (a) => {
+      toast.success(`${a.patient_name}: reason checked.`);
+      return refresh();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  return { cancel, restore, visit, reasonChecked };
 }
 
 /** The menu behind an appointment: its trigger is whatever the view draws
@@ -75,7 +86,7 @@ export function AppointmentMenu({ clinic, appt, today, children }: {
   today: string; // the clinic's date: visits can't be marked ahead of time
   children: React.ReactNode; // the trigger; must be a single button
 }) {
-  const { cancel, restore, visit } = useAppointmentActions(clinic.id);
+  const { cancel, restore, visit, reasonChecked } = useAppointmentActions(clinic.id);
   const [editing, setEditing] = useState(false);
   const booked = appt.status === "booked";
   const markable = booked && appt.starts_at.slice(0, 10) <= today;
@@ -91,11 +102,17 @@ export function AppointmentMenu({ clinic, appt, today, children }: {
               {longDay(appt.starts_at.slice(0, 10))}, {clockTime(appt.starts_at)} · {appt.doctor_name}
             </p>
             {appt.reason && <p className="font-normal text-foreground/80">{appt.reason}</p>}
+            {appt.reason_unsure && <p className="font-normal text-warning-foreground">{REASON_CHECK_HELP}</p>}
             {appt.problem && <p className="font-normal text-warning-foreground">Call the patient: {appt.problem}.</p>}
           </DropdownMenuLabel>
           <DropdownMenuItem asChild>
             <a href={`tel:${appt.patient_phone}`}><Phone /> Call {formatPhone(appt.patient_phone)}</a>
           </DropdownMenuItem>
+          {appt.reason_unsure && (
+            <DropdownMenuItem disabled={reasonChecked.isPending} onSelect={() => reasonChecked.mutate(appt)}>
+              <SearchCheck /> Reason checked
+            </DropdownMenuItem>
+          )}
           {markable && (
             <>
               <DropdownMenuSeparator />

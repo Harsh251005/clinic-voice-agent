@@ -78,6 +78,27 @@
         "title": "AdminClinic",
         "type": "object"
       },
+      "Admins": {
+        "properties": {
+          "emails": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Emails",
+            "type": "array"
+          },
+          "sign_in": {
+            "title": "Sign In",
+            "type": "string"
+          }
+        },
+        "required": [
+          "emails",
+          "sign_in"
+        ],
+        "title": "Admins",
+        "type": "object"
+      },
       "AllowanceIn": {
         "properties": {
           "note": {
@@ -222,6 +243,11 @@
           "reason": {
             "title": "Reason",
             "type": "string"
+          },
+          "reason_unsure": {
+            "default": false,
+            "title": "Reason Unsure",
+            "type": "boolean"
           },
           "source": {
             "enum": [
@@ -1229,6 +1255,182 @@
         "title": "ClinicDetails",
         "type": "object"
       },
+      "ClinicReceptionistIn": {
+        "description": "Any of the fields; only those sent change. tts_pitch null = the voice's own.",
+        "properties": {
+          "directions": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directions"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions"
+          },
+          "max_call_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Call Minutes"
+          },
+          "tts_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Model"
+          },
+          "tts_pace": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Pace"
+          },
+          "tts_pitch": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Pitch"
+          },
+          "tts_speaker": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Speaker"
+          }
+        },
+        "title": "ClinicReceptionistIn",
+        "type": "object"
+      },
+      "ClinicReceptionistOut": {
+        "properties": {
+          "clinic_id": {
+            "title": "Clinic Id",
+            "type": "integer"
+          },
+          "clinic_name": {
+            "title": "Clinic Name",
+            "type": "string"
+          },
+          "directions": {
+            "title": "Directions",
+            "type": "string"
+          },
+          "directions_max_chars": {
+            "title": "Directions Max Chars",
+            "type": "integer"
+          },
+          "instructions": {
+            "title": "Instructions",
+            "type": "string"
+          },
+          "instructions_max_words": {
+            "title": "Instructions Max Words",
+            "type": "integer"
+          },
+          "limits": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Limit"
+            },
+            "title": "Limits",
+            "type": "object"
+          },
+          "max_call_minutes": {
+            "title": "Max Call Minutes",
+            "type": "number"
+          },
+          "model_default": {
+            "title": "Model Default",
+            "type": "string"
+          },
+          "speaker_default": {
+            "title": "Speaker Default",
+            "type": "string"
+          },
+          "tts_model": {
+            "title": "Tts Model",
+            "type": "string"
+          },
+          "tts_pace": {
+            "title": "Tts Pace",
+            "type": "number"
+          },
+          "tts_pitch": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Pitch"
+          },
+          "tts_speaker": {
+            "title": "Tts Speaker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clinic_id",
+          "clinic_name",
+          "instructions",
+          "directions",
+          "tts_model",
+          "tts_speaker",
+          "tts_pace",
+          "tts_pitch",
+          "max_call_minutes",
+          "speaker_default",
+          "model_default",
+          "instructions_max_words",
+          "directions_max_chars",
+          "limits"
+        ],
+        "title": "ClinicReceptionistOut",
+        "type": "object"
+      },
       "ClinicSummary": {
         "properties": {
           "id": {
@@ -1857,6 +2059,7 @@
             "anyOf": [
               {
                 "maxLength": 200,
+                "minLength": 1,
                 "type": "string"
               },
               {
@@ -2290,6 +2493,50 @@
         "title": "HoursText",
         "type": "object"
       },
+      "Limit": {
+        "properties": {
+          "default": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          }
+        },
+        "required": [
+          "low",
+          "high",
+          "default"
+        ],
+        "title": "Limit",
+        "type": "object"
+      },
       "Me": {
         "properties": {
           "clinics": {
@@ -2535,18 +2782,32 @@
             "type": "integer"
           },
           "specialty": {
-            "default": "",
             "maxLength": 200,
+            "minLength": 1,
             "title": "Specialty",
             "type": "string"
           }
         },
         "required": [
           "name",
+          "specialty",
           "fee",
           "slot_minutes"
         ],
         "title": "NewDoctor",
+        "type": "object"
+      },
+      "PaceIn": {
+        "properties": {
+          "pace": {
+            "title": "Pace",
+            "type": "number"
+          }
+        },
+        "required": [
+          "pace"
+        ],
+        "title": "PaceIn",
         "type": "object"
       },
       "Pattern": {
@@ -2626,6 +2887,10 @@
             "title": "Language",
             "type": "string"
           },
+          "pace": {
+            "title": "Pace",
+            "type": "number"
+          },
           "slot": {
             "title": "Slot",
             "type": "integer"
@@ -2655,6 +2920,7 @@
           "clinic_name",
           "source",
           "text",
+          "pace",
           "takes"
         ],
         "title": "PhraseOut",
@@ -3196,6 +3462,261 @@
         "title": "SupportView",
         "type": "object"
       },
+      "SystemSettingsIn": {
+        "description": "Any of the fields; only those sent change.",
+        "properties": {
+          "greeting_interruptible": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Greeting Interruptible"
+          },
+          "hindi_llm": {
+            "anyOf": [
+              {
+                "enum": [
+                  "sarvam",
+                  "openai"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hindi Llm"
+          },
+          "interrupt_min_speech": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interrupt Min Speech"
+          },
+          "min_endpointing_delay": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Endpointing Delay"
+          },
+          "number_endpointing_delay": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number Endpointing Delay"
+          },
+          "openai_llm_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openai Llm Model"
+          },
+          "rules": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules"
+          },
+          "sarvam_llm_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sarvam Llm Model"
+          },
+          "sarvam_stt_language": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sarvam Stt Language"
+          },
+          "sarvam_stt_mode": {
+            "anyOf": [
+              {
+                "maxLength": 30,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sarvam Stt Mode"
+          },
+          "sarvam_stt_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sarvam Stt Model"
+          },
+          "vad_min_silence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vad Min Silence"
+          }
+        },
+        "title": "SystemSettingsIn",
+        "type": "object"
+      },
+      "SystemSettingsOut": {
+        "properties": {
+          "blank_means": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Blank Means",
+            "type": "object"
+          },
+          "default_rules": {
+            "title": "Default Rules",
+            "type": "string"
+          },
+          "greeting_interruptible": {
+            "title": "Greeting Interruptible",
+            "type": "boolean"
+          },
+          "hindi_llm": {
+            "enum": [
+              "sarvam",
+              "openai"
+            ],
+            "title": "Hindi Llm",
+            "type": "string"
+          },
+          "interrupt_min_speech": {
+            "title": "Interrupt Min Speech",
+            "type": "number"
+          },
+          "limits": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Limit"
+            },
+            "title": "Limits",
+            "type": "object"
+          },
+          "llm_vendors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Llm Vendors",
+            "type": "array"
+          },
+          "min_endpointing_delay": {
+            "title": "Min Endpointing Delay",
+            "type": "number"
+          },
+          "number_endpointing_delay": {
+            "title": "Number Endpointing Delay",
+            "type": "number"
+          },
+          "openai_llm_model": {
+            "title": "Openai Llm Model",
+            "type": "string"
+          },
+          "rules": {
+            "title": "Rules",
+            "type": "string"
+          },
+          "rules_max_words": {
+            "title": "Rules Max Words",
+            "type": "integer"
+          },
+          "sarvam_llm_model": {
+            "title": "Sarvam Llm Model",
+            "type": "string"
+          },
+          "sarvam_stt_language": {
+            "title": "Sarvam Stt Language",
+            "type": "string"
+          },
+          "sarvam_stt_mode": {
+            "title": "Sarvam Stt Mode",
+            "type": "string"
+          },
+          "sarvam_stt_model": {
+            "title": "Sarvam Stt Model",
+            "type": "string"
+          },
+          "vad_min_silence": {
+            "title": "Vad Min Silence",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rules",
+          "hindi_llm",
+          "sarvam_llm_model",
+          "openai_llm_model",
+          "sarvam_stt_model",
+          "sarvam_stt_language",
+          "sarvam_stt_mode",
+          "min_endpointing_delay",
+          "number_endpointing_delay",
+          "interrupt_min_speech",
+          "vad_min_silence",
+          "greeting_interruptible",
+          "default_rules",
+          "rules_max_words",
+          "blank_means",
+          "limits",
+          "llm_vendors"
+        ],
+        "title": "SystemSettingsOut",
+        "type": "object"
+      },
       "Take": {
         "description": "A phrase as one clinic's calls say it (the shared greeting names each\nclinic, so it has one take per clinic; every other phrase has one).",
         "properties": {
@@ -3236,6 +3757,17 @@
             ],
             "title": "Key"
           },
+          "live_pace": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Pace"
+          },
           "recorded_at": {
             "anyOf": [
               {
@@ -3259,7 +3791,8 @@
           "spoken",
           "key",
           "recorded_at",
-          "duration_s"
+          "duration_s",
+          "live_pace"
         ],
         "title": "Take",
         "type": "object"
@@ -3814,6 +4347,29 @@
         "title": "VoiceClinic",
         "type": "object"
       },
+      "VoiceImpact": {
+        "properties": {
+          "lines": {
+            "title": "Lines",
+            "type": "integer"
+          },
+          "recorded_after": {
+            "title": "Recorded After",
+            "type": "integer"
+          },
+          "recorded_now": {
+            "title": "Recorded Now",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lines",
+          "recorded_now",
+          "recorded_after"
+        ],
+        "title": "VoiceImpact",
+        "type": "object"
+      },
       "VoiceOut": {
         "description": "The voice calls use now: recordings are kept per voice.",
         "properties": {
@@ -3880,6 +4436,14 @@
             "title": "Max Chars",
             "type": "integer"
           },
+          "pace_max": {
+            "title": "Pace Max",
+            "type": "number"
+          },
+          "pace_min": {
+            "title": "Pace Min",
+            "type": "number"
+          },
           "phrases": {
             "items": {
               "$ref": "#/components/schemas/PhraseOut"
@@ -3911,13 +4475,20 @@
           "voice_problem": {
             "title": "Voice Problem",
             "type": "string"
+          },
+          "voices_differ": {
+            "title": "Voices Differ",
+            "type": "boolean"
           }
         },
         "required": [
           "voice",
           "voice_problem",
+          "voices_differ",
           "rupees_per_1000_chars",
           "max_chars",
+          "pace_min",
+          "pace_max",
           "phrases",
           "clinics"
         ],
@@ -4027,6 +4598,25 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/admins": {
+      "get": {
+        "description": "Who is an admin: ADMIN_EMAILS in .env, read-only here on purpose\n(Harsh, 2026-11-10): nobody can make themselves admin from the dashboard\nor the database, only whoever controls the server's .env.",
+        "operationId": "admins_api_admin_admins_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Admins"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Admins"
+      }
+    },
     "/api/admin/calls": {
       "get": {
         "operationId": "calls_api_admin_calls_get",
@@ -4349,6 +4939,93 @@
           }
         },
         "summary": "Set Active"
+      }
+    },
+    "/api/admin/clinics/{clinic_id}/receptionist": {
+      "get": {
+        "operationId": "read_clinic_api_admin_clinics__clinic_id__receptionist_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicReceptionistOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Clinic"
+      },
+      "put": {
+        "description": "Only the fields sent change; each is checked (422 with the reason).",
+        "operationId": "save_clinic_api_admin_clinics__clinic_id__receptionist_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicReceptionistIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicReceptionistOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Clinic"
       }
     },
     "/api/admin/cost-settings": {
@@ -5273,6 +5950,61 @@
         "summary": "Admin Seen"
       }
     },
+    "/api/admin/receptionist": {
+      "get": {
+        "operationId": "read_api_admin_receptionist_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read"
+      },
+      "put": {
+        "description": "Only the fields sent change; each is checked (422 with the reason).",
+        "operationId": "save_api_admin_receptionist_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SystemSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save"
+      }
+    },
     "/api/admin/voice": {
       "get": {
         "operationId": "voice_page_api_admin_voice_get",
@@ -5417,6 +6149,82 @@
         "summary": "Play"
       }
     },
+    "/api/admin/voice/impact": {
+      "get": {
+        "description": "Before a clinic's voice is changed (its Receptionist tab): how many of\nits lines are recorded in its voice now, and how many would be in the one\ntried out. The others are said live until recorded.",
+        "operationId": "impact_api_admin_voice_impact_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Model",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "speaker",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Speaker",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pitch",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pitch"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceImpact"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Impact"
+      }
+    },
     "/api/admin/voice/phrases/{phrase_id}": {
       "put": {
         "description": "New words for a phrase. Its old recording stays (for going back) but no\nlonger plays: the phrase is said live until it is recorded again.",
@@ -5467,9 +6275,59 @@
         "summary": "Edit Phrase"
       }
     },
+    "/api/admin/voice/phrases/{phrase_id}/pace": {
+      "put": {
+        "description": "How fast this phrase's recording is spoken. Takes at the old speed stay\nbut no longer play: the phrase is said live until recorded again.",
+        "operationId": "phrase_pace_api_admin_voice_phrases__phrase_id__pace_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phrase_id",
+            "required": true,
+            "schema": {
+              "title": "Phrase Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoicePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Phrase Pace"
+      }
+    },
     "/api/admin/voice/record": {
       "post": {
-        "description": "Record the asked takes in the current voice, one after another (a take\nalready recorded is recorded again: a new take). Stops at the first\nfailure: a vendor out of credits would fail them all.",
+        "description": "Record the asked takes, each in the voice of the clinics it serves and\nat its phrase's own speed, one after another (a take already recorded is\nrecorded again: a new take). Stops at the first failure: a vendor out of\ncredits would fail them all.",
         "operationId": "record_api_admin_voice_record_post",
         "requestBody": {
           "content": {
@@ -6003,6 +6861,55 @@
           }
         },
         "summary": "Cancel"
+      }
+    },
+    "/api/clinics/{clinic_id}/appointments/{appointment_id}/reason-checked": {
+      "post": {
+        "description": "Staff checked a reason the receptionist wasn't sure fits the doctor: clear the mark.",
+        "operationId": "reason_checked_api_clinics__clinic_id__appointments__appointment_id__reason_checked_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointment_id",
+            "required": true,
+            "schema": {
+              "title": "Appointment Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reason Checked"
       }
     },
     "/api/clinics/{clinic_id}/appointments/{appointment_id}/restore": {

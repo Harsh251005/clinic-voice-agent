@@ -5,6 +5,7 @@ import { clockTime, span12 } from "@/lib/dates";
 import { formatPhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import { visitInfo } from "@/lib/visit";
+import { ReasonCheckTag } from "@/components/appointments/reason-check";
 
 type Appointment = Schemas["Appointment"];
 
@@ -52,6 +53,7 @@ export function DoctorDay({ clinic, doctor, day, now, appointments }: {
                     {i === nowIdx && <Tag className="bg-primary text-primary-foreground">Now</Tag>}
                     {i === nextIdx && <Tag className="bg-accent text-accent-foreground">Next</Tag>}
                     {visit && <Tag className={visit.tone}>{visit.label}</Tag>}
+                    {a.reason_unsure && <ReasonCheckTag />}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     <a href={`tel:${a.patient_phone}`} className="tabular-nums hover:text-foreground">{formatPhone(a.patient_phone)}</a>
