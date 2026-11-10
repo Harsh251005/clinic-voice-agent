@@ -3,6 +3,7 @@
 // Tests share that database and run in order.
 import { expect, test, type Page } from "@playwright/test";
 import { heartbeat, unsureBookingToday } from "./backend";
+import { expectTime, setTime } from "./time";
 
 const SETUP = "/clinics/1/setup";
 
@@ -64,7 +65,7 @@ test("staff book a walk-in, then change it", async ({ page }) => {
   await page.getByLabel("Patient name").fill("Meena Joshi");
   await page.getByLabel("Mobile number").fill("98190 22222");
   await page.getByLabel("Reason for visit (optional)").fill("Tooth pain since Monday");
-  await page.getByLabel("Time", { exact: true }).fill("11:05");  // off the grid: a walk-in
+  await setTime(page, "Time", "11:05");  // off the grid: a walk-in
   await page.getByRole("button", { name: "Book appointment" }).click();
   await expect(page.getByText(/^Booked: Meena Joshi with Dr. Asha Mehta/)).toBeVisible();
 
@@ -83,7 +84,7 @@ test("a double booking is refused with a reason", async ({ page }) => {
   await page.getByRole("button", { name: "New appointment" }).click();
   await page.getByLabel("Patient name").fill("Someone Else");
   await page.getByLabel("Mobile number").fill("9819033333");
-  await page.getByLabel("Time", { exact: true }).fill("11:05");
+  await setTime(page, "Time", "11:05");
   await page.getByRole("button", { name: "Book appointment" }).click();
   await expect(page.getByText(/already has .* from 11:05 am to 11:20 am/)).toBeVisible();
 });
@@ -144,7 +145,7 @@ test("weekly hours: apply a pattern, see it described, save", async ({ page }) =
 test("weekly hours: overlapping sessions are explained and can't be saved", async ({ page }) => {
   await page.goto(`${SETUP}?tab=hours`);
   await pick(page, "Doctor", "Dr. Asha Mehta");
-  await page.getByLabel("Tuesday session 2 from").fill("12:00");
+  await setTime(page, "Tuesday session 2 from", "12:00");
   await expect(page.getByText("Tuesday: 10 am–1 pm and 12–8 pm overlap.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save hours" })).toBeDisabled();
   await page.getByRole("button", { name: "Discard changes" }).click();
@@ -155,13 +156,13 @@ test("weekly hours: a day can have only an evening session", async ({ page }) =>
   await page.goto(`${SETUP}?tab=hours`);
   await pick(page, "Doctor", "Dr. Asha Mehta");
   await page.getByRole("button", { name: "Remove Wednesday session 1" }).click();
-  await expect(page.getByLabel("Wednesday session 1 from")).toHaveValue("17:00");
+  await expectTime(page, "Wednesday session 1 from", "17:00");
   await expect(page.getByLabel("Wednesday session 2 from")).toHaveCount(0);
   await page.getByRole("button", { name: "Save hours" }).click();
   await expect(page.getByText("Hours saved for Dr. Asha Mehta")).toBeVisible();
   await page.reload();
   await pick(page, "Doctor", "Dr. Asha Mehta");
-  await expect(page.getByLabel("Wednesday session 1 from")).toHaveValue("17:00");
+  await expectTime(page, "Wednesday session 1 from", "17:00");
 });
 
 test("weekly hours: a closed day opens with any session, and days can be closed", async ({ page }) => {
@@ -172,8 +173,8 @@ test("weekly hours: a closed day opens with any session, and days can be closed"
   await expect(page.getByLabel("Thursday session 1 from")).toHaveCount(0);
   await page.getByRole("button", { name: "Add a session on Thursday" }).click();
   await page.getByRole("menuitem", { name: /Afternoon/ }).click();
-  await expect(page.getByLabel("Thursday session 1 from")).toHaveValue("14:00");
-  await expect(page.getByLabel("Thursday session 1 to")).toHaveValue("17:00");
+  await expectTime(page, "Thursday session 1 from", "14:00");
+  await expectTime(page, "Thursday session 1 to", "17:00");
   await page.getByRole("button", { name: "Discard changes" }).click();
 });
 
@@ -181,10 +182,10 @@ test("weekly hours: copy Monday to Monday–Saturday", async ({ page }) => {
   await page.goto(`${SETUP}?tab=hours`);
   await pick(page, "Doctor", "Dr. Asha Mehta");
   const sundayBefore = await page.getByLabel(/^Sunday session/).count();
-  await page.getByLabel("Monday session 1 from").fill("09:00");
+  await setTime(page, "Monday session 1 from", "09:00");
   await page.getByRole("button", { name: "More for Monday" }).click();
   await page.getByRole("menuitem", { name: "Copy Monday's hours to Monday to Saturday" }).click();
-  await expect(page.getByLabel("Saturday session 1 from")).toHaveValue("09:00");
+  await expectTime(page, "Saturday session 1 from", "09:00");
   await expect(page.getByLabel(/^Sunday session/)).toHaveCount(sundayBefore); // Sunday untouched
   await page.getByRole("button", { name: "Discard changes" }).click();
 });

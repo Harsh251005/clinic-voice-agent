@@ -130,7 +130,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </nav>
 
       <main className="mx-auto w-full max-w-6xl px-4 pt-6 pb-28 md:px-10 md:py-10">
-        <ProblemBanner open={problems.data?.open ?? []} onSeen={(id) => seen.mutate(id)} seenPending={seen.isPending} />
+        {/* Health lists every open problem itself (Open problems): the banner there said each one twice. */}
+        {pathname !== "/admin" && (
+          <ProblemBanner open={problems.data?.open ?? []} onSeen={(id) => seen.mutate(id)} seenPending={seen.isPending} />
+        )}
         {children}
       </main>
     </div>

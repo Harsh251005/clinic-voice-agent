@@ -1,6 +1,7 @@
 "use client";
 // The day on a phone: the grid doesn't fit, so one doctor at a time, as a
 // list in time order with the free times between bookings as tap targets.
+import Link from "next/link";
 import { useState } from "react";
 import { ChevronRight, PhoneCall, TriangleAlert } from "lucide-react";
 import type { Schemas } from "@/lib/api/client";
@@ -22,7 +23,7 @@ export function DayList({ clinic, data, today, onBook }: {
 }) {
   const [picked, setPicked] = useState<number | null>(null);
   if (!data.doctors.length) {
-    return <p className="rounded-xl border bg-card px-4 py-10 text-center text-sm text-muted-foreground">No doctors are taking bookings. Add one in Clinic settings.</p>;
+    return <p className="rounded-xl border bg-card px-4 py-10 text-center text-sm text-muted-foreground">No doctors are taking bookings. <Link href={`/clinics/${clinic.id}/setup?tab=doctors`} className="font-medium text-primary hover:underline">Add a doctor</Link> in Clinic settings.</p>;
   }
   const doctor = data.doctors.find((d) => d.id === picked) ?? data.doctors[0];
   const appts = data.appointments.filter((a) => a.doctor_id === doctor.id).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
