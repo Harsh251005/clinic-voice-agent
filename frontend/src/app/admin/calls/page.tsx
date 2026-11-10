@@ -112,7 +112,7 @@ function CallRows({ filters, beforeId, first, onMore }: {
                     <TriangleAlert className="size-3.5" aria-hidden />
                     {[c.error_count && `${c.error_count} vendor`, c.tool_failures && `${c.tool_failures} tool`].filter(Boolean).join(", ")}
                   </span>
-                ) : <span className="text-xs text-muted-foreground">None</span>}
+                ) : <span className="hidden text-xs text-muted-foreground md:inline">None</span>}
               </span>
               <ChevronRight className="hidden size-4 text-muted-foreground md:block" aria-hidden />
             </Link>

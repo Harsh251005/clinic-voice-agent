@@ -50,7 +50,7 @@ export function PhraseCard({ phrase, label, canRecord, speed, onEdit, onRecord, 
               <div className="mr-auto min-w-0 space-y-1">
                 {t.clinic_name && <p className="truncate text-sm font-medium">{t.clinic_name}</p>}
                 <Status take={t} />
-                {t.live_pace != null && Math.abs(t.live_pace - phrase.pace) > 0.05 && (
+                {t.recorded_at && t.live_pace != null && Math.abs(t.live_pace - phrase.pace) > 0.05 && (
                   <p className="text-xs text-muted-foreground">
                     Recorded at {phrase.pace.toFixed(2)}×, live voice at {t.live_pace.toFixed(2)}×: it may sound different from her replies.
                   </p>
