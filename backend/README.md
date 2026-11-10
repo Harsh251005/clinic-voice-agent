@@ -824,7 +824,21 @@ rather than silently ignored.
 
 ## Configuration
 
-Every setting is in `.env.example` with a comment. The ones worth knowing:
+**How the receptionist behaves now lives in the database, not `.env`**
+(Harsh, 2026-11-10; `clinic_agent/receptionist_settings.py`). Every clinic
+shares the rules text, the brain (`HINDI_LLM` and the model names), the
+hearing settings, the voice model, the turn-taking timings and whether the
+greeting can be talked over. Each clinic sets its own instructions,
+directions, speaker, live speed, pitch and maximum call length. A call reads
+them when it starts (`clinic_agent/call_settings.py`), so a change applies
+from the next call without a restart. The first
+`python -m clinic_agent.store.migrations` after this change copies those
+lines from your `.env` into the database once (a clinic's setting goes to
+every clinic) and lists them for you to delete. After that, the `.env`
+values in the table below for those settings are no longer read. The
+dashboard pages for them come next (plan `admin-configurable.md`).
+
+Every other setting is in `.env.example` with a comment. The ones worth knowing:
 
 | Setting | Default | Why you would change it |
 |---|---|---|

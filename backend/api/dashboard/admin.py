@@ -28,7 +28,8 @@ QUIET_AFTER = timedelta(days=3)  # an active clinic with no calls for this long 
 
 
 def dropped_before(request: Request, now: datetime) -> datetime:
-    return incidents.dropped_before(now, request.app.state.cfg.max_call_minutes)
+    with request.app.state.sessions() as s:
+        return incidents.dropped_before(now, repo.longest_call_minutes(s))
 
 
 def _summaries(s, calls, request: Request) -> list[schemas.CallSummary]:

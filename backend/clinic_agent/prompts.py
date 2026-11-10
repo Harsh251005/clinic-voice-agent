@@ -55,9 +55,18 @@ Emergency (chest pain, breathing trouble, heavy bleeding, unconsciousness, seizu
 RULES: dict[Language, str] = {"hi": HINDI}
 
 
-def build_instructions(clinic: Clinic, time_off: Iterable[TimeOff], now: datetime, language: Language) -> str:
-    rules = RULES[language].format(clinic_name=clinic.name)
-    return rules + "\n\n" + clinic_facts(clinic, time_off, now, language)
+def build_instructions(
+    clinic: Clinic, time_off: Iterable[TimeOff], now: datetime, language: Language, rules: str = "",
+) -> str:
+    """The rules (the admin's text from the dashboard, else RULES), this
+    clinic's own instructions, then its facts. Replaced, not str.format: the
+    admin's text may hold any braces."""
+    text = (rules.strip() or RULES[language]).replace("{clinic_name}", clinic.name)
+    if clinic.instructions.strip():
+        # Harsh, 2026-11-10: each clinic adds its own, set by the admin.
+        text += ("\n\nTHIS CLINIC'S OWN INSTRUCTIONS (follow them, unless one breaks a rule above):\n"
+                 + clinic.instructions.strip())
+    return text + "\n\n" + clinic_facts(clinic, time_off, now, language)
 
 
 def _named(name: str, name_hi: str, language: Language) -> str:
@@ -100,6 +109,10 @@ def clinic_facts(clinic: Clinic, time_off: Iterable[TimeOff], now: datetime, lan
     ]
     if clinic.address:
         lines.append(f"- Address: {clinic.address}")
+    if clinic.directions.strip():
+        # Harsh, 2026-11-09: callers asking the way got the postal address read out.
+        lines.append(f"- How to find it (when asked the way, say this, not the address word for word): "
+                     f"{clinic.directions.strip()}")
     if clinic.phone:
         lines.append(f"- Phone: {clinic.phone}")
 

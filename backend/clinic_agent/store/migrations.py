@@ -187,6 +187,4 @@ if __name__ == "__main__":
     except SchemaOutdated as err:
         raise SystemExit(f"migration error: {err}") from None
     print(f"{url.split('@')[-1]}: schema at {head()}")
-    # copy_from_env(url) is switched on in the same change as calls read the
-    # database (plan admin-configurable.md slice 2): before that, deleting the
-    # lines it names would change how calls sound.
+    copy_from_env(url)

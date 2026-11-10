@@ -26,7 +26,7 @@ from clinic_agent.agent import ClinicAgent
 from clinic_agent.call_limit import end_after
 from clinic_agent.call_record import CallRecorder, stack_of
 from clinic_agent.config import ConfigError, load_settings
-from clinic_agent.context import clinic_now, load_clinic, local_clinic
+from clinic_agent.context import clinic_now, load_clinic, local_clinic, shared_settings
 from clinic_agent.dispatch import AGENT_NAME, LANGUAGES, BadDispatch, CallFor, call_from
 from clinic_agent.lines import NAMES, available, line_for
 from clinic_agent.prompts import build_instructions
@@ -94,7 +94,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     try:
         call = call_from(ctx.job.metadata, fallback=LOCAL_CALL)
-        clinic, time_off = await asyncio.to_thread(load_clinic, cfg, call.clinic_id)
+        clinic, time_off, settings = await asyncio.to_thread(load_clinic, cfg, call.clinic_id)
     except (BadDispatch, NotFound) as err:
         # Never answer on a guess: a wrong clinic means wrong doctors and
         # wrong bookings; a wrong language means a caller who can't follow.
@@ -107,6 +107,7 @@ async def entrypoint(ctx: JobContext) -> None:
         logger.warning("refusing call in room %s: clinic %s is paused", ctx.room.name, clinic.id)
         ctx.shutdown(reason="clinic paused")
         return
+    cfg = settings.cfg  # the dashboard's settings from here on (call_settings.py)
     line = line_for(cfg, call.language)
     try:
         session = build_session(cfg, line, text_only=TEXT_ONLY)
@@ -117,7 +118,7 @@ async def entrypoint(ctx: JobContext) -> None:
         ctx.shutdown(reason=f"line off: {call.language}")
         return
     logger.info("clinic %s: %s, %s line%s", clinic.id, clinic.name, NAMES[call.language], " (staff test call)" if call.test else "")
-    instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone), call.language)
+    instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone), call.language, settings.rules)
     sessions = sessions_for(cfg.database_url)
     stack = stack_of(session, line, TEXT_ONLY)
     record = CallRecorder(sessions, clinic.id, ctx.room.name, stack, call.language, call.test, line)
@@ -138,7 +139,8 @@ async def entrypoint(ctx: JobContext) -> None:
     # record=False: no audio, transcript or trace goes to LiveKit Cloud, whatever
     # the project's setting says. Our own record (above) keeps the transcript
     # as text only; audio is never stored anywhere.
-    await session.start(agent=ClinicAgent(instructions, tools, phrases, call.language), room=ctx.room, record=False)
+    agent = ClinicAgent(instructions, tools, phrases, call.language, settings.greeting_interruptible)
+    await session.start(agent=agent, room=ctx.room, record=False)
 
     limit = asyncio.create_task(end_after(
         session, ctx, cfg.max_call_minutes * 60, phrases.one("goodbye_time_limit", call.language),
@@ -164,7 +166,8 @@ if __name__ == "__main__":
         requested = _take_clinic_flag(sys.argv)
         _refuse_language_flag(sys.argv)
         cfg = load_settings()
-        lines_off = {lang: why for lang, why in available(cfg, TEXT_ONLY).items() if why}
+        sessions_for(cfg.database_url)  # an old schema stops here, before reading the settings
+        lines_off = {lang: why for lang, why in available(shared_settings(cfg).cfg, TEXT_ONLY).items() if why}
         ready = [lang for lang in LANGUAGES if lang not in lines_off]
         if not ready:
             raise ConfigError("no language line can take calls: " + "; ".join(

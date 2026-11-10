@@ -1132,6 +1132,11 @@ def update_clinic_receptionist(s: Session, clinic_id: int, **changes) -> Clinic:
     return clinic
 
 
+def longest_call_minutes(s: Session) -> float:
+    """The longest call any clinic allows: past it, an unfinished call was dropped."""
+    return s.scalar(select(func.max(Clinic.max_call_minutes))) or rs.field(rs.CLINIC, "max_call_minutes").default
+
+
 def copy_settings_from_env(s: Session, env: dict[str, str]) -> list[str]:
     """Once ever: the old .env lines' values (`env`, non-blank ones) into the
     database, a clinic's setting into every clinic. Returns the lines copied,

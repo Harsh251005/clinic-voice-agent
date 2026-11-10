@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from clinic_agent.call_settings import CallSettings, merge
 from clinic_agent.config import Settings
 from clinic_agent.store import repo
 from clinic_agent.store.db import sessions_for
@@ -16,8 +17,9 @@ def clinic_now(timezone: str) -> datetime:
     return datetime.now(ZoneInfo(timezone)).replace(tzinfo=None)
 
 
-def load_clinic(cfg: Settings, clinic_id: int) -> tuple[Clinic, list[TimeOff]]:
-    """The clinic and its leave/holidays inside the booking window.
+def load_clinic(cfg: Settings, clinic_id: int) -> tuple[Clinic, list[TimeOff], CallSettings]:
+    """The clinic, its leave/holidays inside the booking window, and the
+    call's settings (the dashboard's, over .env: call_settings.py).
 
     Blocking (database I/O): call it with asyncio.to_thread from a call.
     Raises repo.NotFound if the clinic is not in the database.
@@ -28,7 +30,15 @@ def load_clinic(cfg: Settings, clinic_id: int) -> tuple[Clinic, list[TimeOff]]:
         time_off = repo.time_off_overlapping(
             s, clinic.id, today, today + timedelta(days=clinic.booking_window_days)
         )
-    return clinic, time_off
+        settings = merge(cfg, repo.system_settings(s), clinic)
+    return clinic, time_off, settings
+
+
+def shared_settings(cfg: Settings) -> CallSettings:
+    """What every clinic shares, over .env (no clinic's own): the worker's
+    start-up check of the line and the dashboard's recording voice."""
+    with sessions_for(cfg.database_url)() as s:
+        return merge(cfg, repo.system_settings(s), None)
 
 
 def local_clinic(cfg: Settings, requested: int | None) -> int:

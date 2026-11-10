@@ -99,7 +99,7 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
             logger.exception("could not read the routes with open server errors")
         tasks = [
             asyncio.create_task(_purge_forever(sessions)),
-            asyncio.create_task(_watch_forever(app, cfg.max_call_minutes)),
+            asyncio.create_task(_watch_forever(app)),
         ]
         yield
         for task in tasks:
@@ -145,7 +145,7 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
             # A saved change may have fixed a problem (a price added, hours
             # set, a clinic resumed): check now, so it's gone by the time the
             # dashboard asks again, not half a minute later.
-            await check_problems(app, cfg.max_call_minutes)
+            await check_problems(app)
         route = f"{request.method} {getattr(request.scope.get('route'), 'path', '?')}"
         if response.status_code < 500 and route in app.state.failing_routes:
             app.state.failing_routes.discard(route)
@@ -274,26 +274,26 @@ async def _purge_forever(sessions: Sessions) -> None:
 CHANGES = ("POST", "PUT", "PATCH", "DELETE")
 
 
-async def check_problems(app: FastAPI, max_call_minutes: int) -> None:
+async def check_problems(app: FastAPI) -> None:
     """Re-check every problem condition (incidents.sync), one check at a time.
     A failed check is logged and never fails the request that asked for it."""
     async with app.state.sync_lock:
         try:
-            await asyncio.to_thread(_sync, app.state.sessions, max_call_minutes)
+            await asyncio.to_thread(_sync, app.state.sessions)
         except Exception:  # noqa: BLE001 - the next check tries again
             logger.exception("checking for problems failed")
 
 
-async def _watch_forever(app: FastAPI, max_call_minutes: int) -> None:
+async def _watch_forever(app: FastAPI) -> None:
     """Re-check every problem condition every half minute."""
     while True:
-        await check_problems(app, max_call_minutes)
+        await check_problems(app)
         await asyncio.sleep(WATCH_EVERY)
 
 
-def _sync(sessions: Sessions, max_call_minutes: int) -> None:
+def _sync(sessions: Sessions) -> None:
     with sessions() as s:
-        incidents.sync(s, utc_now(), max_call_minutes=max_call_minutes)
+        incidents.sync(s, utc_now())
 
 
 def _failing_routes(sessions: Sessions) -> set[str]:

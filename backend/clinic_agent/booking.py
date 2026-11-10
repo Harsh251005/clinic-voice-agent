@@ -340,7 +340,7 @@ def free_times(s: Session, clinic_id: int, doctor_id: int, day: date, now: datet
     booked for right now."""
     doctor = repo.in_clinic(s, Doctor, doctor_id, clinic_id)
     time_off = repo.time_off_overlapping(s, clinic_id, day, day)
-    return _day_slots(s, doctor, day, time_off, now, None, lead_minutes=0)
+    return _day_slots(s, doctor, day, time_off, now, lead_minutes=0)
 
 
 class DayPlan(NamedTuple):
@@ -359,7 +359,7 @@ def day_plan(s: Session, doctor: Doctor, day: date, time_off: list[TimeOff], now
             off = f"{label}: {t.reason}" if t.reason else label
             if t.doctor_id is None:
                 break  # the clinic closing says more than one doctor's leave
-    free = [] if off or not doctor.active else _day_slots(s, doctor, day, time_off, now, None, lead_minutes=0)
+    free = [] if off or not doctor.active else _day_slots(s, doctor, day, time_off, now, lead_minutes=0)
     return DayPlan(sittings, off, free)
 
 

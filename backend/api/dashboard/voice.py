@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from api.dashboard import convert, costs, schemas
 from api.dashboard.access import admin, staff_errors
 from clinic_agent import incidents, voice_clips
+from clinic_agent.call_settings import merge
 from clinic_agent.config import ConfigError
 from clinic_agent.lines import line_for
 from clinic_agent.providers import build_tts, hindi, identity
@@ -36,8 +37,17 @@ LANGUAGE = "hi"  # the one line (docs/decisions.md #13)
 
 def _voice(request: Request, pace: float | None = None):
     """(the TTS calls use now, its identity, why there is none). With `pace`,
-    the same voice at that speed: how a phrase is recorded (Phrase.pace)."""
-    cfg = request.app.state.cfg
+    the same voice at that speed: how a phrase is recorded (Phrase.pace).
+    The voice is the dashboard's (call_settings.py): the shared voice model
+    and the clinics' speaker and pitch. Until each clinic's voice records
+    its own takes (plan admin-configurable.md slice 4b), clinics with
+    different voices can't record here."""
+    with request.app.state.sessions() as s:
+        system, clinics = repo.system_settings(s), repo.list_clinics(s)
+    if len({(c.tts_speaker, c.tts_pitch) for c in clinics}) > 1:
+        return None, None, ("Clinics use different voices, and recording each clinic's voice isn't built yet. "
+                            "Give them the same speaker and pitch to record here.")
+    cfg = merge(request.app.state.cfg, system, clinics[0] if clinics else None).cfg
     if pace is not None:
         cfg = replace(cfg, sarvam_tts_pace=pace)
     try:
