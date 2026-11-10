@@ -34,3 +34,27 @@ def test_a_change_saves_only_what_was_sent_and_is_checked(world):  # noqa: F811
     assert c.put("/api/admin/receptionist", json={"vad_min_silence": 9}).status_code == 422
     back = c.put("/api/admin/receptionist", json={"rules": ""}).json()  # reset to the default
     assert back["rules"] == ""
+
+
+# ---------- a clinic's own (slice 4) ----------
+
+@pytest.mark.parametrize("method", ["GET", "PUT"])
+def test_a_clinics_receptionist_is_admins_only_even_for_its_own_staff(world, method):  # noqa: F811
+    path = f"/api/admin/clinics/{world['cure']}/receptionist"
+    for client in (client_as("reception@cure.in"), client_as()):
+        assert client.request(method, path, json={"directions": "x"}).status_code in (401, 403)
+
+
+def test_a_clinics_receptionist_is_read_changed_and_checked(world):  # noqa: F811
+    c = client_as(ADMIN, admin=True)
+    path = f"/api/admin/clinics/{world['cure']}/receptionist"
+    page = c.get(path).json()
+    assert page["tts_pace"] == 1.0 and page["tts_pitch"] is None and page["speaker_default"] == "suhani"
+    page = c.put(path, json={"instructions": "Parking is free.", "tts_pace": 0.95, "tts_pitch": 0.1}).json()
+    assert (page["instructions"], page["tts_pace"], page["tts_pitch"]) == ("Parking is free.", 0.95, 0.1)
+    assert c.put(path, json={"tts_pitch": None}).json()["tts_pitch"] is None  # back to the voice's own
+    assert c.put(path, json={"tts_pace": 3}).status_code == 422
+    assert c.put(path, json={"instructions": "word " * 151}).status_code == 422
+    assert c.get("/api/admin/clinics/99999/receptionist").status_code == 404
+    other = c.get(f"/api/admin/clinics/{world['demo']}/receptionist").json()
+    assert other["instructions"] == ""  # each clinic its own

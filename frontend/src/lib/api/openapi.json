@@ -1234,6 +1234,160 @@
         "title": "ClinicDetails",
         "type": "object"
       },
+      "ClinicReceptionistIn": {
+        "description": "Any of the fields; only those sent change. tts_pitch null = the voice's own.",
+        "properties": {
+          "directions": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directions"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions"
+          },
+          "max_call_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Call Minutes"
+          },
+          "tts_pace": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Pace"
+          },
+          "tts_pitch": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Pitch"
+          },
+          "tts_speaker": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Speaker"
+          }
+        },
+        "title": "ClinicReceptionistIn",
+        "type": "object"
+      },
+      "ClinicReceptionistOut": {
+        "properties": {
+          "clinic_id": {
+            "title": "Clinic Id",
+            "type": "integer"
+          },
+          "clinic_name": {
+            "title": "Clinic Name",
+            "type": "string"
+          },
+          "directions": {
+            "title": "Directions",
+            "type": "string"
+          },
+          "directions_max_chars": {
+            "title": "Directions Max Chars",
+            "type": "integer"
+          },
+          "instructions": {
+            "title": "Instructions",
+            "type": "string"
+          },
+          "instructions_max_words": {
+            "title": "Instructions Max Words",
+            "type": "integer"
+          },
+          "limits": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Limit"
+            },
+            "title": "Limits",
+            "type": "object"
+          },
+          "max_call_minutes": {
+            "title": "Max Call Minutes",
+            "type": "number"
+          },
+          "speaker_default": {
+            "title": "Speaker Default",
+            "type": "string"
+          },
+          "tts_pace": {
+            "title": "Tts Pace",
+            "type": "number"
+          },
+          "tts_pitch": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Pitch"
+          },
+          "tts_speaker": {
+            "title": "Tts Speaker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clinic_id",
+          "clinic_name",
+          "instructions",
+          "directions",
+          "tts_speaker",
+          "tts_pace",
+          "tts_pitch",
+          "max_call_minutes",
+          "speaker_default",
+          "instructions_max_words",
+          "directions_max_chars",
+          "limits"
+        ],
+        "title": "ClinicReceptionistOut",
+        "type": "object"
+      },
       "ClinicSummary": {
         "properties": {
           "id": {
@@ -3577,6 +3731,17 @@
             ],
             "title": "Key"
           },
+          "live_pace": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Pace"
+          },
           "recorded_at": {
             "anyOf": [
               {
@@ -3600,7 +3765,8 @@
           "spoken",
           "key",
           "recorded_at",
-          "duration_s"
+          "duration_s",
+          "live_pace"
         ],
         "title": "Take",
         "type": "object"
@@ -4155,6 +4321,29 @@
         "title": "VoiceClinic",
         "type": "object"
       },
+      "VoiceImpact": {
+        "properties": {
+          "lines": {
+            "title": "Lines",
+            "type": "integer"
+          },
+          "recorded_after": {
+            "title": "Recorded After",
+            "type": "integer"
+          },
+          "recorded_now": {
+            "title": "Recorded Now",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lines",
+          "recorded_now",
+          "recorded_after"
+        ],
+        "title": "VoiceImpact",
+        "type": "object"
+      },
       "VoiceOut": {
         "description": "The voice calls use now: recordings are kept per voice.",
         "properties": {
@@ -4260,11 +4449,16 @@
           "voice_problem": {
             "title": "Voice Problem",
             "type": "string"
+          },
+          "voices_differ": {
+            "title": "Voices Differ",
+            "type": "boolean"
           }
         },
         "required": [
           "voice",
           "voice_problem",
+          "voices_differ",
           "rupees_per_1000_chars",
           "max_chars",
           "pace_min",
@@ -4700,6 +4894,93 @@
           }
         },
         "summary": "Set Active"
+      }
+    },
+    "/api/admin/clinics/{clinic_id}/receptionist": {
+      "get": {
+        "operationId": "read_clinic_api_admin_clinics__clinic_id__receptionist_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicReceptionistOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Clinic"
+      },
+      "put": {
+        "description": "Only the fields sent change; each is checked (422 with the reason).",
+        "operationId": "save_clinic_api_admin_clinics__clinic_id__receptionist_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicReceptionistIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicReceptionistOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Clinic"
       }
     },
     "/api/admin/cost-settings": {
@@ -5823,6 +6104,72 @@
         "summary": "Play"
       }
     },
+    "/api/admin/voice/impact": {
+      "get": {
+        "description": "Before a clinic's voice is changed (its Receptionist tab): how many of\nits lines are recorded in its voice now, and how many would be in the one\ntried out. The others are said live until recorded.",
+        "operationId": "impact_api_admin_voice_impact_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "speaker",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Speaker",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pitch",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pitch"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceImpact"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Impact"
+      }
+    },
     "/api/admin/voice/phrases/{phrase_id}": {
       "put": {
         "description": "New words for a phrase. Its old recording stays (for going back) but no\nlonger plays: the phrase is said live until it is recorded again.",
@@ -5925,7 +6272,7 @@
     },
     "/api/admin/voice/record": {
       "post": {
-        "description": "Record the asked takes in the current voice, one after another (a take\nalready recorded is recorded again: a new take). Stops at the first\nfailure: a vendor out of credits would fail them all.",
+        "description": "Record the asked takes, each in the voice of the clinics it serves and\nat its phrase's own speed, one after another (a take already recorded is\nrecorded again: a new take). Stops at the first failure: a vendor out of\ncredits would fail them all.",
         "operationId": "record_api_admin_voice_record_post",
         "requestBody": {
           "content": {

@@ -25,15 +25,17 @@ OK_GREETING = "नमस्ते जी, {clinic} में स्वागत 
 @pytest.fixture
 def fake_voice(monkeypatch):
     spoken = FakeVoice()
-    paces = []  # the speed each voice was built at (a phrase records at its own)
+    paces, speakers = [], []  # each voice as built: its speed (a phrase records at its own) and speaker
 
     def build(cfg, vendor):
         paces.append(cfg.sarvam_tts_pace)
+        speakers.append(cfg.sarvam_tts_speaker)
         return spoken
 
     monkeypatch.setattr(voice_api, "build_tts", build)
-    monkeypatch.setattr(voice_api, "identity", lambda tts: {**VOICE, "pace": paces[-1] or VOICE["pace"]})
-    spoken.paces = paces
+    monkeypatch.setattr(voice_api, "identity", lambda tts: {
+        **VOICE, "pace": paces[-1] or VOICE["pace"], "voice": speakers[-1] or VOICE["voice"]})
+    spoken.paces, spoken.speakers = paces, speakers
     return spoken
 
 
@@ -49,6 +51,7 @@ ROUTES = [
     ("GET", "/api/admin/voice"), ("PUT", "/api/admin/voice/phrases/1"),
     ("PUT", "/api/admin/voice/phrases/1/pace"), ("PUT", "/api/admin/voice/clinics/{cure}/greeting"), ("DELETE", "/api/admin/voice/clinics/{cure}/greeting"),
     ("POST", "/api/admin/voice/translate"), ("POST", "/api/admin/voice/record"), ("GET", "/api/admin/voice/clips/abc.wav"),
+    ("GET", "/api/admin/voice/impact?clinic_id={cure}"),
 ]
 
 
@@ -184,8 +187,38 @@ def test_a_phrase_records_at_its_own_speed(world, fake_voice):  # noqa: F811
     page = c.put(f"/api/admin/voice/phrases/{filler['id']}/pace", json={"pace": 1.15}).json()
     assert _phrase(page, "filler")["pace"] == 1.15 and page["pace_min"] == 0.5 and page["pace_max"] == 2.0
     r = c.post("/api/admin/voice/record", json={"takes": [{"phrase_id": filler["id"]}]}).json()
-    assert r["recorded"] == 1 and fake_voice.paces[-1] == 1.15
+    assert r["recorded"] == 1 and 1.15 in fake_voice.paces  # recorded at its own speed
     assert _phrase(r["page"], "filler")["takes"][0]["recorded_at"]
     c.put(f"/api/admin/voice/phrases/{filler['id']}/pace", json={"pace": 1.0})  # another speed: not recorded yet
     assert _phrase(c.get("/api/admin/voice").json(), "filler")["takes"][0]["recorded_at"] is None
     assert c.put(f"/api/admin/voice/phrases/{filler['id']}/pace", json={"pace": 3}).status_code == 422
+
+
+def test_clinics_with_different_voices_record_shared_lines_once_per_voice(world, fake_voice):  # noqa: F811
+    # Harsh, 2026-11-10: each clinic may have its own voice; a line recorded in
+    # one voice never plays in another.
+    c = _admin()
+    with sessions_for(load_settings().database_url)() as s:
+        repo.update_clinic_receptionist(s, world["cure"], tts_speaker="aparna")
+    page = c.get("/api/admin/voice").json()
+    assert page["voices_differ"] is True
+    filler = _phrase(page, "filler")
+    assert len(filler["takes"]) == 2 and {t["clinic_id"] for t in filler["takes"]} == {world["cure"], world["demo"]}
+    cure_take = next(t for t in filler["takes"] if t["clinic_id"] == world["cure"])
+    r = c.post("/api/admin/voice/record", json={"takes": [{"phrase_id": filler["id"], "clinic_id": world["cure"]}]}).json()
+    assert r["recorded"] == 1 and "aparna" in fake_voice.speakers
+    takes = {t["clinic_id"]: t for t in _phrase(r["page"], "filler")["takes"]}
+    assert takes[world["cure"]]["recorded_at"] and takes[world["demo"]]["recorded_at"] is None
+    assert cure_take["key"] != takes[world["demo"]]["key"]
+
+
+def test_the_impact_of_a_new_voice_is_told_before_saving(world, fake_voice):  # noqa: F811
+    c = _admin()
+    page = c.get("/api/admin/voice").json()
+    filler = _phrase(page, "filler")
+    c.post("/api/admin/voice/record", json={"takes": [{"phrase_id": filler["id"]}]})
+    same = c.get(f"/api/admin/voice/impact?clinic_id={world['cure']}").json()
+    assert same["recorded_now"] == 1 and same["recorded_after"] == 1  # the same voice
+    other = c.get(f"/api/admin/voice/impact?clinic_id={world['cure']}&speaker=aparna").json()
+    assert other["recorded_now"] == 1 and other["recorded_after"] == 0 and other["lines"] >= 5
+    assert c.get("/api/admin/voice/impact?clinic_id=99999").status_code == 404

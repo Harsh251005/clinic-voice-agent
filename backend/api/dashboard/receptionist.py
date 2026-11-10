@@ -13,10 +13,10 @@ from api.dashboard import schemas
 from api.dashboard.access import admin, staff_errors
 from clinic_agent import receptionist_settings as rs
 from clinic_agent.prompts import RULES
-from clinic_agent.providers.defaults import BLANK_MEANS
+from clinic_agent.providers.defaults import BLANK_MEANS, SARVAM_TTS_SPEAKER
 from clinic_agent.store import repo
 
-router = APIRouter(prefix="/api/admin/receptionist", dependencies=[Depends(admin)])
+router = APIRouter(dependencies=[Depends(admin)])
 
 LANGUAGE = "hi"  # the one line
 
@@ -34,15 +34,41 @@ def _out(row) -> schemas.SystemSettingsOut:
     )
 
 
-@router.get("", response_model=schemas.SystemSettingsOut)
+@router.get("/api/admin/receptionist", response_model=schemas.SystemSettingsOut)
 def read(request: Request):
     with request.app.state.sessions() as s:
         return _out(repo.system_settings(s))
 
 
-@router.put("", response_model=schemas.SystemSettingsOut)
+@router.put("/api/admin/receptionist", response_model=schemas.SystemSettingsOut)
 def save(body: schemas.SystemSettingsIn, request: Request):
     """Only the fields sent change; each is checked (422 with the reason)."""
     changes = body.model_dump(exclude_unset=True)
     with staff_errors(), request.app.state.sessions() as s:
         return _out(repo.update_system_settings(s, **changes))
+
+
+# ---------- each clinic's own (receptionist_settings.CLINIC), admins only ----------
+
+def _clinic_out(clinic) -> schemas.ClinicReceptionistOut:
+    return schemas.ClinicReceptionistOut(
+        clinic_id=clinic.id, clinic_name=clinic.name,
+        **{f.name: getattr(clinic, f.name) for f in rs.CLINIC},
+        speaker_default=SARVAM_TTS_SPEAKER,
+        instructions_max_words=rs.INSTRUCTIONS_MAX_WORDS, directions_max_chars=rs.DIRECTIONS_MAX_CHARS,
+        limits={f.name: schemas.Limit(low=f.low, high=f.high, default=f.default)
+                for f in rs.CLINIC if f.kind == "number"},
+    )
+
+
+@router.get("/api/admin/clinics/{clinic_id}/receptionist", response_model=schemas.ClinicReceptionistOut)
+def read_clinic(clinic_id: int, request: Request):
+    with staff_errors(), request.app.state.sessions() as s:
+        return _clinic_out(repo.get_clinic(s, clinic_id))
+
+
+@router.put("/api/admin/clinics/{clinic_id}/receptionist", response_model=schemas.ClinicReceptionistOut)
+def save_clinic(clinic_id: int, body: schemas.ClinicReceptionistIn, request: Request):
+    """Only the fields sent change; each is checked (422 with the reason)."""
+    with staff_errors(), request.app.state.sessions() as s:
+        return _clinic_out(repo.update_clinic_receptionist(s, clinic_id, **body.model_dump(exclude_unset=True)))

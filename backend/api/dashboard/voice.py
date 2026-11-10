@@ -23,7 +23,7 @@ from api.dashboard import convert, costs, schemas
 from api.dashboard.access import admin, staff_errors
 from clinic_agent import incidents, voice_clips
 from clinic_agent.call_settings import merge
-from clinic_agent.config import ConfigError
+from clinic_agent.config import ConfigError, Settings
 from clinic_agent.lines import line_for
 from clinic_agent.providers import build_tts, hindi, identity
 from clinic_agent.store import repo
@@ -35,19 +35,24 @@ router = APIRouter(prefix="/api/admin/voice", dependencies=[Depends(admin)])
 LANGUAGE = "hi"  # the one line (docs/decisions.md #13)
 
 
-def _voice(request: Request, pace: float | None = None):
-    """(the TTS calls use now, its identity, why there is none). With `pace`,
-    the same voice at that speed: how a phrase is recorded (Phrase.pace).
-    The voice is the dashboard's (call_settings.py): the shared voice model
-    and the clinics' speaker and pitch. Until each clinic's voice records
-    its own takes (plan admin-configurable.md slice 4b), clinics with
-    different voices can't record here."""
+_KEEP = object()  # "this clinic's own" for a speaker or pitch not being tried out
+
+
+def _settings(request: Request):
     with request.app.state.sessions() as s:
-        system, clinics = repo.system_settings(s), repo.list_clinics(s)
-    if len({(c.tts_speaker, c.tts_pitch) for c in clinics}) > 1:
-        return None, None, ("Clinics use different voices, and recording each clinic's voice isn't built yet. "
-                            "Give them the same speaker and pitch to record here.")
-    cfg = merge(request.app.state.cfg, system, clinics[0] if clinics else None).cfg
+        return repo.system_settings(s), repo.list_clinics(s)
+
+
+def clinic_voice(base: Settings, system, clinic, pace: float | None = None, speaker=_KEEP, pitch=_KEEP):
+    """(TTS, its identity, why there is none) for `clinic`'s calls: the shared
+    voice model with this clinic's speaker and pitch (call_settings.py). With
+    `pace`, at that speed: how a phrase is recorded (Phrase.pace). `speaker`
+    and `pitch` try out other values (the clinic tab's warning before a save)."""
+    cfg = merge(base, system, clinic).cfg
+    if speaker is not _KEEP:
+        cfg = replace(cfg, sarvam_tts_speaker=speaker.strip() or None)
+    if pitch is not _KEEP:
+        cfg = replace(cfg, sarvam_tts_pitch=pitch)
     if pace is not None:
         cfg = replace(cfg, sarvam_tts_pace=pace)
     try:
@@ -57,41 +62,72 @@ def _voice(request: Request, pace: float | None = None):
         return None, None, f"No voice to record with: {err}"
 
 
-def _takes(phrase, clinics, own: set[int], voice: dict | None) -> list[tuple[int | None, str, str]]:
-    """(clinic id, clinic name, spoken words) for each way calls say `phrase`."""
-    if phrase.kind != "greeting":
-        return [(None, "", phrase.text)]
-    if phrase.clinic_id is not None:
-        clinic = clinics[phrase.clinic_id]
-        return [(clinic.id, clinic.name, voice_clips.spoken(phrase.text, clinic))]
-    return [(c.id, c.name, voice_clips.spoken(phrase.text, c)) for c in clinics.values() if c.id not in own]
+def _voices(request: Request, system, clinics) -> tuple[dict[int, dict | None], str]:
+    """Each clinic's voice identity (None without a voice), and why there is none."""
+    out, problem = {}, ""
+    for c in clinics:
+        _, voice, why = clinic_voice(request.app.state.cfg, system, c)
+        out[c.id] = voice
+        problem = problem or why
+    return out, problem
 
 
-def _page(s, request: Request, voice: dict | None, problem: str) -> schemas.VoicePage:
+def _sound(voice: dict | None):
+    """What makes two clinics' voices the same for recording (speed aside: a
+    phrase records at its own)."""
+    return tuple(sorted((k, v) for k, v in voice.items() if k != "pace")) if voice else None
+
+
+def _takes(phrase, clinics, own: set[int], voices: dict[int, dict | None]) -> list[tuple[int | None, str, str, list]]:
+    """(clinic id, clinic names, spoken words, the clinics it serves) for each
+    way calls say `phrase`: the shared greeting once per clinic; any other
+    phrase once per voice (Harsh, 2026-11-10: each clinic may have its own)."""
+    if phrase.kind == "greeting":
+        if phrase.clinic_id is not None:
+            clinic = clinics[phrase.clinic_id]
+            return [(clinic.id, clinic.name, voice_clips.spoken(phrase.text, clinic), [clinic])]
+        return [(c.id, c.name, voice_clips.spoken(phrase.text, c), [c]) for c in clinics.values() if c.id not in own]
+    groups: dict = {}
+    for c in clinics.values():
+        groups.setdefault(_sound(voices.get(c.id)), []).append(c)
+    if len(groups) <= 1:
+        return [(None, "", phrase.text, list(clinics.values()))]
+    return [(served[0].id, ", ".join(c.name for c in served), phrase.text, served) for served in groups.values()]
+
+
+def _page(s, request: Request, voices: dict[int, dict | None], problem: str) -> schemas.VoicePage:
     clinics = {c.id: c for c in repo.list_clinics(s)}
     phrases = [p for p in repo.list_phrases(s) if p.language == LANGUAGE]
     own = {p.clinic_id for p in phrases if p.clinic_id is not None}
-    takes = {p.id: _takes(p, clinics, own, voice) for p in phrases}
-    keys = {(p.id, t[2]): voice_clips.clip_key(voice_clips.at_pace(voice, p.pace), t[2])
-            for p in phrases for t in takes[p.id]} if voice else {}
-    clips = repo.clip_dates(s, keys.values())
+    takes = {p.id: _takes(p, clinics, own, voices) for p in phrases}
+
+    def key(phrase, served, words):
+        voice = voices.get(served[0].id) if served else None
+        return voice_clips.clip_key(voice_clips.at_pace(voice, phrase.pace), words) if voice else None
+
+    keys = {(p.id, t[0]): key(p, t[3], t[2]) for p in phrases for t in takes[p.id]}
+    clips = repo.clip_dates(s, [k for k in keys.values() if k])
     out = []
     for p in phrases:
         listed = []
-        for clinic_id, name, words in takes[p.id]:
-            key = keys.get((p.id, words))
-            clip = clips.get(key or "")
+        for clinic_id, name, words, served in takes[p.id]:
+            k = keys.get((p.id, clinic_id))
+            clip = clips.get(k or "")
             listed.append(schemas.Take(
-                clinic_id=clinic_id, clinic_name=name, spoken=words, key=key,
-                recorded_at=convert.utc(clip.recorded_at) if clip else None, duration_s=clip.duration_s if clip else None))
+                clinic_id=clinic_id, clinic_name=name, spoken=words, key=k,
+                recorded_at=convert.utc(clip.recorded_at) if clip else None, duration_s=clip.duration_s if clip else None,
+                live_pace=served[0].tts_pace if served else None))
         out.append(schemas.PhraseOut(
             id=p.id, kind=p.kind, language=p.language, slot=p.slot, clinic_id=p.clinic_id,
             clinic_name=clinics[p.clinic_id].name if p.clinic_id else "", source=p.source, text=p.text,
             pace=p.pace, takes=listed))
+    first = next((v for v in voices.values() if v), None)
     return schemas.VoicePage(
-        voice=schemas.VoiceOut(vendor=voice["vendor"], model=voice["model"], voice=voice["voice"], pace=voice["pace"],
-                               pitch=voice["pitch"], sample_rate=voice["sample_rate"]) if voice else None,
-        voice_problem=problem, rupees_per_1000_chars=_price(s, voice), max_chars=repo.MAX_PHRASE_CHARS,
+        voice=schemas.VoiceOut(vendor=first["vendor"], model=first["model"], voice=first["voice"], pace=first["pace"],
+                               pitch=first["pitch"], sample_rate=first["sample_rate"]) if first else None,
+        voice_problem="" if first else (problem or "No clinics yet."),
+        voices_differ=len({_sound(v) for v in voices.values()}) > 1,
+        rupees_per_1000_chars=_price(s, first), max_chars=repo.MAX_PHRASE_CHARS,
         pace_min=repo.PACE_RANGE[0], pace_max=repo.PACE_RANGE[1], phrases=out,
         clinics=[schemas.VoiceClinic(id=c.id, name=c.name, spoken_name=voice_clips.spoken_name(c), own_greeting=c.id in own)
                  for c in clinics.values()],
@@ -107,9 +143,10 @@ def _price(s, voice: dict | None) -> float | None:
 
 
 def page_now(request: Request) -> schemas.VoicePage:
-    _, voice, problem = _voice(request)
+    system, clinics = _settings(request)
+    voices, problem = _voices(request, system, clinics)
     with request.app.state.sessions() as s:
-        return _page(s, request, voice, problem)
+        return _page(s, request, voices, problem)
 
 
 @router.get("", response_model=schemas.VoicePage)
@@ -182,30 +219,34 @@ def translate(body: schemas.TranslateIn, request: Request):
 
 @router.post("/record", response_model=schemas.RecordOut)
 async def record(body: schemas.RecordIn, request: Request):
-    """Record the asked takes in the current voice, one after another (a take
-    already recorded is recorded again: a new take). Stops at the first
-    failure: a vendor out of credits would fail them all."""
-    tts, voice, problem = _voice(request)
-    if tts is None:
-        raise HTTPException(422, problem)
+    """Record the asked takes, each in the voice of the clinics it serves and
+    at its phrase's own speed, one after another (a take already recorded is
+    recorded again: a new take). Stops at the first failure: a vendor out of
+    credits would fail them all."""
+    system, clinics = await asyncio.to_thread(_settings, request)
+    voices, problem = _voices(request, system, clinics)
+    if not any(voices.values()):
+        raise HTTPException(422, problem or "No clinics to record for.")
     sessions = request.app.state.sessions
+    by_id = {c.id: c for c in clinics}
 
     def current() -> schemas.VoicePage:
         with sessions() as s:
-            return _page(s, request, voice, problem)
+            return _page(s, request, voices, problem)
 
     page = await asyncio.to_thread(current)
     by_phrase = {p.id: p for p in page.phrases}
-    wanted: dict[str, tuple[str, float]] = {}  # key -> (words, speed), each once
+    wanted: dict[str, tuple[str, float, object]] = {}  # key -> (words, speed, a clinic it serves), each once
     for ref in body.takes:
         phrase = by_phrase.get(ref.phrase_id)
         take = next((t for t in phrase.takes if t.clinic_id == ref.clinic_id), None) if phrase else None
         if take is None or take.key is None:
             raise HTTPException(404, "That phrase (or that clinic's greeting) is not there any more. Reload the page.")
-        wanted[take.key] = (take.spoken, phrase.pace)
+        clinic = by_id.get(take.clinic_id) if take.clinic_id is not None else (clinics[0] if clinics else None)
+        wanted[take.key] = (take.spoken, phrase.pace, clinic)
     done, failed = 0, ""
-    for words, pace in wanted.values():
-        paced, paced_identity, why = _voice(request, pace)
+    for words, pace, clinic in wanted.values():
+        paced, paced_identity, why = clinic_voice(request.app.state.cfg, system, clinic, pace)
         if paced is None:
             failed = why
             break
@@ -216,6 +257,29 @@ async def record(body: schemas.RecordIn, request: Request):
             failed = str(err)
             break
     return schemas.RecordOut(recorded=done, failed=failed, page=await asyncio.to_thread(current))
+
+
+@router.get("/impact", response_model=schemas.VoiceImpact)
+def impact(request: Request, clinic_id: int, speaker: str = "", pitch: float | None = None):
+    """Before a clinic's voice is changed (its Receptionist tab): how many of
+    its lines are recorded in its voice now, and how many would be in the one
+    tried out. The others are said live until recorded."""
+    system, clinics = _settings(request)
+    clinic = next((c for c in clinics if c.id == clinic_id), None)
+    if clinic is None:
+        raise HTTPException(404, "No such clinic.")
+    _, now, _ = clinic_voice(request.app.state.cfg, system, clinic)
+    _, after, _ = clinic_voice(request.app.state.cfg, system, clinic, speaker=speaker, pitch=pitch)
+    with request.app.state.sessions() as s:
+        lines = [(p, voice_clips.spoken(p.text, clinic)) for p in repo.phrases_for_call(s, clinic.id, LANGUAGE)]
+
+        def recorded(voice) -> int:
+            if not voice:
+                return 0
+            keys = [voice_clips.clip_key(voice_clips.at_pace(voice, p.pace), words) for p, words in lines]
+            return len(repo.clip_dates(s, keys))
+
+        return schemas.VoiceImpact(lines=len(lines), recorded_now=recorded(now), recorded_after=recorded(after))
 
 
 @router.get("/clips/{key}.wav")
@@ -232,3 +296,11 @@ def play(key: str, request: Request):
             w.setframerate(clip.sample_rate)
             w.writeframes(clip.pcm)
     return Response(out.getvalue(), media_type="audio/wav", headers={"Cache-Control": "private, max-age=3600"})
+
+
+def voice_of(base: Settings):
+    """Each clinic's voice identity for the problems check (incidents.sync):
+    recordings that no longer match it."""
+    def of(system, clinic):
+        return clinic_voice(base, system, clinic)[1]
+    return of

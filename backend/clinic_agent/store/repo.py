@@ -1251,6 +1251,14 @@ def clip_dates(s: Session, keys: Iterable[str]) -> dict[str, VoiceClip]:
     return {c.key: c for c in s.scalars(select(VoiceClip).options(defer(VoiceClip.pcm)).where(VoiceClip.key.in_(keys)))}
 
 
+def recorded_texts(s: Session, texts: Iterable[str]) -> set[str]:
+    """Which of `texts` have a recording in any voice."""
+    texts = list(texts)
+    if not texts:
+        return set()
+    return set(s.scalars(select(VoiceClip.text).where(VoiceClip.text.in_(texts)).distinct()))
+
+
 def clips_by_key(s: Session, keys: Iterable[str]) -> dict[str, VoiceClip]:
     """The recordings among `keys`, with their audio."""
     keys = list(keys)

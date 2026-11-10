@@ -189,6 +189,11 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
             return (f"Turning a phrase into Hindi failed, {_plural(inc.count, 'time')} ({inc.detail}).",
                     "Type the Hindi yourself on Voice & phrases, or try again. Check OPENAI_API_KEY and the API log.",
                     "/admin/voice")
+        case "recordings_stale":
+            n = int(inc.detail or 0)
+            return (f"{at}{_plural(n, 'recorded line')} no longer match{'es' if n == 1 else ''} this clinic's voice.",
+                    "The voice changed after they were recorded, so calls say them live (the cost of speaking them). "
+                    "Record them again on Voice & phrases, or switch the clinic's voice back.", "/admin/voice")
         case "voice_clips_unread":
             return (f"{at}A call could not read its fixed phrases ({inc.detail}), {_plural(inc.count, 'time')}.",
                     "Those calls said the greeting, fillers and goodbyes live, in the built-in words (any edited "

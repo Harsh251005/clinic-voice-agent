@@ -82,6 +82,7 @@ function Body({ page }: { page: VoicePage }) {
                 <span className="tabular-nums">{recorded} of {lines(allTakes.length)}</span> recorded in this voice.
                 Each line records at its own speed, so changing the live voice&apos;s speed keeps them.
                 A new voice or pitch starts unrecorded; old recordings come back if you switch back.
+                {page.voices_differ && " Clinics have different voices, so shared lines are recorded once per voice."}
               </p>
             </>
           ) : (

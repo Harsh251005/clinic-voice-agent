@@ -755,6 +755,7 @@ class Take(BaseModel):
     key: str | None  # its recording's name for the current voice; None without a voice
     recorded_at: datetime | None  # None: not recorded for this voice and these words
     duration_s: float | None
+    live_pace: float | None  # the live voice's speed on the calls it serves (to flag a different recording speed)
 
 
 class PhraseOut(BaseModel):
@@ -780,6 +781,7 @@ class VoiceClinic(BaseModel):
 class VoicePage(BaseModel):
     voice: VoiceOut | None
     voice_problem: str  # why there is no voice (no key...); "" when there is one
+    voices_differ: bool  # clinics have different voices: shared lines are recorded once per voice
     rupees_per_1000_chars: float | None  # the voice's price today; None when no price is set
     max_chars: int
     pace_min: float  # the speeds a recording may have
@@ -868,3 +870,36 @@ class SystemSettingsIn(BaseModel):
     interrupt_min_speech: float | None = None
     vad_min_silence: float | None = None
     greeting_interruptible: bool | None = None
+
+
+# ---------- a clinic's Receptionist tab (receptionist_settings.CLINIC), admins only ----------
+
+class ClinicReceptionistOut(BaseModel):
+    clinic_id: int
+    clinic_name: str
+    instructions: str  # added after the main rules on this clinic's calls
+    directions: str  # said when a caller asks the way
+    tts_speaker: str  # "" = speaker_default
+    tts_pace: float  # live voice speed
+    tts_pitch: float | None  # None = the voice's own
+    max_call_minutes: float
+    speaker_default: str
+    instructions_max_words: int
+    directions_max_chars: int
+    limits: dict[str, Limit]
+
+
+class ClinicReceptionistIn(BaseModel):
+    """Any of the fields; only those sent change. tts_pitch null = the voice's own."""
+    instructions: str | None = Field(default=None, max_length=5_000)
+    directions: str | None = Field(default=None, max_length=1_000)
+    tts_speaker: str | None = Field(default=None, max_length=50)
+    tts_pace: float | None = None
+    tts_pitch: float | None = None
+    max_call_minutes: float | None = None
+
+
+class VoiceImpact(BaseModel):
+    lines: int  # the lines this clinic's calls say
+    recorded_now: int  # recorded in its current voice
+    recorded_after: int  # recorded in the voice being tried out

@@ -117,7 +117,7 @@ function Form({ saved }: { saved: SystemSettings }) {
         </div>
       </Section>
 
-      <div className="sticky bottom-4 flex justify-end gap-2">
+      <div className="sticky bottom-24 z-10 flex justify-end gap-2 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur md:bottom-4">
         {dirty && <Button type="button" variant="ghost" onClick={() => setForm(start)}>Discard changes</Button>}
         <Button type="submit" disabled={!dirty || tooLong || save.isPending}>
           {save.isPending ? "Saving…" : tooLong ? `Rules over ${saved.rules_max_words} words` : "Save"}

@@ -66,6 +66,9 @@ KINDS = {
     "phrase_translation_failing": Kind("warning", clinic_sees=False, quiet_minutes=60),
     # A call could not read its phrases or recordings; it said them all live.
     "voice_clips_unread": Kind("warning", clinic_sees=False, quiet_minutes=60),
+    # Lines recorded in an earlier voice of this clinic, said live now (Harsh,
+    # 2026-11-10). Closes once they are recorded again, or the voice goes back.
+    "recordings_stale": Kind("warning", clinic_sees=False),
 }
 
 def clinic_sees(kind: str) -> bool:
@@ -129,11 +132,11 @@ def route_works(s: Session, route: str, now: datetime) -> None:
             repo.resolve_incident(s, inc.id, now, how="fixed")
 
 
-def sync(s: Session, now: datetime, *, max_call_minutes: float | None = None) -> None:
+def sync(s: Session, now: datetime, *, max_call_minutes: float | None = None, voice_of=None) -> None:
     """Re-check every condition; open, update and close incidents to match.
     `now` is naive UTC."""
     held = set()
-    for f in findings(s, now, max_call_minutes=max_call_minutes):
+    for f in findings(s, now, max_call_minutes=max_call_minutes, voice_of=voice_of):
         row = repo.hold_incident(s, kind=f.kind, severity=f.severity or KINDS[f.kind].severity, now=now,
                                  clinic_id=f.clinic_id, subject=f.subject, detail=f.detail)
         held.add(row.key)
@@ -151,7 +154,7 @@ def sync(s: Session, now: datetime, *, max_call_minutes: float | None = None) ->
     repo.delete_old_incidents(s, now - KEEP_RESOLVED)
 
 
-def findings(s: Session, now: datetime, *, max_call_minutes: float | None = None) -> list[Finding]:
+def findings(s: Session, now: datetime, *, max_call_minutes: float | None = None, voice_of=None) -> list[Finding]:
     """Every condition true right now. Call lengths are each clinic's own
     limit (Admin > clinic > Receptionist); `max_call_minutes` overrides it (tests)."""
     clinics = repo.list_clinics(s)
@@ -167,6 +170,21 @@ def findings(s: Session, now: datetime, *, max_call_minutes: float | None = None
         if clinic.active:
             out += _failing_calls(clinic.id, calls, now, limit(clinic), clinic.timezone)
             out += _bookings_need_call(s, clinic)
+    if voice_of is not None:
+        out += _stale_recordings(s, clinics, voice_of)
+    return out
+
+
+def _stale_recordings(s: Session, clinics, voice_of) -> list[Finding]:
+    """`voice_of(system, clinic)`: the clinic's voice identity, or None (no voice key)."""
+    from clinic_agent import voice_clips  # imports LiveKit: only when the API asks
+
+    system = repo.system_settings(s)
+    out = []
+    for clinic in clinics:
+        voice = voice_of(system, clinic)
+        if voice and (n := voice_clips.stale_lines(s, clinic, voice)):
+            out.append(Finding("recordings_stale", clinic.id, detail=str(n)))
     return out
 
 

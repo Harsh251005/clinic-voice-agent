@@ -209,3 +209,14 @@ def _keep(sessions: Sessions, identity: dict, text: str, pcm: bytes, sample_rate
 def _report(sessions: Sessions, identity: dict, why: str) -> None:
     with sessions() as s:
         incidents.report(s, "voice_clip_failed", utc_now(), subject=identity["vendor"], detail=why[:200])
+
+
+def stale_lines(s: Session, clinic, voice: dict, language: str = "hi") -> int:
+    """This clinic's lines recorded in some voice but not in `voice`, its
+    current one (at each phrase's own speed): they are said live until
+    recorded again, so the admin is told (Harsh, 2026-11-10)."""
+    lines = [(p, spoken(p.text, clinic)) for p in repo.phrases_for_call(s, clinic.id, language)]
+    ever = repo.recorded_texts(s, [words for _, words in lines])
+    current = repo.clip_dates(s, [clip_key(at_pace(voice, p.pace), words) for p, words in lines])
+    current_texts = {c.text for c in current.values()}
+    return sum(1 for _, words in lines if words in ever and words not in current_texts)

@@ -47,14 +47,19 @@ export function PhraseCard({ phrase, label, canRecord, speed, onEdit, onRecord, 
         <ul className={cn("mt-3 divide-y rounded-lg border", !perClinic && "border-dashed")}>
           {phrase.takes.map((t) => (
             <li key={t.clinic_id ?? "all"} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
-              <div className="mr-auto min-w-0">
-                {perClinic && <p className="truncate text-sm font-medium">{t.clinic_name}</p>}
+              <div className="mr-auto min-w-0 space-y-1">
+                {t.clinic_name && <p className="truncate text-sm font-medium">{t.clinic_name}</p>}
                 <Status take={t} />
+                {t.live_pace != null && Math.abs(t.live_pace - phrase.pace) > 0.05 && (
+                  <p className="text-xs text-muted-foreground">
+                    Recorded at {phrase.pace.toFixed(2)}×, live voice at {t.live_pace.toFixed(2)}×: it may sound different from her replies.
+                  </p>
+                )}
               </div>
-              {t.key && t.recorded_at && <PlayButton clipKey={t.key} version={t.recorded_at} label={perClinic ? `${label} for ${t.clinic_name}` : label} />}
+              {t.key && t.recorded_at && <PlayButton clipKey={t.key} version={t.recorded_at} label={t.clinic_name ? `${label} for ${t.clinic_name}` : label} />}
               {canRecord && (
                 <Button variant={t.recorded_at ? "ghost" : "outline"} size="sm" onClick={() => onRecord([t])}
-                  aria-label={`${t.recorded_at ? "Re-record" : "Record"} ${perClinic ? `${label} for ${t.clinic_name}` : label}`}>
+                  aria-label={`${t.recorded_at ? "Re-record" : "Record"} ${t.clinic_name ? `${label} for ${t.clinic_name}` : label}`}>
                   <Mic /> {t.recorded_at ? "Re-record" : "Record"}
                 </Button>
               )}

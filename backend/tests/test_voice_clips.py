@@ -291,3 +291,25 @@ def test_a_played_recording_is_a_step_in_the_trace_by_kind_only():
     rec.clip_played("greeting")
     (event,) = rec.events
     assert (event["kind"], event["name"], event["ok"], event["duration_ms"]) == ("clip", "greeting", True, None)
+
+
+def test_lines_recorded_in_an_earlier_voice_open_a_problem_that_closes_on_proof(db):
+    # Harsh, 2026-11-10: a voice change after recording must warn at once; the
+    # lines are said live meanwhile. Back to the old voice = fixed.
+    from clinic_agent import incidents
+    from clinic_agent.store.models import utc_now
+    from clinic_agent.voice_clips import stale_lines
+
+    s, clinic_id = db
+    clinic = repo.get_clinic(s, clinic_id)
+    _record(s, load(s, clinic, ["hi"], lambda language: VOICE).one("greeting", "hi").text)
+    other = {**VOICE, "voice": "someone else"}
+    assert stale_lines(s, clinic, VOICE) == 0 and stale_lines(s, clinic, other) == 1
+
+    current = {"voice": other}
+    incidents.sync(s, utc_now(), voice_of=lambda system, c: current["voice"])
+    (open_,) = [i for i in repo.open_incidents(s) if i.kind == "recordings_stale"]
+    assert open_.clinic_id == clinic_id and open_.detail == "1"
+    current["voice"] = VOICE  # switched back
+    incidents.sync(s, utc_now(), voice_of=lambda system, c: current["voice"])
+    assert not [i for i in repo.open_incidents(s) if i.kind == "recordings_stale"]

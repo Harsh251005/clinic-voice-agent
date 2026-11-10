@@ -259,6 +259,13 @@ every clinic?" and never shows patients:
   field shows what it falls back to), the turn-taking timings with their
   ranges, and whether callers can talk over the greeting. Saved changes
   apply from the next call. Admins only.
+- **A clinic's Receptionist tab** (Clinic settings, admins only;
+  `/api/admin/clinics/{id}/receptionist`): its own instructions (added after
+  the main rules, at most 150 words: every word is sent on every turn),
+  directions (said when a caller asks the way, instead of the postal
+  address), its voice (speaker, live speed, pitch) and longest call. Before a
+  voice change is saved, it says how many of the clinic's recorded lines the
+  new voice leaves said live (`GET /api/admin/voice/impact`).
 - **Voice & phrases** (`/admin/voice`, `api/dashboard/voice.py`): the
   receptionist's fixed lines: the greeting (shared, with `{clinic}` for each
   clinic's spoken name, or a clinic's own), the three "one moment" fillers
@@ -272,6 +279,10 @@ every clinic?" and never shows patients:
   words; **Play**
   a recording, **Record** one, a line, or everything not yet recorded (the
   estimated characters and price are shown first, from the Prices page).
+  Each clinic may have its own voice: a shared line is then recorded once
+  per voice (each take names the clinics it serves) and only plays in that
+  voice. A take recorded at a speed more than 0.05× from the clinic's live
+  voice is flagged ("it may sound different from her replies").
   Each line has its own **Speed** (0.70× to 1.30×; migration 0017 set the
   existing ones to 0.90×, the speed they were recorded at), apart from the
   live voice's `SARVAM_TTS_PACE`: changing either never un-records the
@@ -355,6 +366,7 @@ not tried again since") instead of "fixed".
 | Price missing | a call in the last 35 days used a model with no price that day, or a dollar price with no rate; Open fills in the missing price | no | the price or rate is added (at once: the save re-checks) |
 | Expired transcripts not deleted | the purge fails | no | the next purge works |
 | Recording a voice clip failed | an admin's Record fails (vendor error, timeout) | no | a recording works, or a quiet day |
+| Recorded lines no longer match a clinic's voice | lines recorded in an earlier voice of that clinic (speaker, pitch or voice model changed); calls say them live | no | they are recorded again, or the voice switches back |
 | Hindi name suggestions failing | a name's Hindi suggestion fails (OpenAI) | no | the next suggestion works, or a quiet hour |
 | Phrase translation failing | Suggest Hindi fails (OpenAI) | no | a suggestion works, or a quiet hour |
 | Fixed phrases unreadable | a call can't read its phrases: it says the built-in words live | no | the clinic's next call reads them, or a quiet hour |
@@ -845,8 +857,8 @@ from the next call without a restart. The first
 lines from your `.env` into the database once (a clinic's setting goes to
 every clinic) and lists them for you to delete. After that, the `.env`
 values in the table below for those settings are no longer read. Shared
-settings are on **Admin > Receptionist**; each clinic's own come next
-(plan `admin-configurable.md`).
+settings are on **Admin > Receptionist**; each clinic's own on its
+**Receptionist** tab in Clinic settings (admins only).
 
 Every other setting is in `.env.example` with a comment. The ones worth knowing:
 

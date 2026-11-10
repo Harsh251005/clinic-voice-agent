@@ -20,6 +20,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from api import dashboard
 from api.limits import RateLimiter
+from api.dashboard.voice import voice_of
 from api.passes import call_pass, offered
 from clinic_agent import incidents
 from clinic_agent.config import ConfigError, Settings, load_settings, require_key
@@ -279,7 +280,7 @@ async def check_problems(app: FastAPI) -> None:
     A failed check is logged and never fails the request that asked for it."""
     async with app.state.sync_lock:
         try:
-            await asyncio.to_thread(_sync, app.state.sessions)
+            await asyncio.to_thread(_sync, app.state.sessions, app.state.cfg)
         except Exception:  # noqa: BLE001 - the next check tries again
             logger.exception("checking for problems failed")
 
@@ -291,9 +292,9 @@ async def _watch_forever(app: FastAPI) -> None:
         await asyncio.sleep(WATCH_EVERY)
 
 
-def _sync(sessions: Sessions) -> None:
+def _sync(sessions: Sessions, cfg: Settings) -> None:
     with sessions() as s:
-        incidents.sync(s, utc_now())
+        incidents.sync(s, utc_now(), voice_of=voice_of(cfg))
 
 
 def _failing_routes(sessions: Sessions) -> set[str]:

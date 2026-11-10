@@ -113,6 +113,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/clinics/{clinic_id}/receptionist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Clinic */
+        get: operations["read_clinic_api_admin_clinics__clinic_id__receptionist_get"];
+        /**
+         * Save Clinic
+         * @description Only the fields sent change; each is checked (422 with the reason).
+         */
+        put: operations["save_clinic_api_admin_clinics__clinic_id__receptionist_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/cost-settings": {
         parameters: {
             query?: never;
@@ -496,6 +517,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/voice/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Impact
+         * @description Before a clinic's voice is changed (its Receptionist tab): how many of
+         *     its lines are recorded in its voice now, and how many would be in the one
+         *     tried out. The others are said live until recorded.
+         */
+        get: operations["impact_api_admin_voice_impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/voice/phrases/{phrase_id}": {
         parameters: {
             query?: never;
@@ -549,9 +592,10 @@ export interface paths {
         put?: never;
         /**
          * Record
-         * @description Record the asked takes in the current voice, one after another (a take
-         *     already recorded is recorded again: a new take). Stops at the first
-         *     failure: a vendor out of credits would fail them all.
+         * @description Record the asked takes, each in the voice of the clinics it serves and
+         *     at its phrase's own speed, one after another (a take already recorded is
+         *     recorded again: a new take). Stops at the first failure: a vendor out of
+         *     credits would fail them all.
          */
         post: operations["record_api_admin_voice_record_post"];
         delete?: never;
@@ -1720,6 +1764,53 @@ export interface components {
             /** Slots Offered */
             slots_offered: number;
         };
+        /**
+         * ClinicReceptionistIn
+         * @description Any of the fields; only those sent change. tts_pitch null = the voice's own.
+         */
+        ClinicReceptionistIn: {
+            /** Directions */
+            directions?: string | null;
+            /** Instructions */
+            instructions?: string | null;
+            /** Max Call Minutes */
+            max_call_minutes?: number | null;
+            /** Tts Pace */
+            tts_pace?: number | null;
+            /** Tts Pitch */
+            tts_pitch?: number | null;
+            /** Tts Speaker */
+            tts_speaker?: string | null;
+        };
+        /** ClinicReceptionistOut */
+        ClinicReceptionistOut: {
+            /** Clinic Id */
+            clinic_id: number;
+            /** Clinic Name */
+            clinic_name: string;
+            /** Directions */
+            directions: string;
+            /** Directions Max Chars */
+            directions_max_chars: number;
+            /** Instructions */
+            instructions: string;
+            /** Instructions Max Words */
+            instructions_max_words: number;
+            /** Limits */
+            limits: {
+                [key: string]: components["schemas"]["Limit"];
+            };
+            /** Max Call Minutes */
+            max_call_minutes: number;
+            /** Speaker Default */
+            speaker_default: string;
+            /** Tts Pace */
+            tts_pace: number;
+            /** Tts Pitch */
+            tts_pitch: number | null;
+            /** Tts Speaker */
+            tts_speaker: string;
+        };
         /** ClinicSummary */
         ClinicSummary: {
             /** Id */
@@ -2617,6 +2708,8 @@ export interface components {
             duration_s: number | null;
             /** Key */
             key: string | null;
+            /** Live Pace */
+            live_pace: number | null;
             /** Recorded At */
             recorded_at: string | null;
             /** Spoken */
@@ -2844,6 +2937,15 @@ export interface components {
             /** Spoken Name */
             spoken_name: string;
         };
+        /** VoiceImpact */
+        VoiceImpact: {
+            /** Lines */
+            lines: number;
+            /** Recorded After */
+            recorded_after: number;
+            /** Recorded Now */
+            recorded_now: number;
+        };
         /**
          * VoiceOut
          * @description The voice calls use now: recordings are kept per voice.
@@ -2879,6 +2981,8 @@ export interface components {
             voice: components["schemas"]["VoiceOut"] | null;
             /** Voice Problem */
             voice_problem: string;
+            /** Voices Differ */
+            voices_differ: boolean;
         };
         /** Week */
         Week: {
@@ -3104,6 +3208,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminClinic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_clinic_api_admin_clinics__clinic_id__receptionist_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicReceptionistOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_clinic_api_admin_clinics__clinic_id__receptionist_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClinicReceptionistIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicReceptionistOut"];
                 };
             };
             /** @description Validation Error */
@@ -4009,6 +4179,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    impact_api_admin_voice_impact_get: {
+        parameters: {
+            query: {
+                clinic_id: number;
+                speaker?: string;
+                pitch?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceImpact"];
                 };
             };
             /** @description Validation Error */

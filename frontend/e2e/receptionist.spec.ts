@@ -51,3 +51,34 @@ test("the greeting switch and a timing are changed and put back", async ({ page 
   await page.reload();
   await expect(greeting).not.toBeChecked();
 });
+
+test("a clinic's own receptionist settings are changed and put back", async ({ page }) => {
+  // Admins only (sign-in is off here: the viewer is an admin).
+  await page.goto("/clinics/1/setup?tab=receptionist");
+  await expect(page.getByRole("tab", { name: "Receptionist", exact: true })).toBeVisible();
+  const directions = page.getByLabel("How to find the clinic");
+  const instructions = page.getByLabel("Instructions");
+  await directions.fill("Opposite Borivali East station, first floor.");
+  await instructions.fill("Tell callers parking is free.");
+  await expect(page.getByText("5 of 150 words")).toBeVisible();
+  await page.getByLabel("Speed").fill("0.95");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText(/from the next call/)).toBeVisible();
+  await page.reload();
+  await expect(directions).toHaveValue("Opposite Borivali East station, first floor.");
+  await expect(page.getByLabel("Speed")).toHaveValue("0.95");
+
+  await directions.fill("");
+  await instructions.fill("");
+  await page.getByLabel("Speed").fill("1");
+  await page.getByRole("button", { name: "Save" }).click();
+  await page.reload();
+  await expect(directions).toHaveValue("");
+  await expect(page.getByLabel("Speed")).toHaveValue("1");
+});
+
+test("instructions over 150 words can't be saved", async ({ page }) => {
+  await page.goto("/clinics/1/setup?tab=receptionist");
+  await page.getByLabel("Instructions").fill("word ".repeat(151));
+  await expect(page.getByRole("button", { name: "Instructions over 150 words" })).toBeDisabled();
+});
