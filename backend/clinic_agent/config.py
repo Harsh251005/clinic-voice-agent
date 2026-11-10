@@ -171,6 +171,16 @@ def _refuse_old_settings() -> None:
         )
 
 
+def moved_settings() -> dict[str, str]:
+    """The .env lines whose settings now live in the dashboard
+    (clinic_agent/receptionist_settings.py), as written, for the one-time
+    copy into the database (store/migrations.py)."""
+    from clinic_agent.receptionist_settings import MOVED_ENV
+
+    load_dotenv()
+    return {name: os.environ[name] for name in MOVED_ENV if os.environ.get(name, "").strip()}
+
+
 def load_settings() -> Settings:
     """Read .env and the environment into a Settings object.
 

@@ -50,6 +50,14 @@ class Clinic(Base):
     # Paused by the operator (admin panel): the call page says the clinic isn't
     # taking calls and the worker refuses its calls. Nothing else changes.
     active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    # The receptionist as this clinic sets it (admins only; Harsh, 2026-11-10).
+    # Fields, limits and defaults: clinic_agent/receptionist_settings.py CLINIC.
+    instructions: Mapped[str] = mapped_column(Text, default="", server_default="")  # added after the rules
+    directions: Mapped[str] = mapped_column(String(300), default="", server_default="")  # how to find it
+    tts_speaker: Mapped[str] = mapped_column(String(50), default="", server_default="")  # "" = the voice's default
+    tts_pace: Mapped[float] = mapped_column(default=1.0, server_default="1.0")  # live voice speed
+    tts_pitch: Mapped[float | None] = mapped_column(default=None)  # None = not sent (the voice's own)
+    max_call_minutes: Mapped[float] = mapped_column(default=10.0, server_default="10.0")
 
     doctors: Mapped[list[Doctor]] = relationship(
         back_populates="clinic", cascade="all, delete-orphan", order_by="Doctor.id"
@@ -426,6 +434,31 @@ class VendorBill(Base):
 # ---------- fixed phrases and their recordings ----------
 
 PHRASE_KINDS = ("greeting", "filler", "goodbye_fallback", "goodbye_time_limit")
+
+
+class SystemSettings(Base):
+    """The receptionist as every clinic shares it, set by the admin (Harsh,
+    2026-11-10): one row, id 1. Fields, limits and defaults:
+    clinic_agent/receptionist_settings.py SYSTEM."""
+
+    __tablename__ = "system_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    rules: Mapped[str] = mapped_column(Text, default="", server_default="")  # "" = the default in prompts.py
+    hindi_llm: Mapped[str] = mapped_column(String(20), default="sarvam", server_default="sarvam")
+    sarvam_llm_model: Mapped[str] = mapped_column(String(100), default="", server_default="")
+    openai_llm_model: Mapped[str] = mapped_column(String(100), default="", server_default="")
+    sarvam_stt_model: Mapped[str] = mapped_column(String(100), default="", server_default="")
+    sarvam_stt_language: Mapped[str] = mapped_column(String(20), default="", server_default="")
+    sarvam_stt_mode: Mapped[str] = mapped_column(String(30), default="transcribe", server_default="transcribe")
+    sarvam_tts_model: Mapped[str] = mapped_column(String(100), default="", server_default="")
+    min_endpointing_delay: Mapped[float] = mapped_column(default=0.2, server_default="0.2")
+    number_endpointing_delay: Mapped[float] = mapped_column(default=1.5, server_default="1.5")
+    interrupt_min_speech: Mapped[float] = mapped_column(default=0.3, server_default="0.3")
+    vad_min_silence: Mapped[float] = mapped_column(default=0.6, server_default="0.6")
+    greeting_interruptible: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    # The moved .env lines were copied in once (migrations); never again.
+    copied_from_env: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
 
 
 class Phrase(Base):

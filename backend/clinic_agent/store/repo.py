@@ -15,6 +15,7 @@ from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, defer, selectinload
 
+from clinic_agent import receptionist_settings as rs
 from clinic_agent.clock import clock12
 from clinic_agent.store import migrations
 from clinic_agent.store.models import (
@@ -35,6 +36,7 @@ from clinic_agent.store.models import (
     Phrase,
     PHRASE_KINDS,
     Price,
+    SystemSettings,
     TimeOff,
     TranscriptAccess,
     Usage,
@@ -1096,6 +1098,61 @@ def _get(s: Session, model, row_id: int):
     if row is None:
         raise NotFound(f"no {model.__name__} with id {row_id}")
     return row
+
+
+# ---------- receptionist settings (clinic_agent/receptionist_settings.py) ----------
+
+def system_settings(s: Session) -> SystemSettings:
+    """The one row every clinic shares (made with its defaults if missing)."""
+    row = s.get(SystemSettings, 1)
+    if row is None:
+        row = SystemSettings(id=1)
+        s.add(row)
+        s.commit()
+    return row
+
+
+def update_system_settings(s: Session, **changes) -> SystemSettings:
+    """Change what every clinic shares; each value is checked (ValueError)."""
+    row = system_settings(s)
+    checked = {name: rs.checked(rs.field(rs.SYSTEM, name), value) for name, value in changes.items()}
+    for name, value in checked.items():
+        setattr(row, name, value)
+    s.commit()
+    return row
+
+
+def update_clinic_receptionist(s: Session, clinic_id: int, **changes) -> Clinic:
+    """Change how this clinic's receptionist behaves; each value is checked (ValueError)."""
+    clinic = _get(s, Clinic, clinic_id)
+    checked = {name: rs.checked(rs.field(rs.CLINIC, name), value) for name, value in changes.items()}
+    for name, value in checked.items():
+        setattr(clinic, name, value)
+    s.commit()
+    return clinic
+
+
+def copy_settings_from_env(s: Session, env: dict[str, str]) -> list[str]:
+    """Once ever: the old .env lines' values (`env`, non-blank ones) into the
+    database, a clinic's setting into every clinic. Returns the lines copied,
+    for the admin to delete. A second run copies nothing."""
+    row = system_settings(s)
+    if row.copied_from_env:
+        return []
+    copied = []
+    clinics = s.scalars(select(Clinic)).all()
+    for scope in (rs.SYSTEM, rs.CLINIC):
+        for f in scope:
+            raw = (env.get(f.env) or "").strip() if f.env else ""
+            if not raw:
+                continue
+            value = rs.from_env(f, raw)
+            for target in ([row] if scope is rs.SYSTEM else clinics):
+                setattr(target, f.name, value)
+            copied.append(f.env)
+    row.copied_from_env = True
+    s.commit()
+    return copied
 
 
 # ---------- fixed phrases and their recordings ----------
