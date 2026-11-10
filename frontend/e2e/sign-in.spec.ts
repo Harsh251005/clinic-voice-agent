@@ -116,3 +116,10 @@ for (const [where, url, width] of [["clinic sidebar", "/clinics/1/setup", 1280],
     expect(logouts).toBe(1);
   });
 }
+
+test("an address that doesn't exist gets our own not-found page, with a way back", async ({ page }) => {
+  await page.goto("/no-such-page");
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+  await page.getByRole("link", { name: "Go to the dashboard" }).click();
+  await page.waitForURL(/\/today$/);
+});
