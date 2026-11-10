@@ -81,6 +81,14 @@ Use plain `console` when you need to hear the voice.
 `LIVEKIT_*` values in `.env` and spend from the free tier's 1,000 agent-session
 minutes per month. `console` spends none of them.
 
+## Running all three on your machine
+
+`./start-clinic.sh` (repo root; needs `xterm`) starts or restarts the API,
+the receptionist worker (`main.py start`) and the production dashboard,
+each in its own window. It first stops the copies it started before (only
+this app's, from its own folders), brings the schema up to date, and prints
+the branch it is running. Safe to run again after a code change.
+
 ## Docker
 
 `docker compose up --build` (repo root) runs Postgres, the API on :8080
