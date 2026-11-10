@@ -12,11 +12,12 @@ from livekit.agents import llm
 from livekit.plugins import openai, sarvam
 
 from clinic_agent.config import Settings, require_key
+from clinic_agent.providers import defaults
 
 
 def _sarvam(cfg: Settings) -> llm.LLM:
     return sarvam.LLM(
-        model=cfg.sarvam_llm_model or "sarvam-105b-conversations",
+        model=cfg.sarvam_llm_model or defaults.SARVAM_LLM_MODEL,
         api_key=require_key(cfg.sarvam_api_key, "SARVAM_API_KEY"),
     )
 
@@ -28,7 +29,7 @@ def _openai(cfg: Settings) -> llm.LLM:
     # tools with reasoning on (400 on every turn, checked with gpt-6-luna),
     # the plugin only sets it for model names it already knows, and no
     # reasoning step keeps the first token fast enough for a phone call.
-    model = cfg.openai_llm_model or "gpt-4.1-mini"
+    model = cfg.openai_llm_model or defaults.OPENAI_LLM_MODEL
     options = {"reasoning_effort": "none"} if _reasons(model) else {}
     return openai.LLM(
         model=model,

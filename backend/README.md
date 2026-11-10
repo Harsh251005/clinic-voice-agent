@@ -250,6 +250,15 @@ every clinic?" and never shows patients:
   everything of it. A SQLite database is copied first
   (`clinic.db.bak-…`); on Postgres that relies on your own backups.
 - **Costs**: what every call cost you, in rupees (below).
+- **Receptionist** (`/admin/receptionist`, `api/dashboard/receptionist.py`):
+  how she behaves on every clinic's calls. The main rules (editable, a
+  live word count, at most 500 words, **Reset to default**; blank = the
+  rules in `prompts.py`, so code updates still reach it; an edited text is
+  marked, because the live evals only grade the default), the brain
+  (vendor, Sarvam and OpenAI model names), hearing and voice model (a blank
+  field shows what it falls back to), the turn-taking timings with their
+  ranges, and whether callers can talk over the greeting. Saved changes
+  apply from the next call. Admins only.
 - **Voice & phrases** (`/admin/voice`, `api/dashboard/voice.py`): the
   receptionist's fixed lines: the greeting (shared, with `{clinic}` for each
   clinic's spoken name, or a clinic's own), the three "one moment" fillers
@@ -835,8 +844,9 @@ from the next call without a restart. The first
 `python -m clinic_agent.store.migrations` after this change copies those
 lines from your `.env` into the database once (a clinic's setting goes to
 every clinic) and lists them for you to delete. After that, the `.env`
-values in the table below for those settings are no longer read. The
-dashboard pages for them come next (plan `admin-configurable.md`).
+values in the table below for those settings are no longer read. Shared
+settings are on **Admin > Receptionist**; each clinic's own come next
+(plan `admin-configurable.md`).
 
 Every other setting is in `.env.example` with a comment. The ones worth knowing:
 

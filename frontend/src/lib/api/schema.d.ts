@@ -414,6 +414,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/receptionist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["read_api_admin_receptionist_get"];
+        /**
+         * Save
+         * @description Only the fields sent change; each is checked (422 with the reason).
+         */
+        put: operations["save_api_admin_receptionist_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/voice": {
         parameters: {
             query?: never;
@@ -2072,6 +2093,15 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** Limit */
+        Limit: {
+            /** Default */
+            default: number | null;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+        };
         /** Me */
         Me: {
             /** Clinics */
@@ -2494,6 +2524,84 @@ export interface components {
             at: string;
             /** Reason */
             reason: string;
+        };
+        /**
+         * SystemSettingsIn
+         * @description Any of the fields; only those sent change.
+         */
+        SystemSettingsIn: {
+            /** Greeting Interruptible */
+            greeting_interruptible?: boolean | null;
+            /** Hindi Llm */
+            hindi_llm?: ("sarvam" | "openai") | null;
+            /** Interrupt Min Speech */
+            interrupt_min_speech?: number | null;
+            /** Min Endpointing Delay */
+            min_endpointing_delay?: number | null;
+            /** Number Endpointing Delay */
+            number_endpointing_delay?: number | null;
+            /** Openai Llm Model */
+            openai_llm_model?: string | null;
+            /** Rules */
+            rules?: string | null;
+            /** Sarvam Llm Model */
+            sarvam_llm_model?: string | null;
+            /** Sarvam Stt Language */
+            sarvam_stt_language?: string | null;
+            /** Sarvam Stt Mode */
+            sarvam_stt_mode?: string | null;
+            /** Sarvam Stt Model */
+            sarvam_stt_model?: string | null;
+            /** Sarvam Tts Model */
+            sarvam_tts_model?: string | null;
+            /** Vad Min Silence */
+            vad_min_silence?: number | null;
+        };
+        /** SystemSettingsOut */
+        SystemSettingsOut: {
+            /** Blank Means */
+            blank_means: {
+                [key: string]: string;
+            };
+            /** Default Rules */
+            default_rules: string;
+            /** Greeting Interruptible */
+            greeting_interruptible: boolean;
+            /**
+             * Hindi Llm
+             * @enum {string}
+             */
+            hindi_llm: "sarvam" | "openai";
+            /** Interrupt Min Speech */
+            interrupt_min_speech: number;
+            /** Limits */
+            limits: {
+                [key: string]: components["schemas"]["Limit"];
+            };
+            /** Llm Vendors */
+            llm_vendors: string[];
+            /** Min Endpointing Delay */
+            min_endpointing_delay: number;
+            /** Number Endpointing Delay */
+            number_endpointing_delay: number;
+            /** Openai Llm Model */
+            openai_llm_model: string;
+            /** Rules */
+            rules: string;
+            /** Rules Max Words */
+            rules_max_words: number;
+            /** Sarvam Llm Model */
+            sarvam_llm_model: string;
+            /** Sarvam Stt Language */
+            sarvam_stt_language: string;
+            /** Sarvam Stt Mode */
+            sarvam_stt_mode: string;
+            /** Sarvam Stt Model */
+            sarvam_stt_model: string;
+            /** Sarvam Tts Model */
+            sarvam_tts_model: string;
+            /** Vad Min Silence */
+            vad_min_silence: number;
         };
         /**
          * Take
@@ -3731,6 +3839,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_api_admin_receptionist_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemSettingsOut"];
+                };
+            };
+        };
+    };
+    save_api_admin_receptionist_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SystemSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemSettingsOut"];
                 };
             };
             /** @description Validation Error */

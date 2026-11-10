@@ -2296,6 +2296,50 @@
         "title": "HoursText",
         "type": "object"
       },
+      "Limit": {
+        "properties": {
+          "default": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          }
+        },
+        "required": [
+          "low",
+          "high",
+          "default"
+        ],
+        "title": "Limit",
+        "type": "object"
+      },
       "Me": {
         "properties": {
           "clinics": {
@@ -3219,6 +3263,278 @@
           "at"
         ],
         "title": "SupportView",
+        "type": "object"
+      },
+      "SystemSettingsIn": {
+        "description": "Any of the fields; only those sent change.",
+        "properties": {
+          "greeting_interruptible": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Greeting Interruptible"
+          },
+          "hindi_llm": {
+            "anyOf": [
+              {
+                "enum": [
+                  "sarvam",
+                  "openai"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hindi Llm"
+          },
+          "interrupt_min_speech": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interrupt Min Speech"
+          },
+          "min_endpointing_delay": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Endpointing Delay"
+          },
+          "number_endpointing_delay": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number Endpointing Delay"
+          },
+          "openai_llm_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openai Llm Model"
+          },
+          "rules": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules"
+          },
+          "sarvam_llm_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sarvam Llm Model"
+          },
+          "sarvam_stt_language": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sarvam Stt Language"
+          },
+          "sarvam_stt_mode": {
+            "anyOf": [
+              {
+                "maxLength": 30,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sarvam Stt Mode"
+          },
+          "sarvam_stt_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sarvam Stt Model"
+          },
+          "sarvam_tts_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sarvam Tts Model"
+          },
+          "vad_min_silence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vad Min Silence"
+          }
+        },
+        "title": "SystemSettingsIn",
+        "type": "object"
+      },
+      "SystemSettingsOut": {
+        "properties": {
+          "blank_means": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Blank Means",
+            "type": "object"
+          },
+          "default_rules": {
+            "title": "Default Rules",
+            "type": "string"
+          },
+          "greeting_interruptible": {
+            "title": "Greeting Interruptible",
+            "type": "boolean"
+          },
+          "hindi_llm": {
+            "enum": [
+              "sarvam",
+              "openai"
+            ],
+            "title": "Hindi Llm",
+            "type": "string"
+          },
+          "interrupt_min_speech": {
+            "title": "Interrupt Min Speech",
+            "type": "number"
+          },
+          "limits": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Limit"
+            },
+            "title": "Limits",
+            "type": "object"
+          },
+          "llm_vendors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Llm Vendors",
+            "type": "array"
+          },
+          "min_endpointing_delay": {
+            "title": "Min Endpointing Delay",
+            "type": "number"
+          },
+          "number_endpointing_delay": {
+            "title": "Number Endpointing Delay",
+            "type": "number"
+          },
+          "openai_llm_model": {
+            "title": "Openai Llm Model",
+            "type": "string"
+          },
+          "rules": {
+            "title": "Rules",
+            "type": "string"
+          },
+          "rules_max_words": {
+            "title": "Rules Max Words",
+            "type": "integer"
+          },
+          "sarvam_llm_model": {
+            "title": "Sarvam Llm Model",
+            "type": "string"
+          },
+          "sarvam_stt_language": {
+            "title": "Sarvam Stt Language",
+            "type": "string"
+          },
+          "sarvam_stt_mode": {
+            "title": "Sarvam Stt Mode",
+            "type": "string"
+          },
+          "sarvam_stt_model": {
+            "title": "Sarvam Stt Model",
+            "type": "string"
+          },
+          "sarvam_tts_model": {
+            "title": "Sarvam Tts Model",
+            "type": "string"
+          },
+          "vad_min_silence": {
+            "title": "Vad Min Silence",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rules",
+          "hindi_llm",
+          "sarvam_llm_model",
+          "openai_llm_model",
+          "sarvam_stt_model",
+          "sarvam_stt_language",
+          "sarvam_stt_mode",
+          "sarvam_tts_model",
+          "min_endpointing_delay",
+          "number_endpointing_delay",
+          "interrupt_min_speech",
+          "vad_min_silence",
+          "greeting_interruptible",
+          "default_rules",
+          "rules_max_words",
+          "blank_means",
+          "limits",
+          "llm_vendors"
+        ],
+        "title": "SystemSettingsOut",
         "type": "object"
       },
       "Take": {
@@ -5306,6 +5622,61 @@
           }
         },
         "summary": "Admin Seen"
+      }
+    },
+    "/api/admin/receptionist": {
+      "get": {
+        "operationId": "read_api_admin_receptionist_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read"
+      },
+      "put": {
+        "description": "Only the fields sent change; each is checked (422 with the reason).",
+        "operationId": "save_api_admin_receptionist_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SystemSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save"
       }
     },
     "/api/admin/voice": {

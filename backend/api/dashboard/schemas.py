@@ -819,3 +819,52 @@ class RecordOut(BaseModel):
     recorded: int
     failed: str  # "" when every take was recorded; else why it stopped
     page: VoicePage
+
+
+# ---------- Admin > Receptionist (clinic_agent/receptionist_settings.py SYSTEM) ----------
+
+class Limit(BaseModel):
+    low: float | None
+    high: float | None
+    default: float | None
+
+
+class SystemSettingsBase(BaseModel):
+    rules: str  # "" = the default rules (default_rules)
+    hindi_llm: Literal["sarvam", "openai"]
+    sarvam_llm_model: str
+    openai_llm_model: str
+    sarvam_stt_model: str
+    sarvam_stt_language: str
+    sarvam_stt_mode: str
+    sarvam_tts_model: str
+    min_endpointing_delay: float
+    number_endpointing_delay: float
+    interrupt_min_speech: float
+    vad_min_silence: float
+    greeting_interruptible: bool
+
+
+class SystemSettingsOut(SystemSettingsBase):
+    default_rules: str  # the rules in code, used while `rules` is blank
+    rules_max_words: int
+    blank_means: dict[str, str]  # what a blank text field uses: the vendor's own default
+    limits: dict[str, Limit]  # each number's allowed range and default
+    llm_vendors: list[str]
+
+
+class SystemSettingsIn(BaseModel):
+    """Any of the fields; only those sent change."""
+    rules: str | None = Field(default=None, max_length=10_000)
+    hindi_llm: Literal["sarvam", "openai"] | None = None
+    sarvam_llm_model: str | None = Field(default=None, max_length=100)
+    openai_llm_model: str | None = Field(default=None, max_length=100)
+    sarvam_stt_model: str | None = Field(default=None, max_length=100)
+    sarvam_stt_language: str | None = Field(default=None, max_length=20)
+    sarvam_stt_mode: str | None = Field(default=None, max_length=30)
+    sarvam_tts_model: str | None = Field(default=None, max_length=100)
+    min_endpointing_delay: float | None = None
+    number_endpointing_delay: float | None = None
+    interrupt_min_speech: float | None = None
+    vad_min_silence: float | None = None
+    greeting_interruptible: bool | None = None

@@ -11,6 +11,7 @@ from livekit.agents import tts
 from livekit.plugins import sarvam
 
 from clinic_agent.config import Settings, require_key
+from clinic_agent.providers import defaults
 from clinic_agent.providers.sentences import MAX_PIECE, SentenceTokenizer
 
 
@@ -18,8 +19,8 @@ def _sarvam(cfg: Settings) -> tts.TTS:
     # The plugin defaults to mp3, which costs a decode on every chunk;
     # linear16 hands LiveKit raw PCM instead. Speaker must be a bulbul:v3 voice.
     voice = sarvam.TTS(
-        model=cfg.sarvam_tts_model or "bulbul:v3",
-        speaker=cfg.sarvam_tts_speaker or "suhani",
+        model=cfg.sarvam_tts_model or defaults.SARVAM_TTS_MODEL,
+        speaker=cfg.sarvam_tts_speaker or defaults.SARVAM_TTS_SPEAKER,
         # Sarvam speaks the Hindi line, whose replies are Devanagari.
         target_language_code=cfg.sarvam_tts_language or "hi-IN",
         speech_sample_rate=cfg.sarvam_tts_sample_rate or 24000,
