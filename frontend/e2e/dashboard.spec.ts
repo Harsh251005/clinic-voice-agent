@@ -226,6 +226,26 @@ test("a doctor's name in Hindi is filled in from the English name, and staff can
   await page.keyboard.press("Escape");
 });
 
+test("renaming a clinic that has a saved Hindi name updates the Hindi, until staff edit it", async ({ page }) => {
+  await page.route("**/api/clinics/*/hindi-name", (route) =>
+    route.fulfill({ json: { name_hi: "नया नाम क्लिनिक" } }));
+  await page.goto(`${SETUP}?tab=clinic`);
+  const hindi = page.getByLabel("Clinic name in Hindi");
+  await hindi.fill("डेमो फ़ैमिली क्लिनिक");
+  await page.getByRole("button", { name: /^Save/ }).first().click();
+  await expect(page.getByText("Clinic details saved")).toBeVisible();
+  await page.reload();
+  await expect(hindi).toHaveValue("डेमो फ़ैमिली क्लिनिक");
+  await page.waitForTimeout(1000); // opening the page alone leaves it alone
+  await expect(hindi).toHaveValue("डेमो फ़ैमिली क्लिनिक");
+  await page.getByLabel("Clinic name", { exact: true }).fill("New Name Clinic");
+  await expect(hindi).toHaveValue("नया नाम क्लिनिक");
+  await hindi.fill("मेरा अपना नाम"); // staff's own: kept on the next rename
+  await page.getByLabel("Clinic name", { exact: true }).fill("New Name Clinic 2");
+  await page.waitForTimeout(1000);
+  await expect(hindi).toHaveValue("मेरा अपना नाम");
+});
+
 test("a clinic holiday can be added", async ({ page }) => {
   await page.goto(`${SETUP}?tab=time-off`);
   await expect(page.getByText("Nothing planned.")).toBeVisible();

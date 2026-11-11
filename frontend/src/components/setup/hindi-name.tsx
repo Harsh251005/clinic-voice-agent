@@ -1,7 +1,8 @@
 "use client";
 // The "Name in Hindi" box: filled in from the English name as staff type
 // (a suggestion from the API), and theirs to change. Their own edits are
-// never overwritten; clearing the box asks for a fresh suggestion.
+// never overwritten; clearing the box asks for a fresh suggestion. A saved
+// Hindi name follows a rename of the English one until staff type in the box.
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,10 @@ export function HindiNameField({ id, label, clinicId, english, value, onChange, 
 }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const suggested = useRef<string | null>(null); // what we last filled in, to tell it from staff's own
+  const opened = useRef({ english: english.trim() }); // what the form opened with
+  // What we last filled in, to tell it from staff's own. A saved Hindi name
+  // counts as ours until staff edit it, so renaming the clinic updates it.
+  const suggested = useRef<string | null>(value || null);
   const [shown, setShown] = useState<string | null>(null); // the same, for the hint
   const latest = useRef({ value, onChange });
   useEffect(() => { latest.current = { value, onChange }; }); // the newest, for the timer below
@@ -26,6 +30,7 @@ export function HindiNameField({ id, label, clinicId, english, value, onChange, 
     const { value: current } = latest.current;
     const ours = current === "" || current === suggested.current;
     if (!name || !ours) return;
+    if (current !== "" && name === opened.current.english) return; // nothing renamed: leave the saved name alone
     let stale = false;
     const timer = setTimeout(async () => {
       setBusy(true);
