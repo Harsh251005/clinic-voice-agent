@@ -204,11 +204,11 @@ in `repo.py`.
   is said: with any title, a polite "जी" or "साहब" after it, or a Hindi
   spelling that sounds the same (ख़ान/खान, अंजलि/अंजली).
 - **Names said one way:** the clinic and each doctor have a *Name in Hindi*
-  (Devanagari), **filled in from the English name** as staff type
+  (Devanagari), **written from the English name when staff click "Write in Hindi"** (never while they type)
   (`POST /api/clinics/{id}/hindi-name`: one short OpenAI text request,
   `gpt-4.1-mini`, `clinic_agent/providers/hindi.py`), reusing words the
   clinic already spells so a surname comes out the same everywhere. Staff
-  can change it; their own text is never overwritten. Saving with the box
+  can change it; the box is only filled when they click. Saving with the box
   blank fills it in the same way. A failed suggestion never blocks a save
   (the Hindi line then spells the name itself) and raises the admin's
   `hindi_names_failing` problem. The Hindi line says the name exactly as written.
