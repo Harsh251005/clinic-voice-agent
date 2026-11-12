@@ -65,7 +65,7 @@ def test_only_admins(world, method, path):  # noqa: F811
 def test_the_page_shows_every_phrase_and_the_greeting_once_per_clinic(world, fake_voice):  # noqa: F811
     page = _admin().get("/api/admin/voice").json()
     assert page["voice"]["voice"] == "v" and page["voice_problem"] == ""
-    assert sorted({p["kind"] for p in page["phrases"]}) == ["filler", "goodbye_fallback", "goodbye_time_limit", "greeting"]
+    assert sorted({p["kind"] for p in page["phrases"]}) == ["filler", "goodbye_fallback", "goodbye_time_limit", "greeting", "sorry_cant_check"]
     greeting = _phrase(page, "greeting")
     assert "{clinic}" in greeting["text"] and greeting["source"].startswith("Hello")
     assert {t["clinic_id"] for t in greeting["takes"]} == {world["demo"], world["cure"]}

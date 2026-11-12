@@ -88,6 +88,17 @@ def _when(times: list[str], at: str = "at ") -> str:
     return at + (unique[0] if len(unique) == 1 else ", ".join(unique[:-1]) + " and " + unique[-1])
 
 
+# What each tool does for a caller, for the clinic's plain words.
+TOOLS = {
+    "find_available_slots": "look up free times",
+    "check_booking": "check a booking",
+    "book_appointment": "book an appointment",
+    "find_my_appointments": "find a caller's appointments",
+    "cancel_appointment": "cancel an appointment",
+    "reschedule_appointment": "move an appointment",
+}
+
+
 def clinic_words(inc: repo.Incident, clinic_id: int) -> tuple[str, str, str | None]:
     """(what's wrong, what to do, where to look) for the clinic's staff."""
     base = f"/clinics/{clinic_id}"
@@ -113,6 +124,11 @@ def clinic_words(inc: repo.Incident, clinic_id: int) -> tuple[str, str, str | No
             why = REASONS.get(inc.subject, "their call didn't go through")
             return (f"{_plural(inc.count, 'patient')} couldn't reach your receptionist: {why}.",
                     "If it keeps happening, tell ClinicDesk support.", None)
+        case "tools_failing":
+            return (f"Your receptionist couldn't {TOOLS.get(inc.subject, 'help a caller')}, {_plural(inc.count, 'time')}.",
+                    "Those callers were asked to call again or ask at the clinic. Open Calls to see who called. "
+                    "ClinicDesk support sees this too; it clears by itself once it works on a call again.",
+                    f"{base}/calls")
         case "no_doctors":
             return ("Callers can't book: no doctor is taking bookings.",
                     "Add a doctor, or turn one back on, in Clinic settings.", f"{base}/setup?tab=doctors")
@@ -198,6 +214,11 @@ def admin_words(inc: repo.Incident, clinic: str | None) -> tuple[str, str, str |
             return (f"{at}A call could not read its fixed phrases ({inc.detail}), {_plural(inc.count, 'time')}.",
                     "Those calls said the greeting, fillers and goodbyes live, in the built-in words (any edited "
                     "wording was not used). Check the worker log and the database.", None)
+        case "tools_failing":
+            return (f"{at}{inc.subject} failed on a call, {_plural(inc.count, 'time')} ({inc.detail}).",
+                    "The caller heard the fixed sorry line and the model said nothing. Open the call's transcript "
+                    "for the tool's answer, and the worker log if it crashed. Clears by itself once that tool "
+                    "works on a call again.", f"/admin/calls?clinic={inc.clinic_id}" if inc.clinic_id else None)
         case "purge_failed":
             return ("Deleting expired transcripts failed.",
                     "Transcripts older than 30 days may still be stored: check the API log.", None)

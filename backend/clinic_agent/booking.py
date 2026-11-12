@@ -74,7 +74,10 @@ def resolve_doctor(clinic: Clinic, name: str) -> Doctor:
         return partial[0]
     names = ", ".join(d.name for d in active) or "none"
     if not partial:
-        raise BookingError(f"No doctor called '{name}' at this clinic. Doctors: {names}.")
+        raise BookingError(
+            f"No doctor called '{name}' at this clinic. Doctors: {names}. Nothing was checked: "
+            f"say no time is free or taken, and call again with a doctor from that list."
+        )
     raise BookingError(f"'{name}' matches more than one doctor: {names}. Ask which one.")
 
 

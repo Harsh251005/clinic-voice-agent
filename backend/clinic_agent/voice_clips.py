@@ -31,13 +31,16 @@ FRAME_MS = 100  # a recording is played in frames this long
 
 # Said live when the database has no phrase of a kind (or could not be read):
 # a call never goes without its greeting, fillers or goodbye. Same words as
-# the seeds in migration 0014; an admin's edits live in the database.
+# the seeds in migrations 0014 and 0020; an admin's edits live in the database.
 BUILT_IN: dict[tuple[str, str], list[str]] = {
     ("greeting", "hi"): ["नमस्ते, {clinic} में आपका स्वागत है। मैं इसकी ऑटोमेटेड असिस्टेंट हूँ, और यह बातचीत क्लिनिक के "
                          "रिकॉर्ड के लिए टेक्स्ट में सेव हो रही है। बताइए, मैं आपकी कैसे मदद कर सकती हूँ?"],
     ("filler", "hi"): ["एक सेकंड जी, मैं चेक करके बताती हूँ।", "ठीक है, एक पल, मैं देख लेती हूँ।", "जी, बस एक सेकंड।"],
     ("goodbye_fallback", "hi"): ["कॉल करने के लिए धन्यवाद जी। आपका दिन शुभ हो, नमस्ते!"],
     ("goodbye_time_limit", "hi"): ["माफ़ कीजिए जी, इस कॉल का समय पूरा हो गया है। आप दोबारा कॉल कर सकते हैं। नमस्ते!"],
+    # Said by the code, not the model, when a lookup fails (migration 0020's seed).
+    ("sorry_cant_check", "hi"): ["माफ़ कीजिए जी, अभी मैं यह चेक नहीं कर पा रही हूँ। आप थोड़ी देर बाद दोबारा कॉल कर "
+                                 "लीजिए, या क्लिनिक में सीधे पूछ लीजिए।"],
 }
 
 
@@ -64,7 +67,7 @@ class Said:
     text: str
     pcm: bytes | None = None
     sample_rate: int = 0
-    kind: str = field(default="", compare=False)  # greeting, filler, goodbye_fallback, goodbye_time_limit
+    kind: str = field(default="", compare=False)  # one of models.PHRASE_KINDS
     # Told the kind when its recording plays (the call's trace notes it: no voice cost).
     heard: Callable[[str], None] | None = field(default=None, compare=False, repr=False)
 
