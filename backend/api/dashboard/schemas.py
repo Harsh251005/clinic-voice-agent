@@ -872,6 +872,18 @@ class SystemSettingsIn(BaseModel):
 
 # ---------- a clinic's Receptionist tab (receptionist_settings.CLINIC), admins only ----------
 
+class VoiceSpeaker(BaseModel):
+    name: str  # as saved in tts_speaker
+    label: str  # as shown
+
+
+class VoiceModel(BaseModel):
+    name: str  # as saved in tts_model
+    speakers: list[VoiceSpeaker]  # women's voices only: she is always a woman
+    default_speaker: str  # picked when the admin switches to this model
+    pitch: bool  # this model applies a pitch setting
+
+
 class ClinicReceptionistOut(BaseModel):
     clinic_id: int
     clinic_name: str
@@ -884,6 +896,7 @@ class ClinicReceptionistOut(BaseModel):
     max_call_minutes: float
     speaker_default: str
     model_default: str
+    voices: list[VoiceModel]  # the pick-lists: every voice model with its voices
     instructions_max_words: int
     directions_max_chars: int
     limits: dict[str, Limit]

@@ -1410,6 +1410,13 @@
           "tts_speaker": {
             "title": "Tts Speaker",
             "type": "string"
+          },
+          "voices": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceModel"
+            },
+            "title": "Voices",
+            "type": "array"
           }
         },
         "required": [
@@ -1424,6 +1431,7 @@
           "max_call_minutes",
           "speaker_default",
           "model_default",
+          "voices",
           "instructions_max_words",
           "directions_max_chars",
           "limits"
@@ -4371,6 +4379,37 @@
         "title": "VoiceImpact",
         "type": "object"
       },
+      "VoiceModel": {
+        "properties": {
+          "default_speaker": {
+            "title": "Default Speaker",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pitch": {
+            "title": "Pitch",
+            "type": "boolean"
+          },
+          "speakers": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceSpeaker"
+            },
+            "title": "Speakers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "speakers",
+          "default_speaker",
+          "pitch"
+        ],
+        "title": "VoiceModel",
+        "type": "object"
+      },
       "VoiceOut": {
         "description": "The voice calls use now: recordings are kept per voice.",
         "properties": {
@@ -4494,6 +4533,24 @@
           "clinics"
         ],
         "title": "VoicePage",
+        "type": "object"
+      },
+      "VoiceSpeaker": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label"
+        ],
+        "title": "VoiceSpeaker",
         "type": "object"
       },
       "Week": {

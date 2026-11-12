@@ -61,20 +61,60 @@ test("a clinic's own receptionist settings are changed and put back", async ({ p
   await directions.fill("Opposite Borivali East station, first floor.");
   await instructions.fill("Tell callers parking is free.");
   await expect(page.getByText("5 of 150 words")).toBeVisible();
-  await page.getByLabel("Speed").fill("0.95");
+  const speed = page.getByRole("slider", { name: "Speed" });
+  await speed.focus();
+  await speed.press("ArrowLeft"); // one step slower: 1.00 to 0.95
+  await expect(page.getByText("0.95×, normal")).toBeVisible();
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText(/from the next call/)).toBeVisible();
   await page.reload();
   await expect(directions).toHaveValue("Opposite Borivali East station, first floor.");
-  await expect(page.getByLabel("Speed")).toHaveValue("0.95");
+  await expect(speed).toHaveValue("0.95");
 
   await directions.fill("");
   await instructions.fill("");
-  await page.getByLabel("Speed").fill("1");
+  await speed.focus();
+  await speed.press("ArrowRight");
   await page.getByRole("button", { name: "Save" }).click();
   await page.reload();
   await expect(directions).toHaveValue("");
-  await expect(page.getByLabel("Speed")).toHaveValue("1");
+  await expect(speed).toHaveValue("1");
+});
+
+test("a clinic's voice is picked from lists, and pitch shows only where the model has it", async ({ page }) => {
+  // Harsh, 2026-11-12: dropdowns of women's voices, nothing typed.
+  await page.goto("/clinics/1/setup?tab=receptionist");
+  const model = page.getByRole("combobox", { name: "Voice model" });
+  const voice = page.getByRole("combobox", { name: "Voice", exact: true });
+  await expect(model).toHaveText("Bulbul v3");
+  await expect(voice).toHaveText("Suhani");
+  await expect(page.getByRole("slider", { name: "Pitch" })).toHaveCount(0);
+
+  await voice.click();
+  await expect(page.getByRole("option", { name: "Rahul" })).toHaveCount(0); // women only
+  await page.getByRole("option", { name: "Priya" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText(/from the next call/)).toBeVisible();
+  await page.reload();
+  await expect(voice).toHaveText("Priya");
+
+  // The other model: she stays the same woman where it has her, and pitch appears.
+  await model.click();
+  await page.getByRole("option", { name: "Bulbul v4 flash" }).click();
+  await expect(voice).toHaveText(/^Priya, /);
+  const pitch = page.getByRole("slider", { name: "Pitch" });
+  await expect(pitch).toBeVisible();
+  await expect(page.getByText("Her own")).toBeVisible();
+
+  // Back again: the pitch setting goes, and the clinic is left as it was.
+  await model.click();
+  await page.getByRole("option", { name: "Bulbul v3" }).click();
+  await expect(pitch).toHaveCount(0);
+  await voice.click();
+  await page.getByRole("option", { name: "Suhani" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
+  await page.reload();
+  await expect(voice).toHaveText("Suhani");
 });
 
 test("instructions over 150 words can't be saved", async ({ page }) => {

@@ -9,5 +9,7 @@ imports a vendor package.
 from clinic_agent.providers.llm import build_llm
 from clinic_agent.providers.stt import build_stt
 from clinic_agent.providers.tts import build_tts, identity
+from clinic_agent.providers.voices import catalogue as voice_catalogue
+from clinic_agent.providers.voices import check as check_voice
 
-__all__ = ["build_llm", "build_stt", "build_tts", "identity"]
+__all__ = ["build_llm", "build_stt", "build_tts", "check_voice", "identity", "voice_catalogue"]

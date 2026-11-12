@@ -78,6 +78,28 @@ def test_a_speaker_the_voice_model_lacks_is_refused_before_it_breaks_calls(world
     r = c.put(path, json={"tts_model": "bulbul:v4-flash"})
     assert r.status_code == 422 and "suhani" in r.text and r.json()["detail"].startswith("Cure")
     assert c.get(path).json()["tts_model"] == ""  # nothing saved
-    ok = c.put(path, json={"tts_model": "bulbul:v4-flash", "tts_speaker": "aparna_hi_customer"})
+    ok = c.put(path, json={"tts_model": "bulbul:v4-flash", "tts_speaker": "ritu_hi_medical"})
     assert ok.status_code == 200 and ok.json()["tts_model"] == "bulbul:v4-flash"
     assert c.put(path, json={"tts_speaker": "suhani"}).status_code == 422
+
+
+def test_a_clinics_voice_is_picked_from_lists_of_womens_voices(world):  # noqa: F811
+    # Harsh, 2026-11-12: dropdowns, not typed names; she is always a woman. No voice key needed to check.
+    c = client_as(ADMIN, admin=True)
+    path = f"/api/admin/clinics/{world['cure']}/receptionist"
+    voices = {m["name"]: m for m in c.get(path).json()["voices"]}
+    assert list(voices)[0] == "bulbul:v3"  # the default model first
+    v3, flash = voices["bulbul:v3"], voices["bulbul:v4-flash"]
+    names = [s["name"] for s in v3["speakers"]]
+    assert "suhani" in names and "rahul" not in names and v3["default_speaker"] == "suhani"
+    assert (v3["pitch"], flash["pitch"]) == (False, True)
+    offered = {s["name"]: s["label"] for s in flash["speakers"]}
+    assert offered["ritu_hi_customer_warm"] == "Ritu, customer warm"
+    assert not {"rahul_hi_conversational", "ritu_en_medical"} & offered.keys()  # a man; not Hindi
+    assert flash["default_speaker"] in offered
+    for bad in ({"tts_speaker": "rahul"}, {"tts_model": "bulbul:v9"},
+                {"tts_model": "bulbul:v4-flash", "tts_speaker": "rahul_hi_conversational"}):
+        r = c.put(path, json=bad)
+        assert r.status_code == 422 and "list" in r.json()["detail"], bad
+    assert c.put(path, json={"tts_speaker": "priya"}).json()["tts_speaker"] == "priya"
+    assert c.put(path, json={"tts_speaker": ""}).json()["tts_speaker"] == ""  # back to the default
