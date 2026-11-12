@@ -111,6 +111,18 @@ async def test_a_refused_tool_is_traced_as_failed_and_changes_nothing(link):
     assert call.outcome == "info_only" and call.appointments == []
 
 
+async def test_a_step_the_code_answered_for_is_recorded_as_failed(link):
+    # Seen 2026-11-12: a stopped lookup showed as fine with a blank answer.
+    from clinic_agent.call_record import STOPPED
+
+    nobody = ("find_available_slots", {"date": str(DAY), "reason_fits": "none", "doctor_name": "Dr. Sharma"})
+    record = await record_call(link, [Reply(calls=[nobody]), Reply(calls=[nobody]), Reply("never said")], ["डॉक्टर शर्मा का टाइम?"])
+    _, events, transcript = _saved(link, record.call_id)
+    assert [(e.ok, e.detail) for e in events if e.kind == "tool"] == [(False, ""), (False, STOPPED)]
+    tools = [t for t in transcript.items if t["role"] == "tool"]
+    assert "No doctor called" in tools[0]["text"] and tools[1]["text"] == STOPPED and not tools[1]["ok"]
+
+
 @pytest.mark.parametrize(("changes", "end_reason", "turns", "expected"), [
     ([{"id": 1, "action": "cancelled"}, {"id": 2, "action": "booked"}], "agent_ended", 3, "booked"),
     ([{"id": 1, "action": "moved"}], "caller_left", 2, "moved"),

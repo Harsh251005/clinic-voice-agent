@@ -8,7 +8,8 @@ something (tools/speech.py).
 
 When a tool can't answer, the code answers, not the model (Harsh,
 2026-11-10: every lookup failed on a call and the model made up free
-times): a crash, or the same error twice running from one tool, says the
+times): a crash, or the same error twice from one tool with nothing new from the
+caller in between, says the
 fixed sorry line, stops the model's reply and opens a problem (`give_up`).
 """
 
@@ -109,7 +110,8 @@ def booking_tools(link: ClinicLink) -> list:
     checked: list[_Checked] = []  # the one booking awaiting the caller's yes (a call's tools are its own)
     missed: list[int] = [0]  # lookups this call that matched nobody
     pending: list[_Pending] = []  # the one cancel or move awaiting the caller's yes
-    last_error: dict[str, str] = {}  # each tool's error, until that tool next works
+    # Each tool's last error and how often the caller had spoken by then, until that tool next works.
+    last_error: dict[str, tuple[str, int | None]] = {}
 
     def note(tool: str, why: str | None) -> None:
         """Open the tool's problem (`why`), or close it as fixed: it just worked."""
@@ -134,6 +136,7 @@ def booking_tools(link: ClinicLink) -> list:
 
     async def run(ctx: RunContext | None, fn: Callable, *args):
         tool = ctx.function_call.name if ctx is not None else fn.__name__
+        turns = _caller_turns(ctx)
 
         def work():
             with link.sessions() as s:
@@ -147,11 +150,13 @@ def booking_tools(link: ClinicLink) -> list:
             result = await task
             last_error.pop(tool, None)
         except booking.BookingError as err:
-            if last_error.get(tool) == str(err):
-                # The same answer twice running: the model is stuck, and what it
-                # says next is a guess (call 37: ten failed lookups, made-up times).
+            if last_error.get(tool) == (str(err), turns):
+                # The same answer twice with nothing new from the caller: the model
+                # is stuck, and what it says next is a guess (call 37: ten failed
+                # lookups, made-up times). A caller who asks the same thing again
+                # ("नहीं, पाँच बजे ही") is a new question: the model answers it again.
                 await give_up(ctx, tool, "same error twice running")
-            last_error[tool] = str(err)
+            last_error[tool] = (str(err), turns)
             raise ToolError(str(err)) from None
         except Exception as err:  # noqa: BLE001 - a crash must reach the caller as words, not silence or a guess
             logger.exception("%s crashed", tool)

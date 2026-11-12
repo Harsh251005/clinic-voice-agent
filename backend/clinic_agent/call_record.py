@@ -55,6 +55,8 @@ TURN_METRICS = {
     "user": [("transcription_delay", "stt"), ("end_of_turn_delay", "eou")],
     "assistant": [("llm_node_ttft", "llm"), ("tts_node_ttfb", "tts"), ("e2e_latency", "reply")],
 }
+# What the record says of a tool the code answered for (fixed words, never the call's).
+STOPPED = "No answer: this step failed, so the caller heard the fixed sorry line and the model said nothing."
 TOOL_TEXT_MAX = 2000  # a tool result in the transcript; slot lists can run long
 
 
@@ -210,13 +212,17 @@ class CallRecorder:
 
     def _on_tools(self, ev: FunctionToolsExecutedEvent) -> None:
         for call, out in zip(ev.function_calls, ev.function_call_outputs, strict=False):
-            ok = not (out and out.is_error)
+            # A tool that stopped the model's reply (tools.booking give_up: it
+            # crashed, or failed the same way twice) comes back as an empty
+            # answer that is "not an error": it failed, and the record says so.
+            stopped = bool(out) and not out.is_error and not out.reply_required
+            ok = not (out and out.is_error) and not stopped
             took = (out.created_at - call.created_at) if out else None
             # The trace gets the tool's name and result, never its arguments or output.
-            self._event(self._ms(call.created_at), "tool", call.name, took, ok=ok)
+            self._event(self._ms(call.created_at), "tool", call.name, took, ok=ok, detail=STOPPED if stopped else "")
             self.transcript.append({
                 "t_ms": self._ms(call.created_at), "role": "tool", "tool": call.name, "ok": ok,
-                "args": call.arguments, "text": (out.output if out else "")[:TOOL_TEXT_MAX],
+                "args": call.arguments, "text": STOPPED if stopped else (out.output if out else "")[:TOOL_TEXT_MAX],
             })
 
     def _on_error(self, ev: ErrorEvent) -> None:

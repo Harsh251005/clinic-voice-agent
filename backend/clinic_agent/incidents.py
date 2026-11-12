@@ -69,7 +69,7 @@ KINDS = {
     # Lines recorded in an earlier voice of this clinic, said live now (Harsh,
     # 2026-11-10). Closes once they are recorded again, or the voice goes back.
     "recordings_stale": Kind("warning", clinic_sees=False),
-    # A lookup or booking step crashed, or failed the same way twice, on a call
+    # A lookup or booking step crashed, or failed the same way twice before the caller spoke again, on a call
     # (seen 2026-11-10: the model then made up free times). The caller heard the
     # fixed sorry line. Closes as fixed once that step works on a call again.
     "tools_failing": Kind("warning", clinic_sees=True, quiet_minutes=60),

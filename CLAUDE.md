@@ -219,7 +219,8 @@ The pipeline is split so each concern lives in exactly one module:
   call again acts once the caller has spoken (`confirmed` in the wrapper).
   Never go back to trusting a `caller_confirmed` flag.
   **A tool that can't answer is answered by the code** (Harsh, 2026-11-10;
-  `give_up`): a crash, or the same error twice running, says the fixed
+  `give_up`): a crash, or the same error twice with nothing new from the caller (a caller
+  repeating a request is a new question, answered by the model), says the fixed
   `sorry_cant_check` phrase, raises `StopResponse` (no model reply) and
   reports `tools_failing`. Never let the model word a failed lookup twice.
   **The right doctor for the reason** (Harsh, 2026-11-09): the model judges

@@ -53,7 +53,8 @@ async def call(link, replies, user_input, greet=False):
         session.on("close", lambda ev: closed.append(ev))
         keep_promises(session, [t.info.name for t in booking_tools(link)])
         await session.start(agent)
-        await session.run(user_input=user_input)
+        for text in [user_input] if isinstance(user_input, str) else user_input:  # one caller turn, or several
+            await session.run(user_input=text)
         for _ in range(100):  # a forced follow-up starts after run() returns
             if not fake.replies:
                 break
@@ -200,6 +201,16 @@ async def test_the_same_error_twice_running_is_answered_by_the_code(link):
     assert fake.replies == [MADE_UP] and len(fake.requests) == 2  # the model was not asked again
     # the admin is told which step and why, never the error's words (they can hold a caller's)
     assert _problems(link) == [("find_available_slots", "same error twice running")]
+
+
+async def test_a_caller_asking_the_same_thing_again_is_answered_by_the_model(link):
+    # The same error twice, but the caller spoke in between: a new question,
+    # not a stuck model. No sorry line, no problem for the clinic.
+    no = Reply("डॉक्टर शर्मा यहाँ नहीं बैठते।")
+    spoken, fake, _ = await call(link, [Reply(calls=[NOBODY]), no, Reply(calls=[NOBODY]), no],
+                                 ["डॉक्टर शर्मा का टाइम?", "नहीं, मुझे डॉक्टर शर्मा ही चाहिए"])
+    assert SORRY not in [text for text, _ in spoken] and not fake.replies
+    assert _problems(link) == []
 
 
 async def test_one_error_still_goes_to_the_model_to_put_right(link):
