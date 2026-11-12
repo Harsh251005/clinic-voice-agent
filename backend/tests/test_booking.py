@@ -40,15 +40,25 @@ def test_doctor_names_resolve(db, spoken):
     assert booking.resolve_doctor(repo.get_clinic(s, clinic_id), spoken).name == "Dr. Asha Mehta"
 
 
-@pytest.mark.parametrize("spoken", ["डॉक्टर आशा", "डॉ. आशा मेहता", "आशा", "डॉक्टर आशा मेहता"])
+@pytest.mark.parametrize("spoken", [
+    "डॉक्टर आशा", "डॉ. आशा मेहता", "आशा", "डॉक्टर आशा मेहता",
+    # said politely, or spelt another way that sounds the same
+    "डॉक्टर आशा जी", "आशा जी", "डॉ.आशा", "डाक्टर आशा", "डॉक्टर आशा मेहता साहब", "डॉक्टर आशा ख़ान", "डॉक्टर आशा खान", "Dr. Asha ji",
+])
 def test_the_hindi_spelling_of_a_doctor_resolves(db, spoken):
     # Seen 2026-11-10: the prompt says 'say "डॉक्टर हर्ष"', the model passed
     # that to every tool and each one answered "No doctor called".
     s, clinic_id = db
     asha = repo.get_clinic(s, clinic_id).doctors[0]
-    repo.update_doctor(s, asha.id, name_hi="डॉक्टर आशा मेहता")
+    hindi = "डॉक्टर आशा मेहता" if "न" not in spoken else "डॉक्टर आशा ख़ान"  # the clinic may write the dot, the model not
+    repo.update_doctor(s, asha.id, name_hi=hindi)
     s.expire_all()
     assert booking.resolve_doctor(repo.get_clinic(s, clinic_id), spoken).name == "Dr. Asha Mehta"
+
+
+def test_a_name_that_only_starts_like_a_title_is_not_cut():
+    assert booking._name_key("डॉली शर्मा") == booking._name_key("डॉ. डॉली शर्मा") != booking._name_key("ली शर्मा")
+    assert booking._name_key("Drishti Rao") == "drishti rao"
 
 
 def test_unknown_doctor_lists_who_exists(db):

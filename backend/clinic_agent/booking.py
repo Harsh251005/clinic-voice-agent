@@ -9,6 +9,7 @@ what went wrong and, where possible, what to offer instead.
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime, time, timedelta
 from typing import NamedTuple
 
@@ -598,8 +599,18 @@ def _spoken_person(name: str) -> str:
     return key
 
 
+_TITLE = re.compile(r"^(?:dr|doctor|डॉक्टर|डाक्टर|डॉ|डा)(?:\.\s*|\s+)")  # a dot or a space after it: "डॉली" is a name
+_POLITE = re.compile(r"\s+(?:ji|sir|madam|sahab|saheb|जी|सर|मैडम|साहब|साहेब)$")
+# Hindi spellings that are said the same: ख़ान/खान (the dot below), अंजलि/अंजली,
+# धरनिधरका/धरणिधरका. The model and the clinic need not agree on them.
+_SAME_SOUND = str.maketrans({"\u093c": None, "ी": "ि", "ू": "ु", "ण": "न", "ँ": "ं"})
+
+
 def _name_key(name: str) -> str:
-    return re.sub(r"^(dr|doctor|डॉक्टर|डॉ)\.?\s+", "", name.strip().lower()).replace(".", "")
+    """A doctor's name as it is compared: no title before it ("Dr.", "डॉ."),
+    no polite word after it ("जी", "साहब"), like-sounding Hindi spellings as one."""
+    key = _POLITE.sub("", _TITLE.sub("", " ".join(name.lower().split())))
+    return unicodedata.normalize("NFD", key).translate(_SAME_SOUND).replace(".", "").strip()
 
 
 def erase_test_call(s: Session, clinic_id: int, call_id: int) -> None:
