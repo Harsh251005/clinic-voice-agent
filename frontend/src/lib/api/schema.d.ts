@@ -1845,6 +1845,8 @@ export interface components {
             tts_pitch: number | null;
             /** Tts Speaker */
             tts_speaker: string;
+            /** Voices */
+            voices: components["schemas"]["VoiceModel"][];
         };
         /** ClinicSummary */
         ClinicSummary: {
@@ -2977,6 +2979,17 @@ export interface components {
             /** Recorded Now */
             recorded_now: number;
         };
+        /** VoiceModel */
+        VoiceModel: {
+            /** Default Speaker */
+            default_speaker: string;
+            /** Name */
+            name: string;
+            /** Pitch */
+            pitch: boolean;
+            /** Speakers */
+            speakers: components["schemas"]["VoiceSpeaker"][];
+        };
         /**
          * VoiceOut
          * @description The voice calls use now: recordings are kept per voice.
@@ -3014,6 +3027,13 @@ export interface components {
             voice_problem: string;
             /** Voices Differ */
             voices_differ: boolean;
+        };
+        /** VoiceSpeaker */
+        VoiceSpeaker: {
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
         };
         /** Week */
         Week: {

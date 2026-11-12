@@ -18,7 +18,7 @@ from clinic_agent.call_settings import merge
 from clinic_agent.config import ConfigError
 from clinic_agent.lines import line_for
 from clinic_agent.prompts import RULES
-from clinic_agent.providers import build_tts
+from clinic_agent.providers import build_tts, check_voice, voice_catalogue
 from clinic_agent.providers.defaults import BLANK_MEANS, SARVAM_TTS_MODEL, SARVAM_TTS_SPEAKER
 from clinic_agent.store import repo
 
@@ -84,6 +84,10 @@ def _clinic_out(clinic) -> schemas.ClinicReceptionistOut:
         clinic_id=clinic.id, clinic_name=clinic.name,
         **{f.name: getattr(clinic, f.name) for f in rs.CLINIC},
         speaker_default=SARVAM_TTS_SPEAKER, model_default=SARVAM_TTS_MODEL,
+        voices=[schemas.VoiceModel(
+            name=m.name, default_speaker=m.default_speaker, pitch=m.pitch,
+            speakers=[schemas.VoiceSpeaker(name=v.name, label=v.label) for v in m.speakers],
+        ) for m in voice_catalogue()],
         instructions_max_words=rs.INSTRUCTIONS_MAX_WORDS, directions_max_chars=rs.DIRECTIONS_MAX_CHARS,
         limits={f.name: schemas.Limit(low=f.low, high=f.high, default=f.default)
                 for f in rs.CLINIC if f.kind == "number"},
@@ -104,5 +108,11 @@ def save_clinic(clinic_id: int, body: schemas.ClinicReceptionistIn, request: Req
         clinic = repo.get_clinic(s, clinic_id)
         after = _with(clinic, rs.CLINIC, changes)
         after.name = clinic.name
+        if {"tts_model", "tts_speaker"} & changes.keys():
+            # A new voice is one from the pick-lists (women's voices the model has), key or no key.
+            try:
+                check_voice(after.tts_model, after.tts_speaker)
+            except ValueError as err:
+                raise HTTPException(422, f"{clinic.name}: {err}") from None
         _voices_work(request, repo.system_settings(s), [after])
         return _clinic_out(repo.update_clinic_receptionist(s, clinic_id, **changes))

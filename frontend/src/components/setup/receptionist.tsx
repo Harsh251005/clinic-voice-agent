@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Field } from "./field";
 import { Section } from "./section";
 import { VoiceImpact } from "./voice-impact";
+import { VoicePicker } from "./voice-picker";
 
 export function Receptionist({ clinic }: { clinic: Schemas["Clinic"] }) {
   const page = useClinicReceptionist(clinic.id);
@@ -65,30 +66,8 @@ function Form({ saved }: { saved: ClinicReceptionist }) {
         </Field>
       </Section>
 
-      <Section title="Voice" description="How she sounds on this clinic's calls. The model and speaker are saved together: a speaker exists only in some models, and a pair that doesn't work is refused.">
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field id="tts_model" label="Voice model" hint="A Sarvam voice model, e.g. bulbul:v3 or bulbul:v4-flash.">
-            <Input id="tts_model" maxLength={100} value={form.tts_model} placeholder={`Blank: ${saved.model_default}`}
-              onChange={(e) => set({ tts_model: e.target.value })} />
-          </Field>
-          <Field id="tts_speaker" label="Speaker" hint="A Sarvam voice name that this model has.">
-            <Input id="tts_speaker" maxLength={50} value={form.tts_speaker} placeholder={`Blank: ${saved.speaker_default}`}
-              onChange={(e) => set({ tts_speaker: e.target.value })} />
-          </Field>
-        </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <Field id="tts_pace" label="Speed" hint={`${limit("tts_pace").low}× to ${limit("tts_pace").high}×. Recorded lines keep their own speed.`}>
-            <Input id="tts_pace" type="number" inputMode="decimal" step="0.05" required
-              min={limit("tts_pace").low ?? undefined} max={limit("tts_pace").high ?? undefined} value={form.tts_pace}
-              onChange={(e) => set({ tts_pace: Number(e.target.value) })} />
-          </Field>
-          <Field id="tts_pitch" label="Pitch" hint={`${limit("tts_pitch").low} to ${limit("tts_pitch").high}. Blank: the voice's own. Only some voice models apply it.`}>
-            <Input id="tts_pitch" type="number" inputMode="decimal" step="0.05"
-              min={limit("tts_pitch").low ?? undefined} max={limit("tts_pitch").high ?? undefined}
-              value={form.tts_pitch ?? ""} placeholder="Blank"
-              onChange={(e) => set({ tts_pitch: e.target.value === "" ? null : Number(e.target.value) })} />
-          </Field>
-        </div>
+      <Section title="Voice" description="How she sounds on this clinic's calls. Pick a voice model, then one of its voices.">
+        <VoicePicker voices={saved.voices} modelDefault={saved.model_default} limits={saved.limits} value={form} onChange={set} />
         {voiceChanged && <VoiceImpact clinicId={saved.clinic_id} model={form.tts_model} speaker={form.tts_speaker} pitch={form.tts_pitch} />}
       </Section>
 

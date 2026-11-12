@@ -285,9 +285,14 @@ every clinic?" and never shows patients:
   `/api/admin/clinics/{id}/receptionist`): its own instructions (added after
   the main rules, at most 150 words: every word is sent on every turn),
   directions (said when a caller asks the way, instead of the postal
-  address), its voice (voice model and speaker, saved and checked together:
-  a speaker the model doesn't have is refused, since every call would fail;
-  live speed, pitch) and longest call. Before a
+  address), its voice and longest call. The voice is picked, not typed: a
+  voice model and one of its voices from lists (`providers/voices.py`, read
+  from the Sarvam plugin's own tables), speed and pitch on sliders, pitch
+  shown only for a model that applies it (`bulbul:v4-flash`). The lists hold
+  women's voices only, since she is always a woman: all of `bulbul:v3`'s
+  female speakers, and of `bulbul:v4-flash`'s Hindi voices those whose first
+  name `bulbul:v3` marks female (v4-flash marks no gender; the rest are left
+  out, not guessed). A voice not on the lists is refused on save. Before a
   voice change is saved, it says how many of the clinic's recorded lines the
   new voice leaves said live (`GET /api/admin/voice/impact`).
 - **Voice & phrases** (`/admin/voice`, `api/dashboard/voice.py`): the
