@@ -11,6 +11,8 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import PydanticCustomError
 
+from clinic_agent.receptionist_settings import DIRECTIONS_MAX_CHARS
+
 
 class ClinicSummary(BaseModel):
     id: int
@@ -92,9 +94,10 @@ class Clinic(BaseModel):
     call_link: str
     address: str
     phone: str
+    directions: str  # how to find it, said when a caller asks the way
     timezone: str
     booking_window_days: int
-    slots_offered: int
+    slots_offered: int  # set by admins (the clinic's receptionist settings)
     doctors: list[Doctor]
     faq: list[Faq]
     time_off: list[TimeOff]  # today onwards, in the clinic's timezone
@@ -109,7 +112,7 @@ class NewClinic(BaseModel):
 
 class ClinicDetails(NewClinic):
     booking_window_days: int = Field(ge=1, le=365)
-    slots_offered: int = Field(ge=1, le=6)
+    directions: str | None = Field(default=None, max_length=DIRECTIONS_MAX_CHARS)  # None: left as it is
     name_hi: str | None = Field(default=None, max_length=200)  # None: left as it is
 
     @field_validator("name_hi")
@@ -870,7 +873,7 @@ class SystemSettingsIn(BaseModel):
     greeting_interruptible: bool | None = None
 
 
-# ---------- a clinic's Receptionist tab (receptionist_settings.CLINIC), admins only ----------
+# ---------- a clinic's receptionist settings (receptionist_settings.CLINIC), admins only ----------
 
 class VoiceSpeaker(BaseModel):
     name: str  # as saved in tts_speaker
@@ -888,29 +891,28 @@ class ClinicReceptionistOut(BaseModel):
     clinic_id: int
     clinic_name: str
     instructions: str  # added after the main rules on this clinic's calls
-    directions: str  # said when a caller asks the way
     tts_model: str  # "" = model_default
     tts_speaker: str  # "" = speaker_default
     tts_pace: float  # live voice speed
     tts_pitch: float | None  # None = the voice's own
     max_call_minutes: float
+    slots_offered: int  # free times she reads out in one go
     speaker_default: str
     model_default: str
     voices: list[VoiceModel]  # the pick-lists: every voice model with its voices
     instructions_max_words: int
-    directions_max_chars: int
     limits: dict[str, Limit]
 
 
 class ClinicReceptionistIn(BaseModel):
     """Any of the fields; only those sent change. tts_pitch null = the voice's own."""
     instructions: str | None = Field(default=None, max_length=5_000)
-    directions: str | None = Field(default=None, max_length=1_000)
     tts_model: str | None = Field(default=None, max_length=100)
     tts_speaker: str | None = Field(default=None, max_length=50)
     tts_pace: float | None = None
     tts_pitch: float | None = None
     max_call_minutes: float | None = None
+    slots_offered: int | None = None
 
 
 class VoiceImpact(BaseModel):

@@ -911,6 +911,10 @@
             "title": "Call Link",
             "type": "string"
           },
+          "directions": {
+            "title": "Directions",
+            "type": "string"
+          },
           "doctors": {
             "items": {
               "$ref": "#/components/schemas/Doctor"
@@ -973,6 +977,7 @@
           "call_link",
           "address",
           "phone",
+          "directions",
           "timezone",
           "booking_window_days",
           "slots_offered",
@@ -1216,6 +1221,18 @@
             "title": "Booking Window Days",
             "type": "integer"
           },
+          "directions": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directions"
+          },
           "name": {
             "maxLength": 200,
             "minLength": 1,
@@ -1239,18 +1256,11 @@
             "maxLength": 20,
             "title": "Phone",
             "type": "string"
-          },
-          "slots_offered": {
-            "maximum": 6.0,
-            "minimum": 1.0,
-            "title": "Slots Offered",
-            "type": "integer"
           }
         },
         "required": [
           "name",
-          "booking_window_days",
-          "slots_offered"
+          "booking_window_days"
         ],
         "title": "ClinicDetails",
         "type": "object"
@@ -1258,18 +1268,6 @@
       "ClinicReceptionistIn": {
         "description": "Any of the fields; only those sent change. tts_pitch null = the voice's own.",
         "properties": {
-          "directions": {
-            "anyOf": [
-              {
-                "maxLength": 1000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Directions"
-          },
           "instructions": {
             "anyOf": [
               {
@@ -1292,6 +1290,17 @@
               }
             ],
             "title": "Max Call Minutes"
+          },
+          "slots_offered": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slots Offered"
           },
           "tts_model": {
             "anyOf": [
@@ -1353,14 +1362,6 @@
             "title": "Clinic Name",
             "type": "string"
           },
-          "directions": {
-            "title": "Directions",
-            "type": "string"
-          },
-          "directions_max_chars": {
-            "title": "Directions Max Chars",
-            "type": "integer"
-          },
           "instructions": {
             "title": "Instructions",
             "type": "string"
@@ -1383,6 +1384,10 @@
           "model_default": {
             "title": "Model Default",
             "type": "string"
+          },
+          "slots_offered": {
+            "title": "Slots Offered",
+            "type": "integer"
           },
           "speaker_default": {
             "title": "Speaker Default",
@@ -1423,17 +1428,16 @@
           "clinic_id",
           "clinic_name",
           "instructions",
-          "directions",
           "tts_model",
           "tts_speaker",
           "tts_pace",
           "tts_pitch",
           "max_call_minutes",
+          "slots_offered",
           "speaker_default",
           "model_default",
           "voices",
           "instructions_max_words",
-          "directions_max_chars",
           "limits"
         ],
         "title": "ClinicReceptionistOut",
@@ -6209,7 +6213,7 @@
     },
     "/api/admin/voice/impact": {
       "get": {
-        "description": "Before a clinic's voice is changed (its Receptionist tab): how many of\nits lines are recorded in its voice now, and how many would be in the one\ntried out. The others are said live until recorded.",
+        "description": "Before a clinic's voice is changed (its page in the admin panel): how many of\nits lines are recorded in its voice now, and how many would be in the one\ntried out. The others are said live until recorded.",
         "operationId": "impact_api_admin_voice_impact_get",
         "parameters": [
           {

@@ -14,7 +14,7 @@ type Details = Schemas["ClinicDetails"];
 export function ClinicDetails({ clinic }: { clinic: Schemas["Clinic"] }) {
   const saved: Details = {
     name: clinic.name, name_hi: clinic.name_hi, address: clinic.address, phone: clinic.phone,
-    booking_window_days: clinic.booking_window_days, slots_offered: clinic.slots_offered,
+    directions: clinic.directions, booking_window_days: clinic.booking_window_days,
   };
   const [form, setForm] = useState<Details>(saved);
   const set = (patch: Partial<Details>) => setForm((f) => ({ ...f, ...patch }));
@@ -48,17 +48,21 @@ export function ClinicDetails({ clinic }: { clinic: Schemas["Clinic"] }) {
               <Textarea id="address" rows={2} maxLength={500} value={form.address} onChange={(e) => set({ address: e.target.value })} />
             </Field>
           </div>
+          <div className="md:col-span-2">
+            <Field id="directions" label="How to find the clinic"
+              hint="What she says when a caller asks the way, instead of reading out the postal address. A landmark works best.">
+              <Textarea id="directions" rows={2} maxLength={300} value={form.directions ?? ""}
+                placeholder="Near Borivali East station, opposite the HDFC bank, first floor."
+                onChange={(e) => set({ directions: e.target.value })} />
+            </Field>
+          </div>
         </div>
       </Section>
       <Section title="Booking rules">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="max-w-xs">
           <Field id="window" label="Book up to (days ahead)" hint="Callers can't book further out than this.">
             <Input id="window" type="number" min={1} max={365} required value={form.booking_window_days}
               onChange={(e) => set({ booking_window_days: Number(e.target.value) })} />
-          </Field>
-          <Field id="offered" label="Free times offered at once" hint="How many free times the receptionist reads out in one go.">
-            <Input id="offered" type="number" min={1} max={6} required value={form.slots_offered}
-              onChange={(e) => set({ slots_offered: Number(e.target.value) })} />
           </Field>
         </div>
       </Section>

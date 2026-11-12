@@ -281,11 +281,18 @@ every clinic?" and never shows patients:
   field shows what it falls back to), the turn-taking timings with their
   ranges, and whether callers can talk over the greeting. Saved changes
   apply from the next call. Admins only.
-- **A clinic's Receptionist tab** (Clinic settings, admins only;
-  `/api/admin/clinics/{id}/receptionist`): its own instructions (added after
-  the main rules, at most 150 words: every word is sent on every turn),
-  directions (said when a caller asks the way, instead of the postal
-  address), its voice and longest call. The voice is picked, not typed: a
+- **A clinic's receptionist is set up in one place: its page in the admin
+  panel** (Admin › Clinics › the clinic, admins only;
+  `/api/admin/clinics/{id}/receptionist`), beside pausing it, its team and
+  deleting it: its greeting (the shared one with its name, or its own
+  words), its voice, its own instructions (added after the main rules, at
+  most 150 words: every word is sent on every turn), its longest call and
+  how many free times she offers at once (1 to 6; admin only since
+  2026-11-12, it is how she talks). The clinic's own staff keep its facts in
+  Clinic settings, which now include **directions** (said when a caller asks
+  the way, instead of the postal address), beside the address. Clinic
+  settings has no Receptionist tab any more; an admin gets a *Receptionist
+  settings* button there. The voice is picked, not typed: a
   voice model and one of its voices from lists (`providers/voices.py`, read
   from the Sarvam plugin's own tables), speed and pitch on sliders, pitch
   shown only for a model that applies it (`bulbul:v4-flash`). The lists hold
@@ -891,8 +898,10 @@ rather than silently ignored.
 (Harsh, 2026-11-10; `clinic_agent/receptionist_settings.py`). Every clinic
 shares the rules text, the brain (`HINDI_LLM` and the model names), the
 hearing settings, the turn-taking timings and whether the greeting can be
-talked over. Each clinic sets its own instructions, directions, voice model
-and speaker, live speed, pitch and maximum call length. A call reads
+talked over. Each clinic has its own instructions, voice model and speaker, live
+speed, pitch, maximum call length and number of free times offered at once
+(set by an admin on the clinic's page in the admin panel), and its own
+directions (set by its staff with the clinic's details). A call reads
 them when it starts (`clinic_agent/call_settings.py`), so a change applies
 from the next call without a restart. The first
 `python -m clinic_agent.store.migrations` after this change copies those

@@ -31,7 +31,7 @@ def doctor(d, upcoming: int) -> schemas.Doctor:
 def clinic(c, time_off, upcoming: dict[int, int], public_base_url: str, has_calls: bool) -> schemas.Clinic:
     return schemas.Clinic(
         id=c.id, name=c.name, name_hi=c.name_hi, slug=c.slug, call_link=f"{public_base_url}/call/{c.slug}",
-        address=c.address, phone=c.phone, timezone=c.timezone,
+        address=c.address, phone=c.phone, directions=c.directions, timezone=c.timezone,
         booking_window_days=c.booking_window_days, slots_offered=c.slots_offered,
         doctors=[doctor(d, upcoming.get(d.id, 0)) for d in c.doctors],
         faq=[schemas.Faq(id=f.id, question=f.question, answer=f.answer) for f in c.faq],

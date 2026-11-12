@@ -21,11 +21,13 @@ costs, records), `backend/clinic_agent/store/CLAUDE.md` (database),
 - **Behaviour lives in the database, set in the dashboard †**
   (`receptionist_settings.py`). Shared, `system_settings` (Admin >
   Receptionist): rules text, brain + model names, hearing, turn-taking,
-  greeting interruptible. Per clinic, `clinics` (its Receptionist tab,
-  admins only): instructions, directions, voice model + speaker, speed,
-  pitch, longest call. `.env` holds only secrets and plumbing. A leftover
-  moved line (`MOVED_ENV`) stops worker and API (`refuse_moved_settings`)
-  once the migrations command has copied it in.
+  greeting interruptible. Per clinic, `clinics` (Admin > Clinics > the
+  clinic, admins only, the one place for it): instructions, voice model +
+  speaker, speed, pitch, longest call, free times offered at once.
+  Directions are a clinic fact, set by its staff with its details. `.env`
+  holds only secrets and plumbing. A leftover moved line (`MOVED_ENV`)
+  stops worker and API (`refuse_moved_settings`) once the migrations
+  command has copied it in.
 - **Import boundaries** (`tests/test_boundaries.py`): only `providers/`
   imports a vendor package; only `store/` imports SQLAlchemy/Alembic
   (elsewhere type-hint with `Session`/`Sessions` from `store/db.py`).
