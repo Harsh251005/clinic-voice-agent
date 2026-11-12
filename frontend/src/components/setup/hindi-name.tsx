@@ -1,7 +1,9 @@
 "use client";
 // The "Name in Hindi" box. Nothing is written while staff type: the Hindi is
 // asked for only when they click "Write in Hindi" (a suggestion from the API,
-// from the English name), and it is theirs to change before saving.
+// from the English name), and it is theirs to change before saving. A save
+// that changes the English name and leaves this box as it was has the API
+// write it again, so a renamed doctor is never called by the old name.
 import { useState } from "react";
 import { Loader2, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,7 +39,7 @@ export function HindiNameField({ id, label, clinicId, english, value, onChange, 
   const hint = busy ? "Writing it in Hindi…"
     : failed ? "No suggestion just now. Type it in Hindi, or try again."
     : value && value === filled ? "Written from the English name. Change it if it doesn't sound right."
-    : "How the receptionist says it on Hindi calls. Click “Write in Hindi” to fill it from the English name.";
+    : "How the receptionist says it on Hindi calls. Click “Write in Hindi” to fill it from the English name. If you change the English name and leave this as it is, it is written again when you save.";
   return (
     <Field id={id} label={label} hint={hint}>
       <div className="flex gap-2">

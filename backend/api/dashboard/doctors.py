@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 
 from api.dashboard import convert, patterns, schemas
 from api.dashboard.access import current_viewer, open_clinic, staff_errors
-from api.dashboard.hindi import suggestion
+from api.dashboard.hindi import left_behind, suggestion
 from clinic_agent.context import clinic_now
 from clinic_agent.store import repo
 
@@ -47,8 +47,9 @@ def update_doctor(doctor_id: int, body: schemas.DoctorPatch, request: Request, c
             fields[key] = fields[key].strip()
     with staff_errors(), request.app.state.sessions() as s:
         doctor = repo.in_clinic(s, repo.Doctor, doctor_id, clinic_id)
+        old_name, old_hi = doctor.name, doctor.name_hi
         repo.update_doctor(s, doctor.id, **fields)
-        if not doctor.name_hi:
+        if left_behind(old_name, old_hi, doctor.name, doctor.name_hi):  # blank or renamed: written from the English name
             repo.update_doctor(s, doctor.id, name_hi=suggestion(request, doctor.name, clinic_id))
         return _out(s, doctor)
 

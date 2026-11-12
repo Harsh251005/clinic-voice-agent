@@ -236,7 +236,7 @@ test("the Hindi name is written only when staff click the button, and they can c
   await page.keyboard.press("Escape");
 });
 
-test("renaming a clinic leaves its saved Hindi name alone until the button is clicked", async ({ page }) => {
+test("typing a new clinic name leaves the Hindi box alone until the button is clicked (a save rewrites it: API tests)", async ({ page }) => {
   await page.route("**/api/clinics/*/hindi-name", (route) =>
     route.fulfill({ json: { name_hi: "नया नाम क्लिनिक" } }));
   await page.goto(`${SETUP}?tab=clinic`);
@@ -251,6 +251,25 @@ test("renaming a clinic leaves its saved Hindi name alone until the button is cl
   await expect(hindi).toHaveValue("डेमो फ़ैमिली क्लिनिक");
   await page.getByRole("button", { name: "Write in Hindi" }).click();
   await expect(hindi).toHaveValue("नया नाम क्लिनिक");
+});
+
+test("saving a renamed clinic shows the Hindi name the API saved, not the old one", async ({ page }) => {
+  await page.goto(`${SETUP}?tab=clinic`);
+  const name = page.getByLabel("Clinic name", { exact: true });
+  const hindi = page.getByLabel("Clinic name in Hindi");
+  const save = page.getByRole("button", { name: /^Save/ }).first();
+  const before = await name.inputValue();
+  await hindi.fill("पुराना नाम क्लिनिक");
+  await save.click();
+  await expect(save).toBeDisabled(); // saved: nothing left to save
+  await name.fill("Renamed Clinic");
+  await save.click();
+  // Tests have no vendor to write the new name, so the API drops the old one: the box must show that.
+  await expect(hindi).toHaveValue("");
+  await expect(save).toBeDisabled();
+  await name.fill(before); // put the name back for the tests after this one
+  await save.click();
+  await expect(save).toBeDisabled();
 });
 
 test("a clinic holiday can be added", async ({ page }) => {

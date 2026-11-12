@@ -209,7 +209,10 @@ in `repo.py`.
   `gpt-4.1-mini`, `clinic_agent/providers/hindi.py`), reusing words the
   clinic already spells so a surname comes out the same everywhere. Staff
   can change it; the box is only filled when they click. Saving with the box
-  blank fills it in the same way. A failed suggestion never blocks a save
+  blank fills it in the same way, **and so does saving a changed English
+  name with the Hindi left as it was** (a renamed doctor is never called by
+  the old name; a Hindi name staff changed in that same save is kept, and if
+  no suggestion can be had the old one is dropped, not kept). A failed suggestion never blocks a save
   (the Hindi line then spells the name itself) and raises the admin's
   `hindi_names_failing` problem. The Hindi line says the name exactly as written.
 

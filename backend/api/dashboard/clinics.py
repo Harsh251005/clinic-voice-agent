@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Request
 
 from api.dashboard import convert, schemas
 from api.dashboard.access import Viewer, admin, open_clinic, staff_errors
-from api.dashboard.hindi import suggestion
+from api.dashboard.hindi import left_behind, suggestion
 from clinic_agent.context import clinic_now
 from clinic_agent.store import repo
 
@@ -45,8 +45,11 @@ def update_clinic(body: schemas.ClinicDetails, request: Request, clinic_id: int 
     if fields["name_hi"] is None:
         del fields["name_hi"]  # an older screen that doesn't send it keeps what's there
     with staff_errors(), request.app.state.sessions() as s:
+        before = repo.get_clinic(s, clinic_id)
+        old_name, old_hi = before.name, before.name_hi
         clinic = repo.update_clinic(s, clinic_id, **fields)
-        if not clinic.name_hi:  # blank: fill in the suggestion, so the name has one fixed spelling
+        # Blank, or renamed with the Hindi left as it was: written from the English name, one fixed spelling.
+        if left_behind(old_name, old_hi, clinic.name, clinic.name_hi):
             repo.update_clinic(s, clinic_id, name_hi=suggestion(request, clinic.name, clinic_id))
     return load(request, clinic_id)
 

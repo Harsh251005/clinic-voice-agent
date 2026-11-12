@@ -81,6 +81,40 @@ def test_saving_with_the_hindi_box_blank_fills_it_in_and_a_typed_one_is_kept(wor
     assert doctor["name_hi"] == "डॉक्टर रोहन"
 
 
+def test_a_rename_writes_the_hindi_name_again_unless_staff_wrote_their_own(world, answers):  # noqa: F811
+    # Harsh, 2026-11-12: "Dr. Asha Mehta" renamed "Dr. Asha Shah" kept being called मेहता on calls.
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}"
+    answers("डॉक्टर आशा मेहता")
+    doctor = c.post(f"{base}/doctors", json={"name": "Dr. Asha Mehta", "specialty": "Dentist", "fee": 300, "slot_minutes": 15}).json()
+    url = f"{base}/doctors/{doctor['id']}"
+    answers("डॉक्टर आशा शाह")
+    # the form sends the Hindi box as it was: the new English name rewrites it
+    assert c.patch(url, json={"name": "Dr. Asha Shah", "name_hi": "डॉक्टर आशा मेहता"}).json()["name_hi"] == "डॉक्टर आशा शाह"
+    assert c.patch(url, json={"name": "Dr. Asha S. Shah"}).json()["name_hi"] == "डॉक्टर आशा शाह"  # asked again, same answer
+    asked = len(FakeOpenAI.asked)
+    assert c.patch(url, json={"fee": 400, "name": "Dr. Asha S. Shah", "name_hi": "डॉक्टर आशा शाह"}).json()["name_hi"] == "डॉक्टर आशा शाह"
+    assert len(FakeOpenAI.asked) == asked  # nothing renamed: nobody asked
+    # renamed and the Hindi changed by staff in the same save: theirs is kept
+    assert c.patch(url, json={"name": "Dr. Asha Rao", "name_hi": "डॉक्टर आशा राव जी"}).json()["name_hi"] == "डॉक्टर आशा राव जी"
+
+    details = {"name": "Cure Dental", "address": "", "phone": "", "booking_window_days": 30, "slots_offered": 3}
+    assert c.patch(base, json=details | {"name_hi": "क्योर डेंटल"}).json()["name_hi"] == "क्योर डेंटल"
+    answers("स्माइल डेंटल")
+    assert c.patch(base, json=details | {"name": "Smile Dental", "name_hi": "क्योर डेंटल"}).json()["name_hi"] == "स्माइल डेंटल"
+
+
+def test_a_rename_that_gets_no_suggestion_drops_the_old_hindi_name(world, answers):  # noqa: F811
+    # The old name would be the wrong one to say: blank, the Hindi line spells the new name itself.
+    c = client_as("reception@cure.in")
+    base = f"/api/clinics/{world['cure']}"
+    answers("डॉक्टर आशा मेहता")
+    doctor = c.post(f"{base}/doctors", json={"name": "Dr. Asha Mehta", "specialty": "Dentist", "fee": 300, "slot_minutes": 15}).json()
+    answers(openai.APIConnectionError(request=None))
+    r = c.patch(f"{base}/doctors/{doctor['id']}", json={"name": "Dr. Asha Shah", "name_hi": "डॉक्टर आशा मेहता"})
+    assert r.status_code == 200 and r.json()["name"] == "Dr. Asha Shah" and r.json()["name_hi"] == ""
+
+
 def test_a_failed_suggestion_never_blocks_a_save_and_is_flagged(world, answers):  # noqa: F811
     answers(openai.APIConnectionError(request=None))
     c = client_as("reception@cure.in")

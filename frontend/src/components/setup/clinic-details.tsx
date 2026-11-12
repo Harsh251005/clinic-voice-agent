@@ -29,7 +29,8 @@ export function ClinicDetails({ clinic }: { clinic: Schemas["Clinic"] }) {
       className="space-y-6"
       onSubmit={(e) => {
         e.preventDefault();
-        save.mutate(form);
+        // The API may write the Hindi name itself (left blank, or the clinic renamed): show what it saved.
+        save.mutate(form, { onSuccess: (c) => set({ name_hi: c.name_hi }) });
       }}
     >
       <Section title="Clinic details" description="The receptionist introduces the clinic with its name, and gives the address and phone when asked.">
