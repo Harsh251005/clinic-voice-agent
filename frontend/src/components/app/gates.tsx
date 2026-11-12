@@ -64,6 +64,15 @@ export function ClinicNotFound() {
   );
 }
 
+/** Any address the dashboard doesn't have (src/app/not-found.tsx): never the framework's bare 404. */
+export function PageNotFound() {
+  return (
+    <CenteredCard icon={SearchX} title="Page not found" description="This address doesn't lead anywhere. It may have been mistyped, or the page has moved.">
+      <Button asChild className={glassPrimary}><Link href="/">Go to the dashboard</Link></Button>
+    </CenteredCard>
+  );
+}
+
 export function LoadError({ onRetry }: { onRetry: () => void }) {
   return (
     <CenteredCard icon={WifiOff} title="Can't connect" description={`We couldn't reach ${PRODUCT_NAME}. Check your internet connection, then try again.`}>

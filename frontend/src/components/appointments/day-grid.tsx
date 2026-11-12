@@ -2,6 +2,7 @@
 // The day as a diary page: a column per doctor, time running down. Working
 // hours are white, the rest shaded; leave and holidays say why. Free slots
 // are drawn and clickable, so booking into a gap is one click.
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { PhoneCall, SearchCheck, TriangleAlert } from "lucide-react";
 import type { Schemas } from "@/lib/api/client";
@@ -85,7 +86,7 @@ export function DayGrid({ clinic, data, today, now, onBook }: {
   }, [data.day, focus, from, px, nowMin]);
 
   if (!data.doctors.length) {
-    return <Empty>No doctors are taking bookings. Add one in Clinic settings.</Empty>;
+    return <Empty>No doctors are taking bookings. <Link href={`/clinics/${clinic.id}/setup?tab=doctors`} className="font-medium text-primary hover:underline">Add a doctor</Link> in Clinic settings.</Empty>;
   }
   if (!edges.length) {
     const off = data.doctors.find((d) => d.off)?.off;

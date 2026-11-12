@@ -54,7 +54,7 @@ function Body({ t }: { t: Schemas["CallTrace"] }) {
           <Fact label="Started">{when(t.started_at)}</Fact>
           <Fact label="Length">{duration(t.duration_s)}</Fact>
           <Fact label="How it ended">{t.status === "dropped" ? "Never finished: the worker stopped mid-call" : END_REASONS[t.end_reason] ?? (t.end_reason || "Still going")}</Fact>
-          <Fact label="Caller spoke">{t.turn_count} times</Fact>
+          <Fact label="Caller spoke">{t.turn_count} {t.turn_count === 1 ? "time" : "times"}</Fact>
           {languageName(t.language) && <Fact label="Language">{languageName(t.language)}</Fact>}
           <div className="col-span-2 sm:col-span-4">
             <dt className="text-xs text-muted-foreground">Vendors</dt>

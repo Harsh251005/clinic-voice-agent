@@ -89,7 +89,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </Link>
           )}
           {login === "off" ? (
-            <p className="mx-2 flex items-center gap-2 rounded-md bg-warning/15 px-2.5 py-2 text-xs text-warning">
+            <p className="mx-2 flex items-center gap-2 rounded-md bg-amber-300/15 px-2.5 py-2 text-xs text-amber-200">
               <FlaskConical className="size-4 shrink-0" aria-hidden /> Test mode: sign-in is off
             </p>
           ) : (
@@ -130,7 +130,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </nav>
 
       <main className="mx-auto w-full max-w-6xl px-4 pt-6 pb-28 md:px-10 md:py-10">
-        <ProblemBanner open={problems.data?.open ?? []} onSeen={(id) => seen.mutate(id)} seenPending={seen.isPending} />
+        {/* Health lists every open problem itself (Open problems): the banner there said each one twice. */}
+        {pathname !== "/admin" && (
+          <ProblemBanner open={problems.data?.open ?? []} onSeen={(id) => seen.mutate(id)} seenPending={seen.isPending} />
+        )}
         {children}
       </main>
     </div>

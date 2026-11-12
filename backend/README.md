@@ -43,6 +43,8 @@ set up through the dashboard):
 ```bash
 uv run python -m clinic_agent.store.migrations   # schema at the latest revision
 uv run python -m seeds.demo_clinic               # writes data/clinic.db (gitignored)
+uv run python -m seeds.busy_clinic --member you@gmail.com  # optional: "Busy Demo Clinic", 4 doctors, a full month, 500 calls
+uv run python -m seeds.busy_clinic --replace    # delete it and seed it fresh (also after deleting it in Admin, Clinics)
 ```
 
 Run the migrations command again after every pull that changes the schema.
@@ -202,12 +204,15 @@ in `repo.py`.
   is said: with any title, a polite "जी" or "साहब" after it, or a Hindi
   spelling that sounds the same (ख़ान/खान, अंजलि/अंजली).
 - **Names said one way:** the clinic and each doctor have a *Name in Hindi*
-  (Devanagari), **filled in from the English name** as staff type
+  (Devanagari), **written from the English name when staff click "Write in Hindi"** (never while they type)
   (`POST /api/clinics/{id}/hindi-name`: one short OpenAI text request,
   `gpt-4.1-mini`, `clinic_agent/providers/hindi.py`), reusing words the
   clinic already spells so a surname comes out the same everywhere. Staff
-  can change it; their own text is never overwritten. Saving with the box
-  blank fills it in the same way. A failed suggestion never blocks a save
+  can change it; the box is only filled when they click. Saving with the box
+  blank fills it in the same way, **and so does saving a changed English
+  name with the Hindi left as it was** (a renamed doctor is never called by
+  the old name; a Hindi name staff changed in that same save is kept, and if
+  no suggestion can be had the old one is dropped, not kept). A failed suggestion never blocks a save
   (the Hindi line then spells the name itself) and raises the admin's
   `hindi_names_failing` problem. The Hindi line says the name exactly as written.
 
@@ -622,6 +627,7 @@ api/                    call-link server: page + signed join pass (python -m api
         └── repo.py     every query the agent and dashboard make
     scheduling.py       free-slot rules — pure functions, no DB, no LiveKit
 seeds/demo_clinic.py    fictional clinic for tests and a first run
+seeds/busy_clinic.py    a busy fictional clinic beside the real ones, to try the dashboard under load
 ../frontend/            the dashboard (Next.js): screens only, over /api
 ```
 

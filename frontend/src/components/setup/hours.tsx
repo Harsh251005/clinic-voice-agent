@@ -2,6 +2,7 @@
 // Weekly hours: each day holds any number of sessions (none = closed), in
 // any order of the day: evening-only is as easy as morning-only. Quick fills
 // and per-day copies do the common cases; nothing is saved until Save.
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Copy, MessageSquareQuote, MoreHorizontal, Plus, TriangleAlert, Wand2, X } from "lucide-react";
@@ -11,9 +12,9 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TimeField } from "@/components/ui/time-field";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { span12, time12 } from "@/lib/dates";
 import { useClinicChange, usePatterns } from "@/lib/queries";
@@ -84,7 +85,7 @@ export function Hours({ clinic }: { clinic: Schemas["Clinic"] }) {
   const [doctorId, setDoctorId] = useState(clinic.doctors[0]?.id);
   const doctor = clinic.doctors.find((d) => d.id === doctorId) ?? clinic.doctors[0];
   if (!doctor) {
-    return <Section title="Weekly hours"><p className="text-sm text-muted-foreground">Add a doctor first, on the Doctors tab.</p></Section>;
+    return <Section title="Weekly hours"><p className="text-sm text-muted-foreground"><Link href={`/clinics/${clinic.id}/setup?tab=doctors`} className="font-medium text-primary hover:underline">Add a doctor</Link> first, on the Doctors tab.</p></Section>;
   }
   return (
     <div className="space-y-6">
@@ -244,7 +245,6 @@ function DayRow({ day, spans, onChange, onCopy }: {
 
 function Time({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <Input type="time" step={900} aria-label={label} value={value}
-      className="h-8 w-[7.25rem] border-0 tabular-nums shadow-none" onChange={(e) => e.target.value && onChange(e.target.value)} />
+    <TimeField bare label={label} value={value} minuteStep={15} onChange={onChange} />
   );
 }

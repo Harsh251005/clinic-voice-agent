@@ -128,7 +128,7 @@ export function AppShell({ clinicId, children }: { clinicId: number; children: R
             </div>
           )}
           {login === "off" ? (
-            <p className="mx-2 flex items-center gap-2 rounded-md bg-warning/15 px-2.5 py-2 text-xs text-warning">
+            <p className="mx-2 flex items-center gap-2 rounded-md bg-amber-300/15 px-2.5 py-2 text-xs text-amber-200">
               <FlaskConical className="size-4 shrink-0" aria-hidden /> Test mode: sign-in is off
             </p>
           ) : (

@@ -2,6 +2,7 @@
 // One form for booking and for changing a booking: doctor, day, time, who
 // and why. Staff have the final say, so any time can be typed; the doctor's
 // free times are offered as quick picks. The API refuses only a double booking.
+import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { TimeField } from "@/components/ui/time-field";
 import { Field } from "@/components/setup/field";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { clockTime, longDay } from "@/lib/dates";
@@ -101,7 +103,7 @@ function AppointmentForm({ clinic, day, editing, at, onDone }: {
   });
 
   if (!doctors.length) {
-    return <p className="text-sm text-muted-foreground">Add a doctor in Clinic settings first.</p>;
+    return <p className="text-sm text-muted-foreground"><Link href={`/clinics/${clinic.id}/setup?tab=doctors`} className="font-medium text-primary hover:underline">Add a doctor</Link> in Clinic settings first.</p>;
   }
   return (
     <form className="grid gap-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
@@ -119,8 +121,8 @@ function AppointmentForm({ clinic, day, editing, at, onDone }: {
         <Input id="appt-day" type="date" required value={f.day} onChange={(e) => set({ day: e.target.value })} />
       </Field>
       <div className="space-y-2 sm:col-span-2">
-        <Field id="appt-time" label="Time" hint="Pick a free time, or type any time: you can book outside hours or squeeze a walk-in in.">
-          <Input id="appt-time" type="time" required className="w-40" value={time} onChange={(e) => set({ time: e.target.value })} />
+        <Field id="appt-time" label="Time" hint="Pick a free time, or set any time: you can book outside hours or squeeze a walk-in in.">
+          <TimeField id="appt-time" label="Time" required value={time} onChange={(t) => set({ time: t })} />
         </Field>
         {free.isLoading ? <Skeleton className="h-8 w-full" /> : picks.length ? (
           <div className="flex flex-wrap gap-1.5" aria-label="Free times">
@@ -132,7 +134,7 @@ function AppointmentForm({ clinic, day, editing, at, onDone }: {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No free times that day by the doctor&apos;s hours. You can still type a time.</p>
+          <p className="text-sm text-muted-foreground">No free times that day by the doctor&apos;s hours. You can still pick a time.</p>
         )}
       </div>
       <Field id="appt-name" label="Patient name">

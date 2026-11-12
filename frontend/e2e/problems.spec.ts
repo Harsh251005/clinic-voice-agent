@@ -55,8 +55,10 @@ test("the operator sees the same problem technically, with the clinic named", as
   heartbeat();
   await page.goto("/admin");
   await expect(page.getByRole("heading", { name: /Open problems/ })).toBeVisible();
-  await expect(page.getByText("Demo Family Clinic: 1 patient couldn't connect (mic_blocked).").first()).toBeVisible();
+  await expect(page.getByText("Demo Family Clinic: 1 patient couldn't connect (mic_blocked).")).toHaveCount(1); // the list, with no banner repeating it
+  await expect(page.getByLabel("Problems", { exact: true })).toHaveCount(0);
   await page.goto("/admin/clinics");
+  await expect(page.getByLabel("Problems", { exact: true })).toBeVisible(); // every other page keeps the banner
   // Clinics added by the admin tests have no doctors yet: they carry a dot too, rightly.
   await expect(page.getByRole("link", { name: /^Needs attention: Demo Family Clinic/ })).toBeVisible();
 });

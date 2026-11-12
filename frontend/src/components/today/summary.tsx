@@ -28,7 +28,7 @@ export function Summary({ appointments, week, now }: { appointments: Appointment
             No one else today. With the doctor now: <span className="font-medium text-foreground">{inChair.map((a) => a.patient_name).join(", ")}</span>
           </p>
         ) : (
-          <p className="mt-1.5 text-muted-foreground">No one else booked today.</p>
+          <p className="mt-1.5 text-muted-foreground">{appointments.length ? "No one else booked today." : "No one booked today yet."}</p>
         )}
       </div>
       <Stat label="Appointments today" value={appointments.length} hint={`${left} left today`} />

@@ -1,4 +1,6 @@
-import { PhoneCall, TriangleAlert, UserRound } from "lucide-react";
+"use client";
+import { useState } from "react";
+import { ChevronDown, PhoneCall, TriangleAlert, UserRound } from "lucide-react";
 import type { Schemas } from "@/lib/api/client";
 import { doctorToday } from "@/lib/clinic-day";
 import { clockTime, span12 } from "@/lib/dates";
@@ -9,8 +11,14 @@ import { ReasonCheckTag } from "@/components/appointments/reason-check";
 
 type Appointment = Schemas["Appointment"];
 
+const FOLD_OVER = 3; // more visits than this, finished or far off, fold into one line
+const COMING_SHOWN = 5; // patients still to come that always show
+
 /** One doctor's day: their hours today and the patients booked, in order,
- *  with the one in the chair and the next one marked. */
+ *  with the one in the chair and the next one marked. On a busy day the
+ *  visits already over fold into one line, and so do those after the next
+ *  few, so who is next stays on screen (seen with 40 patients a doctor: the
+ *  list ran to five screens). */
 export function DoctorDay({ clinic, doctor, day, now, appointments }: {
   clinic: Schemas["Clinic"]; doctor: Schemas["Doctor"]; day: string; now: string; appointments: Appointment[];
 }) {
@@ -18,6 +26,17 @@ export function DoctorDay({ clinic, doctor, day, now, appointments }: {
   const rows = [...appointments].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   const nowIdx = rows.findIndex((a) => a.starts_at.slice(11, 16) <= now && now < a.ends_at.slice(11, 16));
   const nextIdx = rows.findIndex((a) => a.starts_at.slice(11, 16) > now);
+  // Over, and nothing left to do about it: a booking with a problem stays in view.
+  const over = (a: Appointment) => a.ends_at.slice(11, 16) <= now && !a.problem;
+  const earlier = rows.filter(over);
+  const folds = earlier.length > FOLD_OVER;
+  const [open, setOpen] = useState(false);
+  const count = (visit: string) => earlier.filter((a) => a.visit === visit).length;
+  const unmarked = earlier.filter((a) => !a.visit).length;
+  const coming = rows.filter((a) => a.starts_at.slice(11, 16) > now);
+  const later = new Set(coming.slice(COMING_SHOWN).filter((a) => !a.problem && !a.reason_unsure).map((a) => a.id));
+  const foldsLater = later.size > FOLD_OVER;
+  const [openLater, setOpenLater] = useState(false);
 
   return (
     <article className="overflow-hidden rounded-xl border bg-card">
@@ -41,8 +60,25 @@ export function DoctorDay({ clinic, doctor, day, now, appointments }: {
         </p>
       ) : (
         <ol className="divide-y">
+          {folds && (
+            <li>
+              <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
+                className="flex w-full items-center gap-3 px-5 py-3 text-left text-sm hover:bg-muted/60">
+                <span className="font-medium">{earlier.length} earlier today</span>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  {[count("done") && `${count("done")} done`, count("no_show") && `${count("no_show")} no-show`,
+                    unmarked && `${unmarked} not marked`].filter(Boolean).join(" · ")}
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1 font-medium text-primary">
+                  {open ? "Hide" : "Show"} <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden />
+                </span>
+              </button>
+            </li>
+          )}
           {rows.map((a, i) => {
             const past = a.ends_at.slice(11, 16) <= now;
+            if (folds && !open && over(a)) return null;
+            if (foldsLater && !openLater && later.has(a.id)) return null;
             const visit = visitInfo(a.visit);
             return (
               <li key={a.id} className={cn("flex items-start gap-4 px-5 py-3", i === nowIdx && "bg-accent/40", past && "text-muted-foreground")}>
@@ -73,6 +109,20 @@ export function DoctorDay({ clinic, doctor, day, now, appointments }: {
               </li>
             );
           })}
+          {foldsLater && (
+            <li>
+              <button type="button" onClick={() => setOpenLater(!openLater)} aria-expanded={openLater}
+                className="flex w-full items-center gap-3 px-5 py-3 text-left text-sm hover:bg-muted/60">
+                <span className="font-medium">{later.size} more later today</span>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  until {clockTime(rows.at(-1)!.starts_at)}
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1 font-medium text-primary">
+                  {openLater ? "Hide" : "Show"} <ChevronDown className={cn("size-4 transition-transform", openLater && "rotate-180")} aria-hidden />
+                </span>
+              </button>
+            </li>
+          )}
         </ol>
       )}
     </article>

@@ -2,6 +2,7 @@
 // patient, the week at a glance, and the phone layout. Runs after
 // dashboard.spec.ts on the same database (Riya Sharma is booked today at 10).
 import { expect, test } from "@playwright/test";
+import { expectTime } from "./time";
 
 const DIARY = "/clinics/1/appointments";
 
@@ -18,7 +19,7 @@ test("clicking a free slot books exactly there", async ({ page }) => {
   await page.goto(`${DIARY}?day=${nextTuesday()}`);
   await expect(page.getByRole("region", { name: "Day diary" })).toContainText("10 am–1 pm, 5–8 pm");
   await page.getByRole("button", { name: "Book Dr. Asha Mehta at 10:30 am" }).click();
-  await expect(page.getByLabel("Time", { exact: true })).toHaveValue("10:30");
+  await expectTime(page, "Time", "10:30");
   await page.getByLabel("Patient name").fill("Kabir Rao");
   await page.getByLabel("Mobile number").fill("9819044444");
   await page.getByRole("button", { name: "Book appointment" }).click();
@@ -91,7 +92,7 @@ test.describe("on a phone", () => {
     await expect(page.getByRole("tab", { name: /Dr. Asha Mehta/ })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("button", { name: /10:30 am, Kabir Rao/ })).toBeVisible();
     await page.getByRole("button", { name: "Book Dr. Asha Mehta at 10:45 am" }).click();
-    await expect(page.getByLabel("Time", { exact: true })).toHaveValue("10:45");
+    await expectTime(page, "Time", "10:45");
     await page.keyboard.press("Escape");
     await page.getByRole("tab", { name: /Dr. Rohan Iyer/ }).click();
     await expect(page.getByRole("heading", { name: "Dr. Rohan Iyer" })).toBeVisible();

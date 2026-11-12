@@ -62,14 +62,14 @@ export function ProblemBanner({ open, onSeen, seenPending }: {
         const tone = TONE[p.severity];
         return (
           <div key={p.id} role={p.severity === "critical" ? "alert" : "status"}
-            className={cn("flex flex-wrap items-start gap-x-3 gap-y-2 rounded-xl border px-4 py-3", tone.banner,
+            className={cn("flex flex-wrap items-start gap-x-3 gap-y-1 rounded-xl border px-3 py-2.5 sm:gap-y-2 sm:px-4 sm:py-3", tone.banner,
               p.severity === "critical" && "shadow-md")}>
             <tone.icon className="mt-0.5 size-5 shrink-0" aria-hidden />
             <div className="min-w-0 flex-1 basis-60">
-              <p className="font-semibold">
+              <p className="text-sm font-semibold sm:text-base">
                 <span className="sr-only">{tone.word}: </span>{p.title}
               </p>
-              <p className="text-sm opacity-90">
+              <p className="text-xs opacity-90 sm:text-sm">
                 {p.action}{p.action && " "}
                 <span className="whitespace-nowrap opacity-80">({since(p.since)})</span>
               </p>

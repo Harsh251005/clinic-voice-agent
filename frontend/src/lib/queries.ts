@@ -41,6 +41,7 @@ export function useDay(clinicId: number, day: string, includeCancelled: boolean)
       unwrap(api.GET("/api/clinics/{clinic_id}/appointments", {
         params: { path: { clinic_id: clinicId }, query: { day, include_cancelled: includeCancelled } },
       })),
+    enabled: day !== "", // Today asks before it knows the clinic's date: an empty day is a 422
     placeholderData: (previous) => previous, // keep the last day on screen while the next loads
     refetchInterval: 30_000, // bookings from calls appear without a reload
   });

@@ -3,6 +3,7 @@
 // Tests share that database and run in order.
 import { expect, test, type Page } from "@playwright/test";
 import { heartbeat, unsureBookingToday } from "./backend";
+import { expectTime, setTime } from "./time";
 
 const SETUP = "/clinics/1/setup";
 
@@ -64,7 +65,7 @@ test("staff book a walk-in, then change it", async ({ page }) => {
   await page.getByLabel("Patient name").fill("Meena Joshi");
   await page.getByLabel("Mobile number").fill("98190 22222");
   await page.getByLabel("Reason for visit (optional)").fill("Tooth pain since Monday");
-  await page.getByLabel("Time", { exact: true }).fill("11:05");  // off the grid: a walk-in
+  await setTime(page, "Time", "11:05");  // off the grid: a walk-in
   await page.getByRole("button", { name: "Book appointment" }).click();
   await expect(page.getByText(/^Booked: Meena Joshi with Dr. Asha Mehta/)).toBeVisible();
 
@@ -83,7 +84,7 @@ test("a double booking is refused with a reason", async ({ page }) => {
   await page.getByRole("button", { name: "New appointment" }).click();
   await page.getByLabel("Patient name").fill("Someone Else");
   await page.getByLabel("Mobile number").fill("9819033333");
-  await page.getByLabel("Time", { exact: true }).fill("11:05");
+  await setTime(page, "Time", "11:05");
   await page.getByRole("button", { name: "Book appointment" }).click();
   await expect(page.getByText(/already has .* from 11:05 am to 11:20 am/)).toBeVisible();
 });
@@ -144,7 +145,7 @@ test("weekly hours: apply a pattern, see it described, save", async ({ page }) =
 test("weekly hours: overlapping sessions are explained and can't be saved", async ({ page }) => {
   await page.goto(`${SETUP}?tab=hours`);
   await pick(page, "Doctor", "Dr. Asha Mehta");
-  await page.getByLabel("Tuesday session 2 from").fill("12:00");
+  await setTime(page, "Tuesday session 2 from", "12:00");
   await expect(page.getByText("Tuesday: 10 am–1 pm and 12–8 pm overlap.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save hours" })).toBeDisabled();
   await page.getByRole("button", { name: "Discard changes" }).click();
@@ -155,13 +156,13 @@ test("weekly hours: a day can have only an evening session", async ({ page }) =>
   await page.goto(`${SETUP}?tab=hours`);
   await pick(page, "Doctor", "Dr. Asha Mehta");
   await page.getByRole("button", { name: "Remove Wednesday session 1" }).click();
-  await expect(page.getByLabel("Wednesday session 1 from")).toHaveValue("17:00");
+  await expectTime(page, "Wednesday session 1 from", "17:00");
   await expect(page.getByLabel("Wednesday session 2 from")).toHaveCount(0);
   await page.getByRole("button", { name: "Save hours" }).click();
   await expect(page.getByText("Hours saved for Dr. Asha Mehta")).toBeVisible();
   await page.reload();
   await pick(page, "Doctor", "Dr. Asha Mehta");
-  await expect(page.getByLabel("Wednesday session 1 from")).toHaveValue("17:00");
+  await expectTime(page, "Wednesday session 1 from", "17:00");
 });
 
 test("weekly hours: a closed day opens with any session, and days can be closed", async ({ page }) => {
@@ -172,8 +173,8 @@ test("weekly hours: a closed day opens with any session, and days can be closed"
   await expect(page.getByLabel("Thursday session 1 from")).toHaveCount(0);
   await page.getByRole("button", { name: "Add a session on Thursday" }).click();
   await page.getByRole("menuitem", { name: /Afternoon/ }).click();
-  await expect(page.getByLabel("Thursday session 1 from")).toHaveValue("14:00");
-  await expect(page.getByLabel("Thursday session 1 to")).toHaveValue("17:00");
+  await expectTime(page, "Thursday session 1 from", "14:00");
+  await expectTime(page, "Thursday session 1 to", "17:00");
   await page.getByRole("button", { name: "Discard changes" }).click();
 });
 
@@ -181,10 +182,10 @@ test("weekly hours: copy Monday to Monday–Saturday", async ({ page }) => {
   await page.goto(`${SETUP}?tab=hours`);
   await pick(page, "Doctor", "Dr. Asha Mehta");
   const sundayBefore = await page.getByLabel(/^Sunday session/).count();
-  await page.getByLabel("Monday session 1 from").fill("09:00");
+  await setTime(page, "Monday session 1 from", "09:00");
   await page.getByRole("button", { name: "More for Monday" }).click();
   await page.getByRole("menuitem", { name: "Copy Monday's hours to Monday to Saturday" }).click();
-  await expect(page.getByLabel("Saturday session 1 from")).toHaveValue("09:00");
+  await expectTime(page, "Saturday session 1 from", "09:00");
   await expect(page.getByLabel(/^Sunday session/)).toHaveCount(sundayBefore); // Sunday untouched
   await page.getByRole("button", { name: "Discard changes" }).click();
 });
@@ -208,21 +209,67 @@ test("answers to common questions can be added, edited in place and removed", as
   await expect(page.getByText("Do you do home visits?")).toBeHidden();
 });
 
-test("a doctor's name in Hindi is filled in from the English name, and staff can change it", async ({ page }) => {
+test("the Hindi name is written only when staff click the button, and they can change it", async ({ page }) => {
   // The suggestion comes from the API (OpenAI behind it): answered here, no vendor in tests.
-  await page.route("**/api/clinics/*/hindi-name", (route) =>
-    route.fulfill({ json: { name_hi: "डॉक्टर मीरा कपूर" } }));
+  let asked = 0;
+  await page.route("**/api/clinics/*/hindi-name", (route) => {
+    asked += 1;
+    return route.fulfill({ json: { name_hi: "डॉक्टर मीरा कपूर" } });
+  });
   await page.goto(`${SETUP}?tab=doctors`);
   await page.getByRole("button", { name: "Add doctor" }).click();
-  await page.getByLabel("Name", { exact: true }).fill("Dr. Meera Kapoor");
   const hindi = page.getByLabel("Name in Hindi");
+  const button = page.getByRole("button", { name: "Write in Hindi" });
+  await expect(button).toBeDisabled(); // nothing to write from yet
+  await page.getByLabel("Name", { exact: true }).fill("Dr. Meera Kapoor");
+  await page.waitForTimeout(1200);
+  await expect(hindi).toHaveValue(""); // typing alone asks for nothing
+  expect(asked).toBe(0);
+  await button.click();
   await expect(hindi).toHaveValue("डॉक्टर मीरा कपूर");
-  await expect(page.getByText("Filled in from the English name.")).toBeVisible();
-  await hindi.fill("डॉक्टर मीरा कपूर जी"); // staff's own: kept even if the English name changes
+  await expect(page.getByText("Written from the English name.")).toBeVisible();
+  await hindi.fill("डॉक्टर मीरा कपूर जी"); // staff's own
   await page.getByLabel("Name", { exact: true }).fill("Dr. Meera Kapoor Sharma");
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(1200);
   await expect(hindi).toHaveValue("डॉक्टर मीरा कपूर जी");
+  expect(asked).toBe(1);
   await page.keyboard.press("Escape");
+});
+
+test("typing a new clinic name leaves the Hindi box alone until the button is clicked (a save rewrites it: API tests)", async ({ page }) => {
+  await page.route("**/api/clinics/*/hindi-name", (route) =>
+    route.fulfill({ json: { name_hi: "नया नाम क्लिनिक" } }));
+  await page.goto(`${SETUP}?tab=clinic`);
+  const hindi = page.getByLabel("Clinic name in Hindi");
+  await hindi.fill("डेमो फ़ैमिली क्लिनिक");
+  await page.getByRole("button", { name: /^Save/ }).first().click();
+  await expect(page.getByText("Clinic details saved")).toBeVisible();
+  await page.reload();
+  await expect(hindi).toHaveValue("डेमो फ़ैमिली क्लिनिक");
+  await page.getByLabel("Clinic name", { exact: true }).fill("New Name Clinic");
+  await page.waitForTimeout(1200);
+  await expect(hindi).toHaveValue("डेमो फ़ैमिली क्लिनिक");
+  await page.getByRole("button", { name: "Write in Hindi" }).click();
+  await expect(hindi).toHaveValue("नया नाम क्लिनिक");
+});
+
+test("saving a renamed clinic shows the Hindi name the API saved, not the old one", async ({ page }) => {
+  await page.goto(`${SETUP}?tab=clinic`);
+  const name = page.getByLabel("Clinic name", { exact: true });
+  const hindi = page.getByLabel("Clinic name in Hindi");
+  const save = page.getByRole("button", { name: /^Save/ }).first();
+  const before = await name.inputValue();
+  await hindi.fill("पुराना नाम क्लिनिक");
+  await save.click();
+  await expect(save).toBeDisabled(); // saved: nothing left to save
+  await name.fill("Renamed Clinic");
+  await save.click();
+  // Tests have no vendor to write the new name, so the API drops the old one: the box must show that.
+  await expect(hindi).toHaveValue("");
+  await expect(save).toBeDisabled();
+  await name.fill(before); // put the name back for the tests after this one
+  await save.click();
+  await expect(save).toBeDisabled();
 });
 
 test("a clinic holiday can be added", async ({ page }) => {

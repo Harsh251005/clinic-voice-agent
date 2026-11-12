@@ -63,7 +63,7 @@ export function Receptionist({ clinic, today, down }: {
         </Link>
       )}
 
-      {!ready && (
+      {done < steps.length && ( // setup left to do; once done, the list is gone even while offline
         <>
           <div className="px-5 pt-4" aria-hidden>
             <div className="h-1.5 overflow-hidden rounded-full bg-muted">

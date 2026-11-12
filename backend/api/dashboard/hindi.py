@@ -51,6 +51,15 @@ def suggestion(request: Request, name: str, clinic_id: int) -> str:
         return ""
 
 
+def left_behind(old_name: str, old_hi: str, name: str, name_hi: str) -> bool:
+    """Whether a save leaves the Hindi name needing to be written again from
+    the English one: it is blank, or the English name changed and the Hindi
+    was left as it was (Harsh, 2026-11-12: a renamed doctor must never keep
+    being called by the old name). A Hindi name staff changed in the same
+    save is theirs and is kept."""
+    return not name_hi or (name != old_name and name_hi == old_hi)
+
+
 @router.post("/api/clinics/{clinic_id}/hindi-name", response_model=schemas.HindiName)
 def suggest(body: schemas.NameIn, request: Request, clinic_id: int = Depends(open_clinic)):
     """For the settings forms: the suggestion staff see in the Hindi box."""

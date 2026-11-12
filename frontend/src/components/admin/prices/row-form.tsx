@@ -52,7 +52,7 @@ export function RowForm({ title, fields, initial, units, pending, onCancel, onSa
   return (
     <Dialog open onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <form onSubmit={(e) => {
+        <form className="min-w-0" onSubmit={(e) => {
           e.preventDefault();
           const body: Values = { ...v };
           for (const f of shown) {
@@ -67,7 +67,7 @@ export function RowForm({ title, fields, initial, units, pending, onCancel, onSa
           </DialogHeader>
           <div className="my-4 grid gap-4 sm:grid-cols-2">
             {shown.map((f) => (
-              <div key={f.name} className={f.kind === "text" || f.kind === "unit" ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}>
+              <div key={f.name} className={f.kind === "text" || f.kind === "unit" ? "min-w-0 space-y-1.5 sm:col-span-2" : "min-w-0 space-y-1.5"}>
                 <Label htmlFor={`f-${f.name}`}>{f.label}{f.optional && <span className="font-normal text-muted-foreground"> (optional)</span>}</Label>
                 <FieldInput f={f} value={v[f.name]} units={units} onChange={(x) => set(f.name, x)} />
                 {f.hint && <p className="text-xs text-muted-foreground">{f.hint}</p>}
