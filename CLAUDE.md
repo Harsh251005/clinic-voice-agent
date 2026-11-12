@@ -1,307 +1,95 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+A Hindi/Hinglish voice receptionist for Indian clinics: a LiveKit Agents
+worker plus a FastAPI server in `backend/`, the Next.js dashboard in
+`frontend/`. A rule marked **†** is Harsh's ruling (`docs/rulings.md`):
+change it only when he asks.
 
-## What this is
+Folder notes load when you work there:
+`backend/clinic_agent/CLAUDE.md` (call pipeline, booking, clips, problems,
+costs, records), `backend/clinic_agent/store/CLAUDE.md` (database),
+`backend/api/CLAUDE.md` (call links, dashboard API, access),
+`frontend/CLAUDE.md` (dashboard).
 
-A Hindi/Hinglish voice receptionist for Indian clinics. All code lives in
-`backend/`: a LiveKit Agents worker. **Allowed vendors only:** STT and TTS
-are `sarvam`, the LLM `sarvam` or `openai` — never add others
-(`test_only_the_allowed_vendors_are_registered` enforces it). **One language
-line, Hindi** (Harsh, 2026-11-08: Hindi first, reliable and production-ready
-before anything else; `clinic_agent/lines.py`): Sarvam STT + TTS, and the
-LLM chosen on Admin > Receptionist (`sarvam` default, `openai` to compare). The English
-line and its vendor were removed; leftover `ELEVENLABS_*` and `*_PROVIDER`
-lines in `.env` are refused at startup, never silently ignored. The dispatch
-still names the language (always `hi`) so a second line later is one entry.
-A missing key stops the worker with a one-line error. **How the receptionist
-behaves lives in the database, set in the dashboard** (Harsh, 2026-11-10;
-`clinic_agent/receptionist_settings.py`): what every clinic shares
-(`system_settings`: rules text, brain + model names, hearing, turn-taking,
-greeting interruptible; Admin > Receptionist) and what each clinic sets
-(`clinics`: instructions, directions, voice model + speaker (saved and
-checked together: a pair the vendor refuses is a 422), live speed, pitch,
-longest call; its Receptionist tab, admins only). `.env` keeps only
-secrets and plumbing; a leftover moved line (`MOVED_ENV`) stops the worker
-and the API (`refuse_moved_settings`), after the migrations command copied
-it in once. Live tests use OpenAI only, as text (never Sarvam).
+## Hard rules
 
-Current state (2026-11-08): Stages 2, 3 and 5 built, Stage 4 in progress; one Hindi line (the English line and ElevenLabs removed, their data deleted by migration 0013; `docs/decisions.md` #13).
-Built: clinic database (Postgres + Alembic), free-slot rules, booking +
-cancel/reschedule tools with code-enforced confirmation, end-call tool,
-`console --text`, one worker for all clinics (dispatch), browser call links
-(`api/`), Google sign-in, the **Next.js dashboard** (`frontend/`: Today,
-diary, calls, settings), call records and transcripts, the admin panel, and
-problems flagged on every page, and the fixed phrases (greeting, fillers,
-goodbyes) played from admin-made recordings, live when there are none. Not yet: a server deployment, telephony (identity is
-by spoken mobile number until caller ID exists), vendor fallback, the
-patient front door. Plans: `~/.claude/plans/` (current:
-`per-clinic-agent-and-language-lines.md`; also `portfolio-ready.md`,
-`stage-4-pb-fallback-and-alerts.md`, `admin-configurable.md`). The
-default instructions (`clinic_agent/prompts.py` `RULES`) may only describe
-what is built: no promised checks, holds, messages or callbacks. Add a
-capability to them in the same change that builds it. The admin may replace
-them on Admin > Receptionist (their wording is then the admin's call, as with
-the greeting); live evals grade only the default.
+- **Vendors:** STT and TTS `sarvam`; LLM `sarvam` (default) or `openai`.
+  Never add others (`test_only_the_allowed_vendors_are_registered`).
+- **One language line, Hindi †** (`lines.py`). Dispatch still names the
+  language (always `hi`) so a second line later is one entry. Leftover
+  `ELEVENLABS_*` / `*_PROVIDER` lines in `.env` are refused at startup.
+- **Behaviour lives in the database, set in the dashboard †**
+  (`receptionist_settings.py`). Shared, `system_settings` (Admin >
+  Receptionist): rules text, brain + model names, hearing, turn-taking,
+  greeting interruptible. Per clinic, `clinics` (its Receptionist tab,
+  admins only): instructions, directions, voice model + speaker, speed,
+  pitch, longest call. `.env` holds only secrets and plumbing. A leftover
+  moved line (`MOVED_ENV`) stops worker and API (`refuse_moved_settings`)
+  once the migrations command has copied it in.
+- **Import boundaries** (`tests/test_boundaries.py`): only `providers/`
+  imports a vendor package; only `store/` imports SQLAlchemy/Alembic
+  (elsewhere type-hint with `Session`/`Sessions` from `store/db.py`).
+- **Only `config.py` reads `os.environ`.** A new secret = a `Settings`
+  field + `load_settings()` line + `.env.example` entry. A behaviour setting
+  = a column + migration + admin field instead, never `.env`.
+- **Default rules (`prompts.RULES`) describe only what is built:** no
+  promised checks, holds, messages or callbacks. Add a capability to them in
+  the same change that builds it. Admin-replaced rules are the admin's
+  wording; live evals grade only the default.
+- **Any new failure mode gets an incident kind in the same change**, never
+  log-only. **A new billable vendor call records its usage** in the same
+  change. **A new row-id route goes through `repo.in_clinic`** + an
+  `ATTACKS` entry.
+- **Keep `backend/README.md` current** with every behaviour, command or
+  setup change, in the same commit. After any API change run
+  `npm run api:types` in `frontend/` (`tests/test_openapi.py` fails if stale).
+- **Live tests: OpenAI only, as text, never Sarvam.** Spend no OpenAI or
+  Sarvam credits without asking.
 
-## Commands
-
-Dashboard: see `frontend/CLAUDE.md`. After any API change run
-`npm run api:types` in `frontend/` (`tests/test_openapi.py` fails if stale).
-
-
-Run from `backend/` (Python ≥3.13, managed with `uv`, `package = false`):
+## Commands (from `backend/`, Python ≥3.13, `uv`)
 
 ```bash
-uv sync                          # install
-cp .env.example .env             # then set the keys for the selected providers
-uv run python -m clinic_agent.store.migrations  # schema up to date (after every pull)
-uv run python main.py console    # talk over the local mic — spends no LiveKit minutes
-uv run python main.py console --text  # typed, LLM-only: no STT/TTS built or billed
-uv run python main.py console --clinic 2  # pick a clinic when there are several
-uv run python main.py dev        # join rooms it is dispatched to (LiveKit 1.8 dropped reload: restart after edits)
-uv run python main.py start      # production worker
-uv run python -m api             # call-link server: /call/<slug> page + join passes
-docker compose up --build        # (repo root) Postgres + API + dashboard + demo data; --profile voice adds the worker
+uv sync && cp .env.example .env
+uv run python -m clinic_agent.store.migrations  # after every pull; the only schema changer
+uv run python main.py console [--text] [--clinic N]  # local mic / typed LLM-only; no LiveKit minutes
+uv run python main.py dev | start  # needs the 3 LIVEKIT_* values; free tier 1,000 min/month; restart after edits
+uv run python -m api               # call-link + dashboard API server
+uv run pytest                      # offline suite; -m live spends OpenAI credits
+docker compose up --build          # (repo root) Postgres + API + dashboard + demo; --profile voice adds worker
 ```
 
-CI (`.github/workflows/ci.yml`) runs the offline suite on SQLite and
-Postgres, the dashboard's typecheck/lint/build and the Playwright suite on
-every push. Keep it green; it calls no vendor.
-
-Prefer `console` for testing. `dev`/`start` need the three `LIVEKIT_*` values
-and spend from LiveKit Cloud's free tier (1,000 agent-session minutes/month).
-All voice modes spend Sarvam credits (paid per use); OpenAI is paid per use
-too.
-
-```bash
-uv run pytest                    # offline tests: config, providers, session, boot
-uv run pytest -m live            # OpenAI for real, as text (never Sarvam); spends credits
-```
-
-No linter or formatter is configured.
-
-## Architecture
-
-The pipeline is split so each concern lives in exactly one module:
-
-- `main.py` — validates config *before* `cli.run_app` starts the worker
-  (a `ConfigError`, unknown provider, missing key, old schema or, in console,
-  a missing clinic exits with a one-line message, not a traceback). **One
-  worker serves every clinic:** it registers as `dispatch.AGENT_NAME`
-  (explicit dispatch) and each job reads its clinic **and language** (only
-  `hi`) from the dispatch metadata (`dispatch.call_from`); no clinic, an
-  unknown one or no known language → job refused, never guessed. Console has
-  no dispatch: `--clinic N` (or the only clinic), console-only and stripped
-  from argv before LiveKit's CLI; the old `--language` is refused. Each job loads
-  the clinic (`context.load_clinic`, off the event loop), builds instructions,
-  builds a session and starts `ClinicAgent` in the room, then starts
-  `call_limit.end_after` (the clinic's `max_call_minutes`), cancelled on job shutdown.
-  The fixed greeting (`voice_clips`, said in `on_enter`, uninterruptible
-  unless Admin > Receptionist allows it, never model-written; its words are the admin's, nothing required) opens
-  the call; the prompt's Opening rule tells the model it was said.
-- `clinic_agent/voice_clips.py` — the **fixed phrases** (greeting, fillers,
-  fixed goodbyes): `for_call` loads them once per call with any recording
-  for the call's exact voice + words (`clip_key`); `say` plays the
-  recording or speaks the words live. **Any clip problem = said live**
-  (Harsh, 2026-11-09: reliability over savings); unreadable phrases fall
-  back to `BUILT_IN` (must equal migration 0014's seeds) and open
-  `voice_clips_unread`. Nothing records itself: `record` runs only on an
-  admin's click, from `api/dashboard/voice.py` (page `/admin/voice`: edit in
-  English, Hindi suggested by `providers/hindi.translate_phrase`, Record /
-  Play). A played recording asks no vendor, so usage counts nothing for it;
-  `CallRecorder.clip_played` adds a trace step (`kind="clip"`, the line's
-  kind, never words) so the call page shows it at ₹0. No required wording in a greeting (Harsh, 2026-11-09: he handles
-  what callers are told); don't add checks back.
-- `api/` — FastAPI call-link server (browser calls until telephony).
-  `/call/<slug>` page (no language choice: every call is Hindi); `POST
-  /call/<slug>/pass` (no body; an old tab's is ignored) signs a LiveKit token for a
-  fresh room whose `RoomConfiguration` dispatches `AGENT_NAME` with
-  `dispatch.metadata_for(clinic_id, "hi")`: mic-only, 2 participants, 5-min TTL.
-  In-memory rate limits (per IP, per clinic); `CLIENT_IP_HEADER` names the
-  trusted proxy header (last entry used). Strict CSP; livekit-client pinned
-  with SRI. Reads data only via `repo`; fails fast on missing LiveKit
-  settings or old schema, like `main.py`.
-- `api/dashboard/` — the dashboard JSON API for `frontend/` (plan
-  `~/.claude/plans/stage-3b-nextjs-dashboard.md`). FastAPI
-  owns Google sign-in (Authlib) and a signed session cookie holding only the
-  email; `access.py` has `Viewer`, `current_viewer`, `open_clinic` (404 for
-  clinics you can't open; admins open all), `clinic_staff` (patient data:
-  members only, admin non-member → 403), `admin`, `same_site` (CSRF header
-  `x-clinic-console`), `staff_errors` (ValueError→422). **Every route that
-  takes a row id must go through `repo.in_clinic`** (IDOR; `/api/admin/*` is
-  cross-clinic by design, admins only, and returns no patient data except the
-  logged transcript opening); add an entry to
-  `ATTACKS` in `tests/test_dashboard_api.py` for any new row type. Tests
-  set the viewer with `dependency_overrides`, never a backdoor.
-  **Staff test calls** (`calls.py`, page `talk`): a real call (books for
-  real), dispatch `"test": true` signed into the pass, `calls.test`, kept out
-  of counts/problems (not LiveKit minutes); `DELETE …/calls/{id}` erases a
-  finished one via `repo.erase_test_call` (all or nothing; moves record
-  `undo` so they can be put back). Patients' calls are never erasable.
-- `clinic_agent/config.py` — the **only** place that reads `os.environ`.
-  Frozen `Settings` dataclass; a new secret or plumbing setting means a
-  field, a line in `load_settings()`, and an entry in `.env.example`. A
-  setting for how the receptionist behaves goes in
-  `receptionist_settings.py` instead (a column, a migration, a field on the
-  admin page), never `.env`.
-- `clinic_agent/call_settings.py` — a call's settings: `merge` lays the
-  `system_settings` row and the clinic's own over `.env` into a plain
-  `Settings` (plus the rules text and greeting switch). Read at job start
-  (`context.load_clinic`), so dashboard changes apply from the next call.
-- `clinic_agent/lines.py` — the Hindi line (`line_for(cfg, language)`:
-  which vendor per part, the LLM from `cfg.hindi_llm`) and `available(cfg)`:
-  whether it has its keys.
-- `clinic_agent/session.py` — the **only** place STT + LLM + TTS are combined
-  into an `AgentSession`, from the call's line. `text_only=True` (from `console --text`, detected in
-  `main.py` as `TEXT_ONLY`) builds an LLM-only session with manual turns; boot
-  then skips the speech providers and their keys.
-- `clinic_agent/agent.py` — behaviour only: takes its instructions from the
-  entrypoint; tools attach here. Speaks first via `on_enter`.
-- `clinic_agent/prompts.py` — fixed persona `RULES` + `clinic_facts()` generated
-  from the database per call (active doctors, grouped weekly hours, leave and
-  holidays in the booking window, FAQ, current clinic time). Static facts go in
-  the prompt; tools are only for changing data and actions.
-- `clinic_agent/context.py` — `load_clinic(cfg)` and `clinic_now(tz)`.
-- `clinic_agent/call_record.py` — `CallRecorder`: every call's **trace**
-  (`calls` + `call_events`: timings, tool names/ok, vendor error types,
-  end reason, outcome from what tools changed) and **transcript**
-  (`call_transcripts`, patient data, own table). **Never audio;** the
-  session starts with `record=False`. The trace must never hold words from
-  the call (operator sees it; transcripts only via a logged opening,
-  `transcript_access`). Recording failures are logged, never break a call.
-  Tools report changes through `ClinicLink.on_change` (booking functions
-  return `booking.Changed`). `store/purge.py`: transcripts 30 d, traces 180 d.
-- `clinic_agent/costs.py` — **what calls cost**: no vendor returns a price,
-  so `CallRecorder` saves each call's exact usage (`usage`, from
-  `session.usage`; never money, never words) and this prices it when shown:
-  usage × the dated price list (`prices`, `exchange_rates`, `allowances`,
-  `fixed_costs`, `vendor_bills`), all edited on the admin Prices page
-  (`api/dashboard/costs.py`), never in code (Harsh, 2026-10-13); a price
-  may only be in a unit calls count that vendor in (`costs.COUNTED_IN`:
-  record a new vendor's unit there too). Usage
-  outlives its call (FKs `SET NULL`). A new billable vendor call = record
-  its usage in the same change, or its cost is silently missing.
-- `clinic_agent/incidents.py` — **problems, flagged**: which conditions and
-  events count (`KINDS`), `sync` (the API re-checks every 30 s: opens,
-  updates, closes) and `report` (events: counted, closed after a quiet
-  spell). **A problem closes on proof it is fixed** (Harsh, 2026-11-09:
-  never by a click or a timer alone): the same thing working again closes
-  it (`resolved_how="fixed"`); only what nothing retries goes "quiet" after
-  its spell, labelled so in the bell. A new kind needs its recovery rule.
-  Every accepted change (`/api/*`, not GET) re-checks before answering
-  (`api/app.py` `check_problems`, one at a time) and the dashboard's API
-  client refreshes problems after it (`afterEveryChange`), so a fix made in
-  the dashboard clears its problem at once.
-  Words live in `api/dashboard/problems.py`, in two voices: plain
-  for the clinic, technical for the admin. Alerts stay **in the website**
-  (Harsh, 2026-09-28): every page shows a banner, a bell and "(!)" in the
-  tab, so **any new failure mode gets an incident kind in the same change**,
-  never log-only. `heartbeat.py`: the worker checks in every 30 s from
-  LiveKit's `worker_registered` (not console); stale for 90 s = offline.
-- `clinic_agent/tools/call.py` — our own `end_call` (not LiveKit's
-  `EndCallTool`, which could hang up in silence): the goodbye is an argument
-  of the tool call, spoken with interruptions off, then the room is deleted.
-  Hidden during the greeting (`IGNORE_ON_ENTER`).
-- `clinic_agent/booking.py` — booking rules as plain functions over a session;
-  raise `BookingError` with a caller-sayable message. `clinic_agent/tools/`
-  holds the LiveKit `@function_tool` wrappers only: run the rule in
-  `asyncio.to_thread`, map `BookingError` → `ToolError`. Put rules in
-  `booking.py`, never in the wrapper. Tests: in-memory DB for rules; a file DB
-  for tools (SQLite `:memory:` is per-thread, so threaded tools would see an
-  empty database). Live evals use `mock_tools` so the LLM's tool choices are
-  graded without a real clock. **Booking is check-then-book, enforced in
-  code**: `check_booking` validates and returns the read-back; the no-argument
-  `book_appointment` books only what was checked, and only after the caller
-  has spoken since (`tools/booking.py`, the one piece of call state kept in a
-  wrapper). Cancel and reschedule use the same rule, **confirm by
-  repeating**: the first call is only the check and read-back, the same
-  call again acts once the caller has spoken (`confirmed` in the wrapper).
-  Never go back to trusting a `caller_confirmed` flag.
-  **A tool that can't answer is answered by the code** (Harsh, 2026-11-10;
-  `give_up`): a crash, or the same error twice with nothing new from the caller (a caller
-  repeating a request is a new question, answered by the model), says the fixed
-  `sorry_cant_check` phrase, raises `StopResponse` (no model reply) and
-  reports `tools_failing`. Never let the model word a failed lookup twice.
-  **The right doctor for the reason** (Harsh, 2026-11-09): the model judges
-  whether the reason fits a specialty (no code can); `check_booking` sets the
-  reason beside the specialty before the read-back (`fit_gate`), and
-  `reason_fits="unsure"` books with `appointments.reason_unsure` ("Check
-  reason" in the dashboard). A doctor's specialty is required.
-- `clinic_agent/store/` — clinic data (SQLAlchemy, sync). `repo.py` holds every
-  query; writes commit before returning; callers see `repo.NotFound` /
-  `repo.SlotTaken`, never SQLAlchemy errors. **Only `store/` imports
-  SQLAlchemy.** Double booking is prevented by a partial unique index, not by
-  code; only that index's violation may become `SlotTaken` (`_is_slot_clash`).
-  So visit marks (arrived/done/no-show) are their own column
-  `appointments.visit`, **never a status**: any status but `booked` frees
-  the slot.
-  Patients are unique on (clinic, phone, name): families share phones, and a
-  new name must never rename an existing patient. **Schema changes = an
-  Alembic revision** (`store/alembic/versions/`, `uv run alembic revision
-  --autogenerate --rev-id 000N`), read and committed. Only
-  `python -m clinic_agent.store.migrations` changes a schema; running code
-  calls `migrations.check()` and refuses an old schema, never migrates.
-  `created_at` is naive UTC (`utc_now`); appointment times are clinic-local.
-  SQLite revisions run with foreign keys OFF (`_upgrade_sqlite`): a batch
-  table rebuild with them on cascade-deletes child rows. Clinics have a
-  unique `slug` (call link); change it only via `repo.set_slug`.
-  Tests: `db` fixture also runs on Postgres when `TEST_POSTGRES_URL` is set
-  (local container `clinic-pg`, port 5433; see README). Clinic details are
-  data (seed or dashboard), never in `.py` files.
-- `frontend/` — the dashboard (Next.js, screens only); its notes load from
-  `frontend/CLAUDE.md` when working there.
-- `clinic_agent/providers/{stt,llm,tts}.py` — each has a `BUILDERS` registry
-  mapping a name to a builder returning LiveKit's base `STT`/`LLM`/`TTS` class.
-  Builders own their vendor's defaults (model/voice settings are `None` in
-  `Settings` when blank) and call `require_key(...)` for their own API key.
-  `build_x(cfg, vendor)`. `main.py` tries the line at boot: a missing key
-  exits with a one-line error (the check still loops over `LANGUAGES`, so a
-  second line would only switch itself off). No worker checked in for the
-  line = a critical `language_off` problem.
-
-**Invariant: only `providers/` imports a vendor package.** Everything else
-works against LiveKit's base classes. Adding a vendor = a builder in the
-matching `BUILDERS` dict + naming it in a line in `lines.py`. Unknown names
-fail listing what exists.
-Both import rules (vendors → `providers/`, SQLAlchemy/Alembic → `store/`) are
-enforced by `tests/test_boundaries.py`; outside `store/`, type-hint sessions
-with `Session` / `Sessions` from `store/db.py`.
+Prefer `console`. Every voice mode spends Sarvam credits. CI runs the
+offline suite on SQLite and Postgres, dashboard typecheck/lint/build and
+Playwright on every push, calls no vendor; keep it green. No linter.
 
 ## Deliberate choices — don't "fix" these
 
-(Settings named in capitals below are the old `.env` names; since 2026-11-10
-they are fields set in the dashboard, see `receptionist_settings.py`. The
-defaults when blank live in `providers/defaults.py`.)
+(Former `.env` names; now dashboard fields, defaults in
+`providers/defaults.py`.)
 
-- **Turn detection is `"stt"`**, set explicitly in `session.py` (omitting it
-  falls back to LiveKit's own turn-detector model).
-- **Local Silero VAD, interruption mode `"vad"`** (Harsh, 2026-09-25), set
-  explicitly in `session.py`. The VAD handles barge-in; Sarvam's streaming
-  STT ends turns itself. The explicit mode keeps `console`/`dev` from using LiveKit Cloud's
-  adaptive model, so local tests match `start`. `INTERRUPT_MIN_SPEECH` tunes it.
-- **Keep `backend/README.md` current** with every behaviour, command or setup
-  change, in the same commit.
-- **Raw PCM TTS output** (`linear16`). The plugin defaults to mp3; PCM
-  avoids a decode per chunk.
-- **`SARVAM_TTS_SPEAKER` must be a `bulbul:v3` voice** (default `suhani`); the
-  plugin rejects v2 names such as `anushka`.
-- **OpenAI default is `gpt-4.1-mini`** (Harsh, 2026-10-13: fastest capable
-  model, ~1.0 s first token vs `gpt-6-luna` 1.6 s). For any reasoning model
-  set in `OPENAI_LLM_MODEL`, the builder forces `reasoning_effort="none"` for gpt-5-or-later and `o*` models:
-  Chat Completions rejects tools otherwise (400 every turn), the plugin only
-  sets it for model names it knows, and no reasoning step keeps replies fast.
-- **`SARVAM_STT_LANGUAGE=unknown`** auto-detects per utterance (the line
-  hears the English words callers mix in). Test STT the way a call feeds
-  it: real time, lead-in noise, stream open, and a batch model through
-  LiveKit's `StreamAdapter`.
-- **Instructions are one set per line** (`prompts.RULES["hi"]`). The fillers
-  and fallback goodbye follow the call's line, not the caller's last words.
-  A caller asking for English is told kindly the receptionist speaks Hindi
-  only: never promise an English line. The rules stay **under 500 words**
-  (Harsh, 2026-10-24; `test_the_rules_stay_short`).
-- **Hindi replies are written in Devanagari** (prompt rule). The TTS pronounces
-  by script; romanised Hindi ("aap kaise hain") is read with English spelling
-  rules. Don't switch the prompt or `SARVAM_STT_MODE` to romanised output.
-- `SARVAM_LLM_MODEL` defaults to `sarvam-105b-conversations`; fall back to
+- Turn detection `"stt"`, set explicitly in `session.py` (omitting it falls
+  back to LiveKit's turn-detector model).
+- Local Silero VAD, interruption mode `"vad"` †, explicit so console/dev
+  match `start` (not LiveKit Cloud's adaptive model). `INTERRUPT_MIN_SPEECH`
+  tunes barge-in.
+- Raw PCM TTS (`linear16`), not the plugin's mp3: no decode per chunk.
+- `SARVAM_TTS_SPEAKER` must be a `bulbul:v3` voice (default `suhani`);
+  v2 names like `anushka` are rejected.
+- OpenAI default `gpt-4.1-mini` †. For gpt-5+ and `o*` models the builder
+  forces `reasoning_effort="none"` (else Chat Completions rejects tools).
+- `SARVAM_STT_LANGUAGE=unknown`: per-utterance auto-detect hears mixed-in
+  English. Test STT as a call feeds it: real time, lead-in noise, stream
+  open, batch models via `StreamAdapter`.
+- One instruction set per line (`prompts.RULES["hi"]`), **under 500 words
+  †**. Fillers and fallback goodbye follow the line, not the caller. A caller
+  asking for English is told kindly it's Hindi only; never promise English.
+- Hindi replies in Devanagari (TTS pronounces by script; romanised Hindi is
+  read as English). Don't switch prompt or `SARVAM_STT_MODE` to romanised.
+- `SARVAM_LLM_MODEL` default `sarvam-105b-conversations`; fall back to
   `sarvam-105b` if the plan lacks it.
+
+## Not built yet
+
+Server deployment, telephony (identity is the spoken mobile number until
+caller ID), vendor fallback, the patient front door. Plans live in
+`~/.claude/plans/`; current status lives in project memory, not here.
