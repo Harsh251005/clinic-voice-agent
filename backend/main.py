@@ -132,7 +132,10 @@ async def entrypoint(ctx: JobContext) -> None:
     phrases = await asyncio.to_thread(
         voice_clips.for_call, sessions, clinic, call.language, None if TEXT_ONLY else session.tts)
     phrases.on_play = record.clip_played  # the trace notes each line played from a recording
-    link = ClinicLink(clinic.id, clinic.timezone, sessions, call.language, phrases, on_change=record.on_change)
+    link = ClinicLink(
+        clinic.id, clinic.timezone, sessions, call.language, phrases,
+        on_change=record.on_change, on_give_up=record.gave_up,
+    )
     tools = [*booking_tools(link), end_call_tool(call.language, phrases)]
     logger.info("starting session: %s", stack)
     keep_promises(session, [t.info.name for t in tools if t.info.name != "end_call"])
