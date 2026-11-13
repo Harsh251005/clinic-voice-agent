@@ -148,6 +148,35 @@ async def test_replies_in_callers_language(session):
     )
 
 
+async def test_an_english_caller_is_answered_in_english(session):
+    # Harsh, 2026-11-13: Hindi, Hinglish or English, as the caller speaks.
+    result = await session.run(user_input="Hello, what time does the clinic open tomorrow?")
+    await (
+        result.expect.next_event(type="message")
+        .judge(session.judge, intent="replies in English written in Roman letters, not in Hindi")
+    )
+
+
+@pytest.mark.parametrize(
+    "heard",
+    [
+        "मला उद्याची अपॉइंटमेंट पाहिजे, डॉक्टर कधी भेटतील?",  # Marathi
+        "મારે કાલની અપોઇન્ટમેન્ટ જોઈએ છે, ડૉક્ટર ક્યારે મળશે?",  # Gujarati
+        "तुम्ही मराठीत बोला ना, मला हिंदी नीट येत नाही.",  # asks for Marathi
+    ],
+)
+async def test_words_heard_in_another_language_are_answered_in_hindi(session, heard):
+    # Harsh, 2026-11-13: his soft Hindi was heard as Marathi and she replied in
+    # Marathi. Whatever the hearing writes, the reply is Hindi (or English).
+    result = await session.run(user_input=heard)
+    await (
+        result.expect.next_event(type="message")
+        .judge(session.judge, intent="replies in Hindi (Devanagari script) or in English. The reply is NOT in "
+                                     "Marathi and NOT in Gujarati: no Marathi words like आहे, नाही, तुम्ही, करू, "
+                                     "and no Gujarati script")
+    )
+
+
 # ---------- booking conversation (tools mocked) ----------
 
 # As find_available_slots answers (Harsh, 2026-11-10): only the clinic's few

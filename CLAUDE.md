@@ -81,10 +81,13 @@ Playwright on every push, calls no vendor; keep it green. No linter.
   English. Test STT as a call feeds it: real time, lead-in noise, stream
   open, batch models via `StreamAdapter`.
 - One instruction set per line (`prompts.RULES["hi"]`), **under 500 words
-  †**. Fillers and fallback goodbye follow the line, not the caller. A caller
-  asking for English is told kindly it's Hindi only; never promise English.
-- Hindi replies in Devanagari (TTS pronounces by script; romanised Hindi is
-  read as English). Don't switch prompt or `SARVAM_STT_MODE` to romanised.
+  †**. Fillers and fallback goodbye follow the line, not the caller.
+- **Replies in Hindi, Hinglish or English, never any other language †**
+  (2026-11-13; rules' Language section). Words that look Marathi or
+  Gujarati were mis-heard Hindi: answered in Hindi. English only to a
+  caller speaking whole English sentences or asking for it.
+- Hindi replies in Devanagari, English replies in Roman letters (TTS
+  pronounces by script; romanised Hindi is read as English). Don't switch prompt or `SARVAM_STT_MODE` to romanised.
 - `SARVAM_LLM_MODEL` default `sarvam-105b-conversations`; fall back to
   `sarvam-105b` if the plan lacks it.
 
