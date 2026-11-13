@@ -140,11 +140,60 @@ async def test_speaks_about_herself_in_the_feminine(session, caller):
     assert FEMININE_ME.search(said), said
 
 
+# A sentence to the caller ("आप ...") whose verb says she is a woman: "आप आना
+# चाहती हैं", "आप कब आएँगी". Not "आपकी अपॉइंटमेंट हो गई है" (the appointment).
+FEMININE_YOU = re.compile(r"आप(?!क)[^।?]*?(?:(?:ती|रही) (?:हैं|हो|थीं)|(?:ें|एँ|एं)गी)")
+
+
+@pytest.mark.parametrize("caller", ["हेलो, बुकिंग करना है।", "मुझे डॉक्टर को दिखाना है।", "अपॉइंटमेंट चाहिए।"])
+async def test_the_callers_gender_is_not_guessed(session, caller):
+    # Harsh, 2026-11-13 (call 545): a man was asked "आप किस वजह से आना चाहती हैं?".
+    # By pattern, like the check above. The everyday polite "चाहेंगे" is allowed.
+    result = await session.run(user_input=caller)
+    said = " ".join(
+        e.item.text_content or ""
+        for e in result.events
+        if e.type == "message" and e.item.role == "assistant"
+    )
+    assert not FEMININE_YOU.search(said), said
+
+
 async def test_replies_in_callers_language(session):
     result = await session.run(user_input="Namaste, clinic kab khulta hai?")
     await (
         result.expect.next_event(type="message")
         .judge(session.judge, intent="replies in Hindi or Hinglish written in Devanagari script, not in Roman letters")
+    )
+
+
+async def test_an_english_caller_is_answered_in_english(session):
+    # Harsh, 2026-11-13: Hindi, Hinglish or English, as the caller speaks.
+    result = await session.run(user_input="Hello, what time does the clinic open tomorrow?")
+    await (
+        result.expect.next_event(type="message")
+        .judge(session.judge, intent="replies in English written in Roman letters, not in Hindi")
+    )
+
+
+@pytest.mark.parametrize(
+    "heard",
+    [
+        "मला उद्याची अपॉइंटमेंट पाहिजे, डॉक्टर कधी भेटतील?",  # Marathi
+        "મારે કાલની અપોઇન્ટમેન્ટ જોઈએ છે, ડૉક્ટર ક્યારે મળશે?",  # Gujarati
+        "तुम्ही मराठीत बोला ना, मला हिंदी नीट येत नाही.",  # asks for Marathi
+        "मराठी में बात करो।",  # Harsh's call, 2026-11-13: asked in Hindi, refused in Marathi (Sarvam brain)
+        "Marathi me baat karo",
+    ],
+)
+async def test_words_heard_in_another_language_are_answered_in_hindi(session, heard):
+    # Harsh, 2026-11-13: his soft Hindi was heard as Marathi and she replied in
+    # Marathi. Whatever the hearing writes, the reply is Hindi (or English).
+    result = await session.run(user_input=heard)
+    await (
+        result.expect.next_event(type="message")
+        .judge(session.judge, intent="replies in Hindi (Devanagari script) or in English. The reply is NOT in "
+                                     "Marathi and NOT in Gujarati: no Marathi words like आहे, नाही, तुम्ही, करू, "
+                                     "and no Gujarati script")
     )
 
 

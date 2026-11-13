@@ -15,14 +15,14 @@ from dataclasses import dataclass
 
 RULES_MAX_WORDS = 500  # Harsh, 2026-10-24: a long prompt costs every turn
 INSTRUCTIONS_MAX_WORDS = 150
-DIRECTIONS_MAX_CHARS = 300
+DIRECTIONS_MAX_CHARS = 300  # a fact like the address: staff set it with the clinic's details
 LLM_VENDORS = ("sarvam", "openai")  # the allowed brains (repo CLAUDE.md)
 
 
 @dataclass(frozen=True)
 class Field:
     name: str  # column name
-    kind: str  # "text" | "number" | "choice" | "flag"
+    kind: str  # "text" | "number" | "whole" (a number with no fraction) | "choice" | "flag"
     default: object
     env: str = ""  # the .env line it replaced ("" = new, never in .env)
     low: float | None = None
@@ -50,7 +50,6 @@ SYSTEM = (
 
 CLINIC = (
     Field("instructions", "text", "", max_words=INSTRUCTIONS_MAX_WORDS),
-    Field("directions", "text", "", max_chars=DIRECTIONS_MAX_CHARS),
     # Model and speaker together (2026-11-10): a speaker only exists in some
     # models, so they are set and checked side by side, per clinic.
     Field("tts_model", "text", "", env="SARVAM_TTS_MODEL", max_chars=100),
@@ -58,6 +57,8 @@ CLINIC = (
     Field("tts_pace", "number", 1.0, env="SARVAM_TTS_PACE", low=0.5, high=2.0),
     Field("tts_pitch", "number", None, env="SARVAM_TTS_PITCH", low=-0.5, high=0.5, optional=True),
     Field("max_call_minutes", "number", 10.0, env="MAX_CALL_MINUTES", low=1.0, high=60.0),
+    # How she talks, not a fact about the clinic (Harsh, 2026-11-12): admin only since then.
+    Field("slots_offered", "whole", 3, low=1, high=6),
 )
 
 MOVED_ENV = tuple(f.env for f in (*SYSTEM, *CLINIC) if f.env)
@@ -76,6 +77,16 @@ def checked(f: Field, value: object) -> object:
         if not isinstance(value, bool):
             raise ValueError(f"{f.name} must be on or off.")
         return value
+    if f.kind == "whole":
+        if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+            raise ValueError(f"{f.name} must be a whole number.")
+        try:
+            whole = int(str(value).strip()) if isinstance(value, str) else int(value)
+        except ValueError:
+            raise ValueError(f"{f.name} must be a whole number.") from None
+        if whole != float(value) or not f.low <= whole <= f.high:
+            raise ValueError(f"{f.name} must be a whole number between {f.low:g} and {f.high:g}.")
+        return whole
     if f.kind == "number":
         if value is None or value == "":
             if f.optional:

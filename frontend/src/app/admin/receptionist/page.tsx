@@ -1,8 +1,8 @@
 "use client";
 // Admin > Receptionist: how every clinic's receptionist behaves (Harsh,
 // 2026-11-10). The rules, her brain, her hearing, the voice model, turn-taking
-// and the greeting. Each clinic's own settings (instructions, directions,
-// voice, call length) are on that clinic's Receptionist tab. A call reads
+// and the greeting. Each clinic's own settings (greeting, voice, instructions,
+// call length) are on that clinic's page under Admin > Clinics. A call reads
 // these when it starts: a change applies from the next call, no restart.
 import { useState } from "react";
 import { AlertCircle } from "lucide-react";
@@ -27,7 +27,7 @@ export default function ReceptionistPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Receptionist"
-        description="How she behaves on every clinic's calls. Each clinic's own instructions, directions, voice and call length are on its Receptionist tab." />
+        description="How she behaves on every clinic's calls. Each clinic's own greeting, voice, instructions and call length are on its page under Clinics." />
       {page.isError ? (
         <Alert variant="destructive"><AlertCircle /><AlertDescription>{page.error.message}</AlertDescription></Alert>
       ) : !page.data ? (
@@ -80,7 +80,7 @@ function Form({ saved }: { saved: SystemSettings }) {
         </div>
       </Section>
 
-      <Section title="Hearing" description="Sarvam turns the caller's speech into text. Each clinic picks its own voice (model, speaker, speed, pitch) on its Receptionist tab.">
+      <Section title="Hearing" description="Sarvam turns the caller's speech into text. Each clinic picks its own voice on its page under Clinics.">
         <div className="grid gap-4 md:grid-cols-2">
           {text("sarvam_stt_model", "Speech-to-text model")}
           {text("sarvam_stt_language", "Language heard", "“unknown” detects it per sentence, so Hinglish comes through as said.")}

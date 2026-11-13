@@ -1,8 +1,10 @@
 "use client";
 import { Suspense } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, Headset } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/app/page-header";
@@ -11,7 +13,6 @@ import { ClinicDetails } from "@/components/setup/clinic-details";
 import { Doctors } from "@/components/setup/doctors";
 import { Faq } from "@/components/setup/faq";
 import { Hours } from "@/components/setup/hours";
-import { Receptionist } from "@/components/setup/receptionist";
 import { TimeOff } from "@/components/setup/time-off";
 import { useClinic, useMe } from "@/lib/queries";
 
@@ -23,8 +24,6 @@ const TABS = [
   { id: "time-off", label: "Leave & holidays", Panel: TimeOff },
   { id: "faq", label: "Common questions", Panel: Faq },
 ] as const;
-// Admins only (Harsh, 2026-11-10): how this clinic's receptionist behaves.
-const ADMIN_TABS = [{ id: "receptionist", label: "Receptionist", Panel: Receptionist }] as const;
 
 function Setup() {
   const clinicId = Number(useParams<{ clinicId: string }>().clinicId);
@@ -34,14 +33,20 @@ function Setup() {
   const pathname = usePathname();
 
   const me = useMe();
-  // The team is managed in the admin panel (Clinics); the receptionist's own settings only by admins.
-  const tabs = me.data?.is_admin ? [...TABS, ...ADMIN_TABS] : TABS;
+  // The team and the receptionist's own settings (voice, greeting, instructions) are the admin's:
+  // on the clinic's page in the admin panel (Harsh, 2026-11-12).
+  const tabs = TABS;
   const tab = tabs.some((t) => t.id === search.get("tab")) ? search.get("tab")! : "clinic";
 
   return (
     <>
       <PageHeader title={clinic.data?.name ?? "Clinic settings"}
-        description="Everything the receptionist says about this clinic comes from these details." />
+        description="Everything the receptionist says about this clinic comes from these details."
+        actions={me.data?.is_admin && (
+          <Button variant="outline" asChild>
+            <Link href={`/admin/clinics/${clinicId}`}><Headset /> Receptionist settings</Link>
+          </Button>
+        )} />
       {clinic.isError ? (
         <Alert variant="destructive"><AlertCircle /><AlertDescription>Couldn&apos;t load the clinic: {clinic.error.message}</AlertDescription></Alert>
       ) : !clinic.data ? (

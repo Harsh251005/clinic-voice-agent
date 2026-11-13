@@ -169,7 +169,7 @@ def copy_from_env(url: str) -> None:
     with session_factory(make_engine(url))() as s:
         copied = repo.copy_settings_from_env(s, env)
     if copied:
-        print("Copied into the dashboard (Admin > Receptionist and each clinic's Receptionist tab): "
+        print("Copied into the dashboard (Admin > Receptionist and each clinic's page under Admin > Clinics): "
               + ", ".join(copied) + ". Delete these lines from .env now.")
     elif env:
         print("These .env lines are no longer read (set them in the dashboard instead); delete them: "

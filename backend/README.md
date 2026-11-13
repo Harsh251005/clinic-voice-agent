@@ -126,7 +126,7 @@ per clinic, shown on the dashboard's **Receptionist link** tab:
 uv run python -m api     # serves /call/<link name> on API_HOST:API_PORT (default 127.0.0.1:8080)
 ```
 
-1. The patient opens the link. The page shows the clinic, "Call in Hindi"
+1. The patient opens the link. The page shows the clinic, "Call in Hindi or English"
    and a call button: there is no language to choose.
 2. Tapping it asks the server for a **join pass**. The server looks the
    clinic up by its link name and signs a short-lived LiveKit token for a new
@@ -198,6 +198,14 @@ in `repo.py`.
   "उपलब्ध"…), start replies with a short "जी" / "अच्छा", never repeat a
   confirmed detail, and use no dashes, semicolons or brackets (the voice
   reads them oddly). The English rules share the last three.
+- **Hindi, Hinglish or English, never anything else** (Harsh, 2026-11-13):
+  she answers in Hindi, and in simple English when the caller speaks whole
+  English sentences or asks for it. The hearing guesses the language of
+  each sentence and can take soft Hindi for Marathi; the rules tell her
+  such words were heard wrong and to answer in Hindi. Asked for any other
+  language, she says she speaks only Hindi and English. Greeting, fillers
+  and fixed goodbyes stay Hindi. This lives in the default rules: rules an
+  admin has replaced in the dashboard need the same lines added by hand.
 - **Doctors by first name:** the receptionist says "डॉक्टर हर्ष", never the
   full name unless the caller asks for it (also in the booking read-back). A
   one-word name stays as it is; two doctors with the same first name both
@@ -283,11 +291,18 @@ every clinic?" and never shows patients:
   field shows what it falls back to), the turn-taking timings with their
   ranges, and whether callers can talk over the greeting. Saved changes
   apply from the next call. Admins only.
-- **A clinic's Receptionist tab** (Clinic settings, admins only;
-  `/api/admin/clinics/{id}/receptionist`): its own instructions (added after
-  the main rules, at most 150 words: every word is sent on every turn),
-  directions (said when a caller asks the way, instead of the postal
-  address), its voice and longest call. The voice is picked, not typed: a
+- **A clinic's receptionist is set up in one place: its page in the admin
+  panel** (Admin › Clinics › the clinic, admins only;
+  `/api/admin/clinics/{id}/receptionist`), beside pausing it, its team and
+  deleting it: its greeting (the shared one with its name, or its own
+  words), its voice, its own instructions (added after the main rules, at
+  most 150 words: every word is sent on every turn), its longest call and
+  how many free times she offers at once (1 to 6; admin only since
+  2026-11-12, it is how she talks). The clinic's own staff keep its facts in
+  Clinic settings, which now include **directions** (said when a caller asks
+  the way, instead of the postal address), beside the address. Clinic
+  settings has no Receptionist tab any more; an admin gets a *Receptionist
+  settings* button there. The voice is picked, not typed: a
   voice model and one of its voices from lists (`providers/voices.py`, read
   from the Sarvam plugin's own tables), speed and pitch on sliders, pitch
   shown only for a model that applies it (`bulbul:v4-flash`). The lists hold
@@ -730,7 +745,9 @@ write the same tables through `store/repo.py`.
   admin. One error alone still goes to the model, to put right or relay,
   and so does the same answer to a caller who asks the same thing again
   ("नहीं, पाँच बजे ही"): that is a new question, not a stuck model. The call's
-  record marks the stopped step as failed and says the sorry line was said.
+  record marks the stopped step as failed and says the sorry line was said. Only
+  such a step is marked: a step with nothing to return, like the hang-up,
+  is recorded as working.
 - **Fixed phrases play from a recording when there is one**
   (`voice_clips.py`): the greeting, the three "one moment" fillers (one at
   random, never the same twice running) and the two fixed goodbyes (empty
@@ -772,7 +789,10 @@ write the same tables through `store/repo.py`.
   The call page says both, plus "for 30 days. No audio is recorded."
 - **She speaks as a woman.** Every voice is female, so in Hindi everything
   she says about herself is feminine ("बात कर रही हूँ", "बताती हूँ", "की
-  ऑटोमेटेड असिस्टेंट"). The caller's gender is still never assumed ("ji").
+  ऑटोमेटेड असिस्टेंट"). The caller's gender is never guessed: no "sir" or
+  "madam", and questions are worded with no gender in them ("आपको कब आना
+  है?"); where Hindi needs one, the everyday polite form said to everyone
+  ("चाहेंगे"), never "चाहती हैं".
   Pick only female voices (`SARVAM_TTS_SPEAKER`).
 - **Calls have a time limit** (`MAX_CALL_MINUTES`, default 10). At the limit
   the receptionist says the fixed time-limit goodbye (it can't be
@@ -893,8 +913,10 @@ rather than silently ignored.
 (Harsh, 2026-11-10; `clinic_agent/receptionist_settings.py`). Every clinic
 shares the rules text, the brain (`HINDI_LLM` and the model names), the
 hearing settings, the turn-taking timings and whether the greeting can be
-talked over. Each clinic sets its own instructions, directions, voice model
-and speaker, live speed, pitch and maximum call length. A call reads
+talked over. Each clinic has its own instructions, voice model and speaker, live
+speed, pitch, maximum call length and number of free times offered at once
+(set by an admin on the clinic's page in the admin panel), and its own
+directions (set by its staff with the clinic's details). A call reads
 them when it starts (`clinic_agent/call_settings.py`), so a change applies
 from the next call without a restart. The first
 `python -m clinic_agent.store.migrations` after this change copies those
@@ -912,7 +934,7 @@ Every other setting is in `.env.example` with a comment. The ones worth knowing:
 |---|---|---|
 | `HINDI_LLM` | `openai` | `sarvam` gives the Hindi line Sarvam's brain (same Sarvam ears and voice), to compare the two. Restart the worker after changing it. |
 | `SARVAM_STT_MODEL` | `saaras:v3` | `saaras:v4` is not available on our plan. |
-| `SARVAM_STT_LANGUAGE` | `unknown` | `unknown` auto-detects per utterance, so the English words callers mix in come through as said. |
+| `SARVAM_STT_LANGUAGE` | `unknown` | `unknown` auto-detects per utterance, so the English callers mix in or speak comes through as said. It takes one language or `unknown`, never a list: `hi-IN` would stop a Marathi mishearing but hears English worse. |
 | `SARVAM_STT_MODE` | `transcribe` | `transcribe` returns Hindi in Devanagari, which matches the prompt's rule that Hindi replies are written in Devanagari — the script the voice engine pronounces correctly. |
 | `SARVAM_LLM_MODEL` / `OPENAI_LLM_MODEL` | vendor's | OpenAI: `gpt-4.1-mini` (fastest capable model measured, ~1.0 s first token). For a reasoning model (`gpt-6-luna`, any gpt-5-or-later or `o*`) the builder sets `reasoning_effort="none"`, which OpenAI requires for tools on Chat Completions and which keeps replies fast. Sarvam: `sarvam-105b-conversations` (fall back to `sarvam-105b`). |
 | `SARVAM_TTS_MODEL` | `bulbul:v3` | Sarvam's voice model. |

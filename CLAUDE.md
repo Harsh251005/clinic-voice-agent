@@ -21,11 +21,13 @@ costs, records), `backend/clinic_agent/store/CLAUDE.md` (database),
 - **Behaviour lives in the database, set in the dashboard †**
   (`receptionist_settings.py`). Shared, `system_settings` (Admin >
   Receptionist): rules text, brain + model names, hearing, turn-taking,
-  greeting interruptible. Per clinic, `clinics` (its Receptionist tab,
-  admins only): instructions, directions, voice model + speaker, speed,
-  pitch, longest call. `.env` holds only secrets and plumbing. A leftover
-  moved line (`MOVED_ENV`) stops worker and API (`refuse_moved_settings`)
-  once the migrations command has copied it in.
+  greeting interruptible. Per clinic, `clinics` (Admin > Clinics > the
+  clinic, admins only, the one place for it): instructions, voice model +
+  speaker, speed, pitch, longest call, free times offered at once.
+  Directions are a clinic fact, set by its staff with its details. `.env`
+  holds only secrets and plumbing. A leftover moved line (`MOVED_ENV`)
+  stops worker and API (`refuse_moved_settings`) once the migrations
+  command has copied it in.
 - **Import boundaries** (`tests/test_boundaries.py`): only `providers/`
   imports a vendor package; only `store/` imports SQLAlchemy/Alembic
   (elsewhere type-hint with `Session`/`Sessions` from `store/db.py`).
@@ -81,10 +83,13 @@ Playwright on every push, calls no vendor; keep it green. No linter.
   English. Test STT as a call feeds it: real time, lead-in noise, stream
   open, batch models via `StreamAdapter`.
 - One instruction set per line (`prompts.RULES["hi"]`), **under 500 words
-  †**. Fillers and fallback goodbye follow the line, not the caller. A caller
-  asking for English is told kindly it's Hindi only; never promise English.
-- Hindi replies in Devanagari (TTS pronounces by script; romanised Hindi is
-  read as English). Don't switch prompt or `SARVAM_STT_MODE` to romanised.
+  †**. Fillers and fallback goodbye follow the line, not the caller.
+- **Replies in Hindi, Hinglish or English, never any other language †**
+  (2026-11-13; rules' Language section). Words that look Marathi or
+  Gujarati were mis-heard Hindi: answered in Hindi. English only to a
+  caller speaking whole English sentences or asking for it.
+- Hindi replies in Devanagari, English replies in Roman letters (TTS
+  pronounces by script; romanised Hindi is read as English). Don't switch prompt or `SARVAM_STT_MODE` to romanised.
 - `SARVAM_LLM_MODEL` default `sarvam-105b-conversations`; fall back to
   `sarvam-105b` if the plan lacks it.
 

@@ -90,8 +90,8 @@ the call page. Sarvam hears and speaks, since it's built for Indian
 languages. The brain is set by `HINDI_LLM` in `.env`: `openai` (the default)
 or `sarvam`, so the two can be compared on the same calls (restart to
 switch). If Sarvam's key is missing, the line is off and both dashboards
-show it as a critical problem. A caller asking for English is told kindly
-that the receptionist speaks Hindi only. (Until 2026-11-08 there was also an
+show it as a critical problem. She answers in Hindi, Hinglish or English
+and never in any other language (since 2026-11-13). (Until 2026-11-08 there was also an
 English line on ElevenLabs; it was removed to make Hindi production-ready
 first. See `decisions.md`.)
 
@@ -156,8 +156,9 @@ halves.
 - Reply in Hindi, written in Devanagari, in one or two sentences, warm and a
   little informal.
 - **You are a woman**, so use feminine Hindi about yourself ("बताती हूँ", not
-  "बताता हूँ"). Address the caller with a neutral "आप", say "ji", and never
-  "sir" or "madam".
+  "बताता हूँ"). Address the caller with a neutral "आप", say "ji", never
+  "sir" or "madam", and never guess whether they are a man or a woman ("आपको
+  कब आना है?", not "आना चाहती हैं").
 - Say numbers as words. Use the Hindi time words that the tools provide.
 - Only state facts from CLINIC FACTS. If something isn't there, say you don't
   have that information.

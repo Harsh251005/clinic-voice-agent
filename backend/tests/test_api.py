@@ -67,10 +67,10 @@ def _beat(languages):
 
 
 def test_call_page_offers_no_language_choice(client):
-    # Every call is in Hindi (2026-11-08): the page says so and asks nothing.
+    # One line answers Hindi and English (2026-11-13): the page says so and asks nothing.
     page = client.get("/call/demo-family-clinic").text
     assert 'name="language"' not in page
-    assert "Call in Hindi" in page and "English" not in page.replace("English words are fine", "")
+    assert "Call in Hindi or English" in page and "हिन्दी या इंग्लिश में बात करें" in page
 
 
 def test_no_pass_when_the_worker_cant_answer_hindi(client):
