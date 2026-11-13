@@ -35,7 +35,7 @@ class Field:
 
 SYSTEM = (
     Field("rules", "text", "", max_words=RULES_MAX_WORDS),  # "" = the default in prompts.py
-    Field("hindi_llm", "choice", "sarvam", env="HINDI_LLM", choices=LLM_VENDORS),
+    Field("hindi_llm", "choice", "openai", env="HINDI_LLM", choices=LLM_VENDORS),
     Field("sarvam_llm_model", "text", "", env="SARVAM_LLM_MODEL", max_chars=100),
     Field("openai_llm_model", "text", "", env="OPENAI_LLM_MODEL", max_chars=100),
     Field("sarvam_stt_model", "text", "", env="SARVAM_STT_MODEL", max_chars=100),

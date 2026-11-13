@@ -9,6 +9,8 @@ from pathlib import Path
 import pytest
 
 BACKEND = Path(__file__).resolve().parents[1]
+# A new install hears and speaks with Sarvam and thinks with OpenAI (2026-11-13).
+KEYS = {"SARVAM_API_KEY": "x", "OPENAI_API_KEY": "sk-x"}
 
 
 def seeded_db(tmp_path) -> str:
@@ -41,7 +43,21 @@ def test_the_hindi_line_without_its_key_exits_with_one_line(tmp_path):
     r = run_main(tmp_path, DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 1
     assert r.stderr.strip() == "configuration error: no language line can take calls: Hindi: " \
-        "SARVAM_API_KEY is not set. Copy .env.example to .env and fill it in."
+        "OPENAI_API_KEY is not set. Copy .env.example to .env and fill it in."
+    (again := tmp_path / "no-ears").mkdir()
+    r = run_main(again, OPENAI_API_KEY="sk-x", DATABASE_URL=seeded_db(again))
+    assert r.returncode == 1 and "Hindi: SARVAM_API_KEY is not set" in r.stderr
+
+
+def test_a_sarvam_brain_needs_no_openai_key(tmp_path):
+    from clinic_agent.store import repo
+    from clinic_agent.store.db import make_engine, session_factory
+
+    url = seeded_db(tmp_path)
+    with session_factory(make_engine(url))() as s:
+        repo.update_system_settings(s, hindi_llm="sarvam")
+    r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=url)
+    assert r.returncode == 0, r.stderr
 
 
 def openai_brain_db(tmp_path) -> str:
@@ -78,7 +94,7 @@ def test_a_leftover_key_of_the_removed_vendor_exits_with_one_line(tmp_path):
 
 
 def test_unmigrated_database_exits_with_one_line(tmp_path):
-    r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=f"sqlite:///{tmp_path}/none.db")
+    r = run_main(tmp_path, **KEYS, DATABASE_URL=f"sqlite:///{tmp_path}/none.db")
     assert r.returncode == 1
     assert r.stderr.strip().startswith("configuration error: database schema is not set up")
     assert "python -m clinic_agent.store.migrations" in r.stderr
@@ -99,14 +115,14 @@ def test_console_with_no_clinics_says_how_to_make_one(tmp_path):
     from clinic_agent.store.db import make_engine
 
     migrations.upgrade(make_engine(f"sqlite:///{tmp_path}/empty.db"))
-    r = run_main(tmp_path, "console", "--help", SARVAM_API_KEY="x", DATABASE_URL=f"sqlite:///{tmp_path}/empty.db")
+    r = run_main(tmp_path, "console", "--help", **KEYS, DATABASE_URL=f"sqlite:///{tmp_path}/empty.db")
     assert r.returncode == 1
     assert r.stderr.strip().startswith("configuration error: no clinics in sqlite:///")
     assert "seeds.demo_clinic" in r.stderr
 
 
 def test_console_with_several_clinics_asks_which(tmp_path):
-    r = run_main(tmp_path, "console", "--help", SARVAM_API_KEY="x", DATABASE_URL=_two_clinics(tmp_path))
+    r = run_main(tmp_path, "console", "--help", **KEYS, DATABASE_URL=_two_clinics(tmp_path))
     assert r.returncode == 1
     assert r.stderr.strip() == (
         "configuration error: several clinics, pick one with --clinic <id> "
@@ -115,19 +131,19 @@ def test_console_with_several_clinics_asks_which(tmp_path):
 
 
 def test_console_clinic_flag_picks_one(tmp_path):
-    r = run_main(tmp_path, "console", "--clinic", "2", "--help", SARVAM_API_KEY="x", DATABASE_URL=_two_clinics(tmp_path))
+    r = run_main(tmp_path, "console", "--clinic", "2", "--help", **KEYS, DATABASE_URL=_two_clinics(tmp_path))
     assert r.returncode == 0, r.stderr
 
 
 def test_console_unknown_clinic_exits_with_one_line(tmp_path):
-    r = run_main(tmp_path, "console", "--clinic=9", "--help", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, "console", "--clinic=9", "--help", **KEYS, DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 1
     assert r.stderr.strip() == "configuration error: no clinic with id 9"
 
 
 def test_clinic_flag_is_console_only(tmp_path):
     # dev and start calls run in child processes and must name their clinic.
-    r = run_main(tmp_path, "start", "--clinic", "1", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, "start", "--clinic", "1", **KEYS, DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 1
     assert "--clinic is for console only" in r.stderr
 
@@ -135,13 +151,13 @@ def test_clinic_flag_is_console_only(tmp_path):
 @pytest.mark.parametrize("flag", [["--language", "en"], ["--language=hi"]])
 def test_the_language_flag_is_gone(tmp_path, flag):
     # Every call is in Hindi (2026-11-08): a leftover flag is named, not passed to LiveKit's CLI.
-    r = run_main(tmp_path, "console", *flag, "--help", SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, "console", *flag, "--help", **KEYS, DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 1
     assert r.stderr.strip() == "configuration error: --language is gone: every call is in Hindi (the only line)"
 
 
 def test_valid_config_reaches_the_cli(tmp_path):
-    r = run_main(tmp_path, SARVAM_API_KEY="x", DATABASE_URL=seeded_db(tmp_path))
+    r = run_main(tmp_path, **KEYS, DATABASE_URL=seeded_db(tmp_path))
     assert r.returncode == 0
     assert "console" in r.stdout and "dev" in r.stdout and "start" in r.stdout
 
