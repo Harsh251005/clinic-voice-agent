@@ -22,7 +22,9 @@ def _sarvam(cfg: Settings) -> stt.STT:
         model=cfg.sarvam_stt_model or defaults.SARVAM_STT_MODEL,
         # Sarvam answers the Hindi line. "unknown" auto-detects per utterance,
         # so the Hinglish callers mix in (English words, whole English
-        # sentences) comes through as said; the replies stay Hindi.
+        # sentences) comes through as said. It takes one language or
+        # "unknown", never a list, so soft Hindi can come back as Marathi:
+        # the rules (prompts.py) keep the reply Hindi or English regardless.
         language=cfg.sarvam_stt_language or defaults.SARVAM_STT_LANGUAGE,
         mode=cfg.sarvam_stt_mode,
         sample_rate=cfg.stt_sample_rate,

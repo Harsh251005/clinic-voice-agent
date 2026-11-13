@@ -140,7 +140,7 @@ export default function TalkPage() {
 
       <section className="mx-auto max-w-md rounded-2xl border bg-card p-6 text-center shadow-sm">
         <p className="mb-6 text-sm text-muted-foreground">
-          The call is in Hindi <span lang="hi">· हिन्दी में बात करें</span>
+          The call is in Hindi or English <span lang="hi">· हिन्दी या इंग्लिश में बात करें</span>
         </p>
 
         {inCall ? (

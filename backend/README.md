@@ -124,7 +124,7 @@ per clinic, shown on the dashboard's **Receptionist link** tab:
 uv run python -m api     # serves /call/<link name> on API_HOST:API_PORT (default 127.0.0.1:8080)
 ```
 
-1. The patient opens the link. The page shows the clinic, "Call in Hindi"
+1. The patient opens the link. The page shows the clinic, "Call in Hindi or English"
    and a call button: there is no language to choose.
 2. Tapping it asks the server for a **join pass**. The server looks the
    clinic up by its link name and signs a short-lived LiveKit token for a new
@@ -196,6 +196,14 @@ in `repo.py`.
   "उपलब्ध"…), start replies with a short "जी" / "अच्छा", never repeat a
   confirmed detail, and use no dashes, semicolons or brackets (the voice
   reads them oddly). The English rules share the last three.
+- **Hindi, Hinglish or English, never anything else** (Harsh, 2026-11-13):
+  she answers in Hindi, and in simple English when the caller speaks whole
+  English sentences or asks for it. The hearing guesses the language of
+  each sentence and can take soft Hindi for Marathi; the rules tell her
+  such words were heard wrong and to answer in Hindi. Asked for any other
+  language, she says she speaks only Hindi and English. Greeting, fillers
+  and fixed goodbyes stay Hindi. This lives in the default rules: rules an
+  admin has replaced in the dashboard need the same lines added by hand.
 - **Doctors by first name:** the receptionist says "डॉक्टर हर्ष", never the
   full name unless the caller asks for it (also in the booking read-back). A
   one-word name stays as it is; two doctors with the same first name both
@@ -912,7 +920,7 @@ Every other setting is in `.env.example` with a comment. The ones worth knowing:
 |---|---|---|
 | `HINDI_LLM` | `sarvam` | `openai` gives the Hindi line OpenAI's brain (same Sarvam ears and voice), to compare the two. Restart the worker after changing it. |
 | `SARVAM_STT_MODEL` | `saaras:v3` | `saaras:v4` is not available on our plan. |
-| `SARVAM_STT_LANGUAGE` | `unknown` | `unknown` auto-detects per utterance, so the English words callers mix in come through as said. |
+| `SARVAM_STT_LANGUAGE` | `unknown` | `unknown` auto-detects per utterance, so the English callers mix in or speak comes through as said. It takes one language or `unknown`, never a list: `hi-IN` would stop a Marathi mishearing but hears English worse. |
 | `SARVAM_STT_MODE` | `transcribe` | `transcribe` returns Hindi in Devanagari, which matches the prompt's rule that Hindi replies are written in Devanagari — the script the voice engine pronounces correctly. |
 | `SARVAM_LLM_MODEL` / `OPENAI_LLM_MODEL` | vendor's | OpenAI: `gpt-4.1-mini` (fastest capable model measured, ~1.0 s first token). For a reasoning model (`gpt-6-luna`, any gpt-5-or-later or `o*`) the builder sets `reasoning_effort="none"`, which OpenAI requires for tools on Chat Completions and which keeps replies fast. Sarvam: `sarvam-105b-conversations` (fall back to `sarvam-105b`). |
 | `SARVAM_TTS_MODEL` | `bulbul:v3` | Sarvam's voice model. |

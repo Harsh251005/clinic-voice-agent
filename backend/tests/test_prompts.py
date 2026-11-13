@@ -73,7 +73,7 @@ def test_the_receptionist_speaks_as_a_woman(db):
     # voice sounds wrong to every caller.
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")
-    assert "You are an automated assistant and a woman" in text
+    assert "an automated assistant and a woman" in text
     assert 'About yourself always feminine ("मैं देखती हूँ", "बताती हूँ")' in text
     assert 'never "sir" or "madam"' in text  # the caller's gender is never assumed
 
@@ -151,13 +151,19 @@ def test_the_rules_stay_short():
     assert len(_rules("hi").split()) <= 500
 
 
-def test_the_hindi_line_stays_hindi_and_promises_no_english_line():
-    # The English line is gone (2026-11-08): never tell a caller to call back for one.
+def test_she_answers_in_hindi_or_english_and_no_other_language():
+    # Harsh, 2026-11-13: soft Hindi was heard as Marathi and she answered in
+    # Marathi. Hindi, Hinglish or English, never anything else; words that
+    # look like another language were heard wrong and get a Hindi answer.
     rules = _rules("hi")
-    assert "Always reply in Hindi, to the end of the call" in rules
-    assert "this receptionist speaks Hindi only" in rules
-    assert "never Roman letters" in rules
-    assert "choose English" not in rules
+    language = rules[rules.index("Language:"):rules.index("Style:")]
+    assert "Reply in Hindi" in language
+    assert "in simple English only if the caller speaks whole English sentences or asks for it" in language
+    assert "Never another language" in language and "were heard wrong, answer in Hindi" in language
+    assert "you speak only Hindi and English" in language
+    # The voice reads by script: Hindi in Devanagari, English in Roman letters.
+    assert "Hindi wholly in Devanagari" in language and "English replies in Roman letters" in language
+    assert "speaks Hindi only" not in rules and "choose English" not in rules
 
 
 def test_the_hindi_line_says_names_as_the_clinic_spelt_them(db):
