@@ -140,6 +140,24 @@ async def test_speaks_about_herself_in_the_feminine(session, caller):
     assert FEMININE_ME.search(said), said
 
 
+# A sentence to the caller ("आप ...") whose verb says she is a woman: "आप आना
+# चाहती हैं", "आप कब आएँगी". Not "आपकी अपॉइंटमेंट हो गई है" (the appointment).
+FEMININE_YOU = re.compile(r"आप(?!क)[^।?]*?(?:(?:ती|रही) (?:हैं|हो|थीं)|(?:ें|एँ|एं)गी)")
+
+
+@pytest.mark.parametrize("caller", ["हेलो, बुकिंग करना है।", "मुझे डॉक्टर को दिखाना है।", "अपॉइंटमेंट चाहिए।"])
+async def test_the_callers_gender_is_not_guessed(session, caller):
+    # Harsh, 2026-11-13 (call 545): a man was asked "आप किस वजह से आना चाहती हैं?".
+    # By pattern, like the check above. The everyday polite "चाहेंगे" is allowed.
+    result = await session.run(user_input=caller)
+    said = " ".join(
+        e.item.text_content or ""
+        for e in result.events
+        if e.type == "message" and e.item.role == "assistant"
+    )
+    assert not FEMININE_YOU.search(said), said
+
+
 async def test_replies_in_callers_language(session):
     result = await session.run(user_input="Namaste, clinic kab khulta hai?")
     await (
