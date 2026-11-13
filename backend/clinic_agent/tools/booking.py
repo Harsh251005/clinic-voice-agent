@@ -48,6 +48,8 @@ class ClinicLink:
     # Told of every appointment a tool changes: (appointment id, action, undo).
     # The call's record uses it (clinic_agent/call_record.py).
     on_change: Callable[[int, str, dict | None], None] | None = None
+    # Told which tool call the code answered for (`give_up`), by its call id.
+    on_give_up: Callable[[str], None] | None = None
 
 
 MAX_MISSED_LOOKUPS = 3
@@ -131,6 +133,8 @@ def booking_tools(link: ClinicLink) -> list:
         await asyncio.to_thread(note, tool, why)
         if ctx is None:  # a tool called directly, as in tests: nobody to speak to
             raise ToolError("Could not check. Tell the caller you can't check this right now.")
+        if link.on_give_up:
+            link.on_give_up(ctx.function_call.call_id)
         voice_clips.say(ctx.session, link.phrases.one("sorry_cant_check", link.language))
         raise StopResponse()
 

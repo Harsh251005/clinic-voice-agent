@@ -7,7 +7,7 @@ from dataclasses import replace
 from datetime import timedelta
 
 import pytest
-from livekit.agents import AgentSession
+from livekit.agents import AgentSession, function_tool
 
 from clinic_agent.agent import ClinicAgent
 from clinic_agent.call_record import CallRecorder
@@ -37,12 +37,13 @@ async def _silent():
     return None
 
 
-async def record_call(link, replies, turns, recorder=None):
+async def record_call(link, replies, turns, recorder=None, more_tools=()):
     """Play the caller's turns with a recorder attached, then finish the
     record the way the job's shutdown does. Returns the recorder."""
     record = recorder or CallRecorder(link.sessions, link.clinic_id, "room-1", "text · fake/model", "hi")
     await record.start()
-    agent = ClinicAgent("test", booking_tools(replace(link, on_change=record.on_change)))
+    link = replace(link, on_change=record.on_change, on_give_up=record.gave_up)
+    agent = ClinicAgent("test", [*booking_tools(link), *more_tools])
     agent.on_enter = _silent
     async with AgentSession(llm=FakeLLM(replies)) as session:
         record.attach(session)
@@ -121,6 +122,20 @@ async def test_a_step_the_code_answered_for_is_recorded_as_failed(link):
     assert [(e.ok, e.detail) for e in events if e.kind == "tool"] == [(False, ""), (False, STOPPED)]
     tools = [t for t in transcript.items if t["role"] == "tool"]
     assert "No doctor called" in tools[0]["text"] and tools[1]["text"] == STOPPED and not tools[1]["ok"]
+
+
+async def test_a_step_with_nothing_to_return_is_recorded_as_working(link):
+    # Seen 2026-11-13 (calls 539, 543): every hang-up showed as a failed step
+    # with the sorry-line note, though the caller heard a normal goodbye.
+    @function_tool
+    async def end_call(goodbye: str) -> None:
+        """Say goodbye and hang up."""
+
+    record = await record_call(
+        link, [Reply(calls=[("end_call", {"goodbye": "धन्यवाद"})])], ["बस इतना ही"], more_tools=[end_call])
+    _, events, transcript = _saved(link, record.call_id)
+    assert [(e.name, e.ok, e.detail) for e in events if e.kind == "tool"] == [("end_call", True, "")]
+    assert [(t["ok"], t["text"]) for t in transcript.items if t["role"] == "tool"] == [(True, "")]
 
 
 @pytest.mark.parametrize(("changes", "end_reason", "turns", "expected"), [

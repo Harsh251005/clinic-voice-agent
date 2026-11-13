@@ -728,7 +728,9 @@ write the same tables through `store/repo.py`.
   admin. One error alone still goes to the model, to put right or relay,
   and so does the same answer to a caller who asks the same thing again
   ("नहीं, पाँच बजे ही"): that is a new question, not a stuck model. The call's
-  record marks the stopped step as failed and says the sorry line was said.
+  record marks the stopped step as failed and says the sorry line was said. Only
+  such a step is marked: a step with nothing to return, like the hang-up,
+  is recorded as working.
 - **Fixed phrases play from a recording when there is one**
   (`voice_clips.py`): the greeting, the three "one moment" fillers (one at
   random, never the same twice running) and the two fixed goodbyes (empty

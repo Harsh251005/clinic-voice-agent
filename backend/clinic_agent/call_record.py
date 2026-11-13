@@ -74,6 +74,7 @@ class CallRecorder:
         self.events: list[dict] = []
         self.transcript: list[dict] = []
         self.changes: list[dict] = []
+        self.given_up: set[str] = set()  # tool calls the code answered for, by call id
         self.turns = 0
         self.errors = 0
         self.end_reason = ""
@@ -104,6 +105,10 @@ class CallRecorder:
     def on_change(self, appointment_id: int, action: str, undo: dict | None = None) -> None:
         """An appointment a tool booked, moved or cancelled (tools.booking.ClinicLink)."""
         self.changes.append({"id": appointment_id, "action": action} | ({"undo": undo} if undo else {}))
+
+    def gave_up(self, call_id: str) -> None:
+        """A tool call the code answered with the fixed sorry line (tools.booking give_up)."""
+        self.given_up.add(call_id)
 
     def clip_played(self, kind: str) -> None:
         """A fixed line played from its recording (voice_clips): a step in the
@@ -212,10 +217,12 @@ class CallRecorder:
 
     def _on_tools(self, ev: FunctionToolsExecutedEvent) -> None:
         for call, out in zip(ev.function_calls, ev.function_call_outputs, strict=False):
-            # A tool that stopped the model's reply (tools.booking give_up: it
-            # crashed, or failed the same way twice) comes back as an empty
-            # answer that is "not an error": it failed, and the record says so.
-            stopped = bool(out) and not out.is_error and not out.reply_required
+            # A tool the code answered for (tools.booking give_up: it crashed, or
+            # failed the same way twice) comes back as an empty answer that is
+            # "not an error": it failed, and the record says so. The tool says
+            # which call that was: a tool with nothing to return (end_call)
+            # comes back looking the same, and it worked.
+            stopped = call.call_id in self.given_up
             ok = not (out and out.is_error) and not stopped
             took = (out.created_at - call.created_at) if out else None
             # The trace gets the tool's name and result, never its arguments or output.
