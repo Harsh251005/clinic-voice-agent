@@ -163,6 +163,8 @@ async def test_an_english_caller_is_answered_in_english(session):
         "मला उद्याची अपॉइंटमेंट पाहिजे, डॉक्टर कधी भेटतील?",  # Marathi
         "મારે કાલની અપોઇન્ટમેન્ટ જોઈએ છે, ડૉક્ટર ક્યારે મળશે?",  # Gujarati
         "तुम्ही मराठीत बोला ना, मला हिंदी नीट येत नाही.",  # asks for Marathi
+        "मराठी में बात करो।",  # Harsh's call, 2026-11-13: asked in Hindi, refused in Marathi (Sarvam brain)
+        "Marathi me baat karo",
     ],
 )
 async def test_words_heard_in_another_language_are_answered_in_hindi(session, heard):
