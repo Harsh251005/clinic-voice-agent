@@ -78,6 +78,15 @@ def test_the_receptionist_speaks_as_a_woman(db):
     assert 'never "sir" or "madam"' in text  # the caller's gender is never assumed
 
 
+def test_the_callers_gender_is_never_guessed():
+    # Harsh, 2026-11-13: she asked a man "आप किस वजह से आना चाहती हैं?" (call 545).
+    # The caller is often not the patient either. Wording with no gender in it
+    # first; where Hindi needs one, the everyday polite form said to everyone.
+    rules = _rules("hi")
+    language = rules[rules.index("Language:"):rules.index("Style:")]
+    assert 'never guess their gender: "आपको कब आना है?", else "चाहेंगे", never "चाहती हैं"' in language
+
+
 def test_unknown_doctor_rule(db):
     s, clinic_id = db
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi")

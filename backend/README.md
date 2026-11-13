@@ -778,7 +778,10 @@ write the same tables through `store/repo.py`.
   The call page says both, plus "for 30 days. No audio is recorded."
 - **She speaks as a woman.** Every voice is female, so in Hindi everything
   she says about herself is feminine ("बात कर रही हूँ", "बताती हूँ", "की
-  ऑटोमेटेड असिस्टेंट"). The caller's gender is still never assumed ("ji").
+  ऑटोमेटेड असिस्टेंट"). The caller's gender is never guessed: no "sir" or
+  "madam", and questions are worded with no gender in them ("आपको कब आना
+  है?"); where Hindi needs one, the everyday polite form said to everyone
+  ("चाहेंगे"), never "चाहती हैं".
   Pick only female voices (`SARVAM_TTS_SPEAKER`).
 - **Calls have a time limit** (`MAX_CALL_MINUTES`, default 10). At the limit
   the receptionist says the fixed time-limit goodbye (it can't be
