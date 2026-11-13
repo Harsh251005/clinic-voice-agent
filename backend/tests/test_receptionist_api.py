@@ -18,7 +18,7 @@ def test_only_admins(world, method):  # noqa: F811
 def test_the_page_shows_the_settings_with_their_defaults(world):  # noqa: F811
     page = client_as(ADMIN, admin=True).get("/api/admin/receptionist").json()
     assert page["rules"] == "" and page["default_rules"] == RULES["hi"] and page["rules_max_words"] == 500
-    assert page["hindi_llm"] == "sarvam" and page["greeting_interruptible"] is False
+    assert page["hindi_llm"] == "openai" and page["greeting_interruptible"] is False  # Harsh, 2026-11-13
     assert page["blank_means"]["openai_llm_model"] == "gpt-4.1-mini"
     assert page["limits"]["interrupt_min_speech"] == {"low": 0.05, "high": 3.0, "default": 0.3}
 
@@ -27,7 +27,7 @@ def test_a_change_saves_only_what_was_sent_and_is_checked(world):  # noqa: F811
     c = client_as(ADMIN, admin=True)
     page = c.put("/api/admin/receptionist", json={"rules": "Be kind at {clinic_name}.", "greeting_interruptible": True}).json()
     assert page["rules"] == "Be kind at {clinic_name}." and page["greeting_interruptible"] is True
-    assert page["hindi_llm"] == "sarvam"  # not sent: unchanged
+    assert page["hindi_llm"] == "openai"  # not sent: unchanged
     too_long = c.put("/api/admin/receptionist", json={"rules": "word " * 501})
     assert too_long.status_code == 422 and "at most 500" in too_long.text
     assert c.put("/api/admin/receptionist", json={"hindi_llm": "gemini"}).status_code == 422

@@ -7,8 +7,8 @@ done. Clinic staff run their day in the dashboard (Next.js, `../frontend/`,
 over the API here); the operator watches every clinic from its admin panel.
 
 LiveKit Agents handles the audio and turn-taking. Every call is in Hindi:
-Sarvam hears and speaks, and the language model is Sarvam's or, to compare
-the two, OpenAI's (`HINDI_LLM` in `.env`).
+Sarvam hears and speaks, and the language model is OpenAI's (the default
+since 2026-11-13) or Sarvam's, chosen on Admin > Receptionist.
 
 ## Setup
 
@@ -23,10 +23,12 @@ before anything else). Set in `clinic_agent/lines.py`:
 
 | Line | STT | LLM | TTS |
 |---|---|---|---|
-| Hindi | Sarvam | `HINDI_LLM`: `sarvam` (default) or `openai` | Sarvam |
+| Hindi | Sarvam | `HINDI_LLM`: `openai` (default) or `sarvam` | Sarvam |
 
-`HINDI_LLM=openai` swaps only the brain, to compare OpenAI's replies with
-Sarvam's on the same voice; restart the worker after changing it. A missing
+`HINDI_LLM=sarvam` swaps only the brain, to compare Sarvam's replies with
+OpenAI's on the same voice; restart the worker after changing it. A new
+install starts on OpenAI, so it needs `OPENAI_API_KEY`; an install that has
+already taken a call keeps the brain it runs on. A missing
 key for the line stops the worker with a one-line error. Settings that no
 longer do anything are refused at startup, named so you can remove them:
 the old `STT_PROVIDER` / `LLM_PROVIDER` / `TTS_PROVIDER` lines, and any line
@@ -35,7 +37,7 @@ left over from the removed English line's vendor (blank ones are harmless).
 | Provider | Key | Cost |
 |---|---|---|
 | Sarvam | `SARVAM_API_KEY` from [dashboard.sarvam.ai](https://dashboard.sarvam.ai) | paid per use |
-| OpenAI | `OPENAI_API_KEY` from [platform.openai.com](https://platform.openai.com/api-keys) | paid per use; needed for `HINDI_LLM=openai`, the live tests and Hindi name suggestions |
+| OpenAI | `OPENAI_API_KEY` from [platform.openai.com](https://platform.openai.com/api-keys) | paid per use; needed for the default brain (`HINDI_LLM=openai`), the live tests and Hindi name suggestions |
 
 Create the database schema, then a fictional demo clinic (real clinics are
 set up through the dashboard):
@@ -930,7 +932,7 @@ Every other setting is in `.env.example` with a comment. The ones worth knowing:
 
 | Setting | Default | Why you would change it |
 |---|---|---|
-| `HINDI_LLM` | `sarvam` | `openai` gives the Hindi line OpenAI's brain (same Sarvam ears and voice), to compare the two. Restart the worker after changing it. |
+| `HINDI_LLM` | `openai` | `sarvam` gives the Hindi line Sarvam's brain (same Sarvam ears and voice), to compare the two. Restart the worker after changing it. |
 | `SARVAM_STT_MODEL` | `saaras:v3` | `saaras:v4` is not available on our plan. |
 | `SARVAM_STT_LANGUAGE` | `unknown` | `unknown` auto-detects per utterance, so the English callers mix in or speak comes through as said. It takes one language or `unknown`, never a list: `hi-IN` would stop a Marathi mishearing but hears English worse. |
 | `SARVAM_STT_MODE` | `transcribe` | `transcribe` returns Hindi in Devanagari, which matches the prompt's rule that Hindi replies are written in Devanagari — the script the voice engine pronounces correctly. |
@@ -990,7 +992,7 @@ on our side.
   agent resumes (a "false interruption"). So a broken STT looks like "it
   doesn't stop".
 - Sarvam credits are consumption-based and shared across STT, LLM and TTS.
-  Every call spends them (the brain too unless `HINDI_LLM=openai`); the
+  Every call spends them (the brain too when `HINDI_LLM=sarvam`); the
   tests spend none.
 - **Test an STT the way a call feeds it**: real time, faint room noise
   first, stream left open, and a batch model through LiveKit's

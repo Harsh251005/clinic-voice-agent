@@ -20,4 +20,5 @@ marked **†** is one of these: change it only when he asks.
 | 2026-11-12 | The sorry line is for a stuck model, never for a caller who simply asks again | `tools/booking.py` |
 | 2026-11-13 | She answers in Hindi, Hinglish or English, never any other language (replaces "a caller asking for English is told it's Hindi only"; still one line) | `prompts.py` (Language rules) |
 | 2026-11-12 | A renamed clinic or doctor gets its Hindi name written again from the English one | `api/dashboard/hindi.py` (`left_behind`) |
+| 2026-11-13 | OpenAI (`gpt-4.1-mini`) is the default brain; Sarvam's stays a choice | `receptionist_settings.py`, migration 0021 |
 | 2026-11-13 | The caller's gender is never guessed: wording with no gender first, else the everyday polite "चाहेंगे", never "चाहती हैं" | `prompts.py` (Language) |

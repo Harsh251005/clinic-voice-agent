@@ -223,3 +223,6 @@ def test_elevenlabs_and_the_english_line_leave_no_trace(tmp_path):
         assert s.scalar(select(func.count()).select_from(m.Price)) == 18  # the other seeded prices stay
         assert s.scalars(select(m.Incident.subject)).all() == ["hi"]
         assert s.scalar(select(m.WorkerHeartbeat.languages)) == "hi"
+        # 0021 (Harsh, 2026-11-13): OpenAI is the brain a new install starts
+        # on; one that has taken calls keeps the brain it runs on.
+        assert s.scalar(select(m.SystemSettings.hindi_llm)) == "sarvam"

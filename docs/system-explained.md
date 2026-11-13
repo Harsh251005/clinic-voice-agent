@@ -86,9 +86,9 @@ Ravi's voice → 👂 EARS (STT) → text → 🧠 BRAIN (LLM) → text → 👄
 | 👄 **TTS** (text to speech) | Turns written words into a voice | Sarvam `bulbul:v3`, voice "suhani" |
 
 **One line: Hindi.** Every call is in Hindi; there is nothing to choose on
-the call page. Sarvam does all three parts, since it's built for Indian
-languages. The brain is set by `HINDI_LLM` in `.env`: `sarvam` (the default)
-or `openai`, so the two can be compared on the same calls (restart to
+the call page. Sarvam hears and speaks, since it's built for Indian
+languages. The brain is set by `HINDI_LLM` in `.env`: `openai` (the default)
+or `sarvam`, so the two can be compared on the same calls (restart to
 switch). If Sarvam's key is missing, the line is off and both dashboards
 show it as a critical problem. She answers in Hindi, Hinglish or English
 and never in any other language (since 2026-11-13). (Until 2026-11-08 there was also an

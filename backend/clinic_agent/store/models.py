@@ -446,7 +446,7 @@ class SystemSettings(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     rules: Mapped[str] = mapped_column(Text, default="", server_default="")  # "" = the default in prompts.py
-    hindi_llm: Mapped[str] = mapped_column(String(20), default="sarvam", server_default="sarvam")
+    hindi_llm: Mapped[str] = mapped_column(String(20), default="openai", server_default="openai")
     sarvam_llm_model: Mapped[str] = mapped_column(String(100), default="", server_default="")
     openai_llm_model: Mapped[str] = mapped_column(String(100), default="", server_default="")
     sarvam_stt_model: Mapped[str] = mapped_column(String(100), default="", server_default="")

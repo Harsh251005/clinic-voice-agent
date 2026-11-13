@@ -13,7 +13,7 @@ costs, records), `backend/clinic_agent/store/CLAUDE.md` (database),
 
 ## Hard rules
 
-- **Vendors:** STT and TTS `sarvam`; LLM `sarvam` (default) or `openai`.
+- **Vendors:** STT and TTS `sarvam`; LLM `openai` (default †) or `sarvam`.
   Never add others (`test_only_the_allowed_vendors_are_registered`).
 - **One language line, Hindi †** (`lines.py`). Dispatch still names the
   language (always `hi`) so a second line later is one entry. Leftover
