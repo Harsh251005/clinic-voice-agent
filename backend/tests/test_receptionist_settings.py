@@ -31,9 +31,14 @@ def test_settings_are_checked_on_save(db):
         repo.update_clinic_receptionist(s, clinic_id, tts_pace=2.5)
     with pytest.raises(ValueError, match="at most 150"):
         repo.update_clinic_receptionist(s, clinic_id, instructions="word " * 151)
-    repo.update_clinic_receptionist(s, clinic_id, tts_pitch="", directions="  Opposite the station  ")
+    repo.update_clinic_receptionist(s, clinic_id, tts_pitch="", slots_offered="2")
     clinic = repo.get_clinic(s, clinic_id)
-    assert clinic.tts_pitch is None and clinic.directions == "Opposite the station"
+    assert clinic.tts_pitch is None and clinic.slots_offered == 2 and isinstance(clinic.slots_offered, int)
+    for bad in (0, 7, 2.5, "two", True, None):
+        with pytest.raises(ValueError, match="whole number"):
+            repo.update_clinic_receptionist(s, clinic_id, slots_offered=bad)
+    with pytest.raises(KeyError):
+        repo.update_clinic_receptionist(s, clinic_id, directions="x")  # a clinic detail: staff set it
     with pytest.raises(KeyError):
         repo.update_clinic_receptionist(s, clinic_id, name="renamed")  # not a receptionist setting
 
@@ -87,7 +92,8 @@ def test_the_admins_rules_clinic_instructions_and_directions_reach_the_prompt(db
     s, clinic_id = db
     clinic = repo.get_clinic(s, clinic_id)
     assert build_instructions(clinic, [], NOW, "hi").startswith(RULES["hi"][:20])  # blank: the code's rules
-    repo.update_clinic_receptionist(s, clinic_id, instructions="Parking is free.", directions="Opposite the station")
+    repo.update_clinic_receptionist(s, clinic_id, instructions="Parking is free.")
+    repo.update_clinic(s, clinic_id, directions="Opposite the station")
     text = build_instructions(repo.get_clinic(s, clinic_id), [], NOW, "hi", rules="Rules for {clinic_name} {x}.")
     assert text.startswith(f"Rules for {clinic.name} {{x}}.")  # any braces are safe
     assert "THIS CLINIC'S OWN INSTRUCTIONS" in text and "Parking is free." in text

@@ -336,8 +336,14 @@ def test_editing_details_and_link_name(world):
     c = client_as("reception@cure.in")
     base = f"/api/clinics/{world['cure']}"
     r = c.patch(base, json={"name": " Cure Dental ", "address": "Borivali", "phone": "022",
-                            "booking_window_days": 14, "slots_offered": 2})
+                            "booking_window_days": 14, "slots_offered": 2, "directions": " Opposite the station "})
     assert r.json()["name"] == "Cure Dental" and r.json()["booking_window_days"] == 14
+    # Directions are a clinic detail its staff set; how many free times she offers is the admin's.
+    assert r.json()["directions"] == "Opposite the station" and r.json()["slots_offered"] == 3
+    kept = c.patch(base, json={"name": "Cure Dental", "address": "Borivali", "phone": "022", "booking_window_days": 14})
+    assert kept.json()["directions"] == "Opposite the station"  # not sent: kept
+    long = c.patch(base, json={"name": "Cure Dental", "booking_window_days": 14, "directions": "x" * 301})
+    assert long.status_code == 422
     assert c.put(f"{base}/slug", json={"slug": "Cure-Dental"}).json()["slug"] == "cure-dental"
     bad = c.put(f"{base}/slug", json={"slug": "no spaces"})
     assert bad.status_code == 422 and "3-60 characters" in bad.json()["detail"]

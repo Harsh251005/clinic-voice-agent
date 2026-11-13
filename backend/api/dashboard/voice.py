@@ -263,7 +263,7 @@ async def record(body: schemas.RecordIn, request: Request):
 
 @router.get("/impact", response_model=schemas.VoiceImpact)
 def impact(request: Request, clinic_id: int, model: str = "", speaker: str = "", pitch: float | None = None):
-    """Before a clinic's voice is changed (its Receptionist tab): how many of
+    """Before a clinic's voice is changed (its page in the admin panel): how many of
     its lines are recorded in its voice now, and how many would be in the one
     tried out. The others are said live until recorded."""
     system, clinics = _settings(request)

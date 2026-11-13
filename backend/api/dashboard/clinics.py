@@ -44,6 +44,10 @@ def update_clinic(body: schemas.ClinicDetails, request: Request, clinic_id: int 
     fields.update(name=body.name.strip(), address=body.address.strip(), phone=body.phone.strip())
     if fields["name_hi"] is None:
         del fields["name_hi"]  # an older screen that doesn't send it keeps what's there
+    if fields["directions"] is None:
+        del fields["directions"]
+    else:
+        fields["directions"] = body.directions.strip()
     with staff_errors(), request.app.state.sessions() as s:
         before = repo.get_clinic(s, clinic_id)
         old_name, old_hi = before.name, before.name_hi

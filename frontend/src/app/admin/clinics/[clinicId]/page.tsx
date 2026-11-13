@@ -1,6 +1,8 @@
 "use client";
-// One clinic, as the operator sees it: taking calls or paused, recent calls,
-// who can sign in, and deleting it. Its patients are not here.
+// One clinic, as the operator sees it, and the one place its receptionist is
+// set up (Harsh, 2026-11-12): taking calls or paused, her greeting, voice,
+// instructions and call settings, who can sign in, and deleting it. Its
+// patients are not here; its facts (doctors, hours, address) are its staff's.
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -15,6 +17,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ActiveBadge, Stat } from "@/components/admin/bits";
+import { Greeting } from "@/components/admin/clinic/greeting";
+import { Receptionist } from "@/components/admin/clinic/receptionist";
 import { Team } from "@/components/setup/team";
 import { adminKeys, useAdminClinics, when } from "@/lib/admin";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
@@ -46,7 +50,7 @@ export default function AdminClinicPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" asChild><Link href={`/admin/calls?clinic=${c.id}`}><PhoneCall /> Its calls</Link></Button>
-              <Button variant="outline" asChild><Link href={`/clinics/${c.id}/setup`}><Settings2 /> Clinic settings</Link></Button>
+              <Button variant="outline" asChild><Link href={`/clinics/${c.id}/setup`}><Settings2 /> Doctors, hours &amp; details</Link></Button>
             </div>
           </header>
 
@@ -57,6 +61,20 @@ export default function AdminClinicPage() {
           </div>
 
           <Pause c={c} />
+
+          <section aria-labelledby="h-receptionist" className="space-y-6">
+            <div>
+              <h2 id="h-receptionist" className="text-xl font-semibold tracking-tight">Receptionist</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                How she greets, sounds and behaves for this clinic. What every clinic shares is
+                on <Link href="/admin/receptionist" className="underline underline-offset-2">Admin › Receptionist</Link>.
+              </p>
+            </div>
+            <Greeting clinicId={c.id} />
+            <Receptionist clinicId={c.id} />
+          </section>
+
+          <h2 className="text-xl font-semibold tracking-tight">Access</h2>
           {details.data ? <Team clinic={details.data} /> : <Skeleton className="h-32" />}
           <DeleteClinic c={c} />
         </>

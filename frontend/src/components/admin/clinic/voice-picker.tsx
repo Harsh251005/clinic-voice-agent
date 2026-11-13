@@ -5,7 +5,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import type { ClinicReceptionist } from "@/lib/clinic-receptionist";
-import { Field } from "./field";
+import { Field } from "@/components/setup/field";
 
 export type Voice = Pick<ClinicReceptionist, "tts_model" | "tts_speaker" | "tts_pace" | "tts_pitch">;
 type Limits = ClinicReceptionist["limits"];

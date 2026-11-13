@@ -88,9 +88,9 @@ def _clinic_out(clinic) -> schemas.ClinicReceptionistOut:
             name=m.name, default_speaker=m.default_speaker, pitch=m.pitch,
             speakers=[schemas.VoiceSpeaker(name=v.name, label=v.label) for v in m.speakers],
         ) for m in voice_catalogue()],
-        instructions_max_words=rs.INSTRUCTIONS_MAX_WORDS, directions_max_chars=rs.DIRECTIONS_MAX_CHARS,
+        instructions_max_words=rs.INSTRUCTIONS_MAX_WORDS,
         limits={f.name: schemas.Limit(low=f.low, high=f.high, default=f.default)
-                for f in rs.CLINIC if f.kind == "number"},
+                for f in rs.CLINIC if f.kind in ("number", "whole")},
     )
 
 

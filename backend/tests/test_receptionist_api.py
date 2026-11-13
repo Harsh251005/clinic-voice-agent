@@ -42,7 +42,7 @@ def test_a_change_saves_only_what_was_sent_and_is_checked(world):  # noqa: F811
 def test_a_clinics_receptionist_is_admins_only_even_for_its_own_staff(world, method):  # noqa: F811
     path = f"/api/admin/clinics/{world['cure']}/receptionist"
     for client in (client_as("reception@cure.in"), client_as()):
-        assert client.request(method, path, json={"directions": "x"}).status_code in (401, 403)
+        assert client.request(method, path, json={"instructions": "x"}).status_code in (401, 403)
 
 
 def test_a_clinics_receptionist_is_read_changed_and_checked(world):  # noqa: F811
@@ -54,6 +54,11 @@ def test_a_clinics_receptionist_is_read_changed_and_checked(world):  # noqa: F81
     assert (page["instructions"], page["tts_pace"], page["tts_pitch"]) == ("Parking is free.", 0.95, 0.1)
     assert c.put(path, json={"tts_pitch": None}).json()["tts_pitch"] is None  # back to the voice's own
     assert c.put(path, json={"tts_pace": 3}).status_code == 422
+    # How many free times she reads out is the admin's (Harsh, 2026-11-12), not the clinic staff's.
+    assert page["slots_offered"] == 3 and page["limits"]["slots_offered"] == {"low": 1, "high": 6, "default": 3}
+    assert c.put(path, json={"slots_offered": 2}).json()["slots_offered"] == 2
+    assert c.put(path, json={"slots_offered": 9}).status_code == 422
+    assert "directions" not in page  # a clinic detail now, set by its staff
     assert c.put(path, json={"instructions": "word " * 151}).status_code == 422
     assert c.get("/api/admin/clinics/99999/receptionist").status_code == 404
     other = c.get(f"/api/admin/clinics/{world['demo']}/receptionist").json()

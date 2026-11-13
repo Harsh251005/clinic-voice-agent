@@ -548,7 +548,7 @@ export interface paths {
         };
         /**
          * Impact
-         * @description Before a clinic's voice is changed (its Receptionist tab): how many of
+         * @description Before a clinic's voice is changed (its page in the admin panel): how many of
          *     its lines are recorded in its voice now, and how many would be in the one
          *     tried out. The others are said live until recorded.
          */
@@ -1667,6 +1667,8 @@ export interface components {
             booking_window_days: number;
             /** Call Link */
             call_link: string;
+            /** Directions */
+            directions: string;
             /** Doctors */
             doctors: components["schemas"]["Doctor"][];
             /** Faq */
@@ -1781,6 +1783,8 @@ export interface components {
             address: string;
             /** Booking Window Days */
             booking_window_days: number;
+            /** Directions */
+            directions?: string | null;
             /** Name */
             name: string;
             /** Name Hi */
@@ -1790,20 +1794,18 @@ export interface components {
              * @default
              */
             phone: string;
-            /** Slots Offered */
-            slots_offered: number;
         };
         /**
          * ClinicReceptionistIn
          * @description Any of the fields; only those sent change. tts_pitch null = the voice's own.
          */
         ClinicReceptionistIn: {
-            /** Directions */
-            directions?: string | null;
             /** Instructions */
             instructions?: string | null;
             /** Max Call Minutes */
             max_call_minutes?: number | null;
+            /** Slots Offered */
+            slots_offered?: number | null;
             /** Tts Model */
             tts_model?: string | null;
             /** Tts Pace */
@@ -1819,10 +1821,6 @@ export interface components {
             clinic_id: number;
             /** Clinic Name */
             clinic_name: string;
-            /** Directions */
-            directions: string;
-            /** Directions Max Chars */
-            directions_max_chars: number;
             /** Instructions */
             instructions: string;
             /** Instructions Max Words */
@@ -1835,6 +1833,8 @@ export interface components {
             max_call_minutes: number;
             /** Model Default */
             model_default: string;
+            /** Slots Offered */
+            slots_offered: number;
             /** Speaker Default */
             speaker_default: string;
             /** Tts Model */
