@@ -59,6 +59,7 @@ class _Ctx:
 @pytest.mark.parametrize("metadata", ["", metadata_for(999, "hi")])
 async def test_entrypoint_refuses_a_call_without_a_known_clinic(env, tmp_path, monkeypatch, metadata):
     import main
+    from clinic_agent import call_setup
     from clinic_agent.store import migrations
     from clinic_agent.store.db import make_engine
 
@@ -66,7 +67,7 @@ async def test_entrypoint_refuses_a_call_without_a_known_clinic(env, tmp_path, m
     migrations.upgrade(make_engine(url))
     env.setenv("DATABASE_URL", url)
     built = []
-    monkeypatch.setattr(main, "build_session", lambda *a, **k: built.append(1))
+    monkeypatch.setattr(call_setup, "build_session", lambda *a, **k: built.append(1))
 
     ctx = _Ctx(metadata)
     await main.entrypoint(ctx)
@@ -76,6 +77,7 @@ async def test_entrypoint_refuses_a_call_without_a_known_clinic(env, tmp_path, m
 
 async def test_entrypoint_refuses_a_paused_clinic(env, tmp_path, monkeypatch):
     import main
+    from clinic_agent import call_setup
     from clinic_agent.store import migrations, repo
     from clinic_agent.store.db import make_engine, session_factory
     from seeds.demo_clinic import seed_demo
@@ -88,7 +90,7 @@ async def test_entrypoint_refuses_a_paused_clinic(env, tmp_path, monkeypatch):
         repo.set_clinic_active(s, clinic_id, False)
     env.setenv("DATABASE_URL", url)
     built = []
-    monkeypatch.setattr(main, "build_session", lambda *a, **k: built.append(1))
+    monkeypatch.setattr(call_setup, "build_session", lambda *a, **k: built.append(1))
 
     ctx = _Ctx(metadata_for(clinic_id, "hi"))
     await main.entrypoint(ctx)
@@ -100,6 +102,7 @@ async def test_entrypoint_refuses_a_real_clinics_call_without_a_known_language(e
     import json
 
     import main
+    from clinic_agent import call_setup
     from clinic_agent.store import migrations, repo
     from clinic_agent.store.db import make_engine, session_factory
     from seeds.demo_clinic import seed_demo
@@ -111,7 +114,7 @@ async def test_entrypoint_refuses_a_real_clinics_call_without_a_known_language(e
         clinic_id = seed_demo(s)
     env.setenv("DATABASE_URL", url)
     built = []
-    monkeypatch.setattr(main, "build_session", lambda *a, **k: built.append(1))
+    monkeypatch.setattr(call_setup, "build_session", lambda *a, **k: built.append(1))
 
     fields = {"clinic_id": clinic_id} | ({"language": language} if language else {})
     ctx = _Ctx(json.dumps(fields))
