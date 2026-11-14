@@ -153,7 +153,7 @@ class CallRecorder:
         the session (every STT, LLM and TTS request it made), plus its
         LiveKit minutes. Never fails: a count it can't read is left out."""
         out: list[dict] = []
-        if self.room != repo.CONSOLE_ROOM:  # the local console spends no LiveKit minutes
+        if repo.in_livekit(self.room):  # the local console and a typed chat spend no LiveKit minutes
             minutes = (ended_at - self.started_at).total_seconds() / 60
             out.append(_use("call_line", "livekit", "agent_session", "minutes", minutes))
         if self.session is None or self.line is None:

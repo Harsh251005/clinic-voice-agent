@@ -21,23 +21,16 @@ import sys
 
 from livekit.agents import AgentServer, JobContext, WorkerOptions, cli
 
-from clinic_agent import heartbeat, voice_clips
-from clinic_agent.agent import ClinicAgent
+from clinic_agent import heartbeat
 from clinic_agent.call_limit import end_after
-from clinic_agent.call_record import CallRecorder, stack_of
+from clinic_agent.call_setup import ClinicPaused, LineOff, prepare
 from clinic_agent.config import ConfigError, load_settings, refuse_moved_settings
-from clinic_agent.context import clinic_now, every_clinics_settings, load_clinic, local_clinic
+from clinic_agent.context import every_clinics_settings, local_clinic
 from clinic_agent.dispatch import AGENT_NAME, LANGUAGES, BadDispatch, CallFor, call_from
-from clinic_agent.lines import NAMES, available, line_for
-from clinic_agent.prompts import build_instructions
-from clinic_agent.session import build_session
-from clinic_agent.pauses import wait_for_numbers
+from clinic_agent.lines import NAMES, available
 from clinic_agent.store.db import sessions_for
 from clinic_agent.store.migrations import SchemaOutdated
 from clinic_agent.store.repo import NotFound
-from clinic_agent.tools.booking import ClinicLink, booking_tools
-from clinic_agent.tools.call import end_call_tool
-from clinic_agent.tools.speech import keep_promises
 
 logger = logging.getLogger("clinic-agent")
 
@@ -94,59 +87,36 @@ async def entrypoint(ctx: JobContext) -> None:
 
     try:
         call = call_from(ctx.job.metadata, fallback=LOCAL_CALL)
-        clinic, time_off, settings = await asyncio.to_thread(load_clinic, cfg, call.clinic_id)
+        # The call itself is put together in call_setup.py, shared with the
+        # admin's typed chat so the two can't drift apart.
+        ready = await prepare(cfg, call, ctx.room.name, text_only=TEXT_ONLY)
     except (BadDispatch, NotFound) as err:
         # Never answer on a guess: a wrong clinic means wrong doctors and
         # wrong bookings; a wrong language means a caller who can't follow.
         logger.error("refusing call in room %s: %s", ctx.room.name, err)
         ctx.shutdown(reason=f"bad dispatch: {err}")
         return
-    if not clinic.active:
+    except ClinicPaused as err:
         # Paused in the admin panel: its call page already says so; a call
         # that got through anyway (an old tab) is not answered.
-        logger.warning("refusing call in room %s: clinic %s is paused", ctx.room.name, clinic.id)
+        logger.warning("refusing call in room %s: %s", ctx.room.name, err)
         ctx.shutdown(reason="clinic paused")
         return
-    cfg = settings.cfg  # the dashboard's settings from here on (call_settings.py)
-    line = line_for(cfg, call.language)
-    try:
-        session = build_session(cfg, line, text_only=TEXT_ONLY)
-    except (ConfigError, ValueError) as err:  # a missing key, or a voice the vendor refuses
+    except LineOff as err:
         # Its key is missing: the call page no longer offers this line, so
         # only a page opened before the worker started can get here.
-        logger.error("refusing call in room %s: the %s line is off: %s", ctx.room.name, NAMES[call.language], err)
+        logger.error("refusing call in room %s: %s", ctx.room.name, err)
         ctx.shutdown(reason=f"line off: {call.language}")
         return
-    logger.info("clinic %s: %s, %s line%s", clinic.id, clinic.name, NAMES[call.language], " (staff test call)" if call.test else "")
-    instructions = build_instructions(clinic, time_off, clinic_now(clinic.timezone), call.language, settings.rules)
-    sessions = sessions_for(cfg.database_url)
-    stack = stack_of(session, line, TEXT_ONLY)
-    record = CallRecorder(sessions, clinic.id, ctx.room.name, stack, call.language, call.test, line)
-    await record.start()
-    record.attach(session)
+    session, record, phrases = ready.session, ready.record, ready.phrases
     ctx.add_shutdown_callback(record.finish)
-
-    wait_for_numbers(session, cfg.min_endpointing_delay, cfg.number_endpointing_delay)
-    # The greeting, fillers and fixed goodbyes, each with its recording for this
-    # voice when an admin has recorded one; anything missing is said live.
-    phrases = await asyncio.to_thread(
-        voice_clips.for_call, sessions, clinic, call.language, None if TEXT_ONLY else session.tts)
-    phrases.on_play = record.clip_played  # the trace notes each line played from a recording
-    link = ClinicLink(
-        clinic.id, clinic.timezone, sessions, call.language, phrases,
-        on_change=record.on_change, on_give_up=record.gave_up,
-    )
-    tools = [*booking_tools(link), end_call_tool(call.language, phrases)]
-    logger.info("starting session: %s", stack)
-    keep_promises(session, [t.info.name for t in tools if t.info.name != "end_call"])
     # record=False: no audio, transcript or trace goes to LiveKit Cloud, whatever
-    # the project's setting says. Our own record (above) keeps the transcript
+    # the project's setting says. Our own record keeps the transcript
     # as text only; audio is never stored anywhere.
-    agent = ClinicAgent(instructions, tools, phrases, call.language, settings.greeting_interruptible)
-    await session.start(agent=agent, room=ctx.room, record=False)
+    await session.start(agent=ready.agent, room=ctx.room, record=False)
 
     limit = asyncio.create_task(end_after(
-        session, ctx, cfg.max_call_minutes * 60, phrases.one("goodbye_time_limit", call.language),
+        session, ctx, ready.cfg.max_call_minutes * 60, phrases.one("goodbye_time_limit", call.language),
         on_limit=lambda: record.mark("time_limit"),
     ))
 

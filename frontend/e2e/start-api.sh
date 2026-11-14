@@ -69,4 +69,5 @@ with sessions_for(load_settings().database_url)() as s:
     ], [{"t_ms": 0, "role": "caller", "text": "पार्किंग है क्या?"}])
     call(timedelta(minutes=20), "", [], [], finished=False)  # past the time limit, still today
 PY
-exec uv run python -m api
+# The real API, with the brain scripted for Admin > Try (backend/tests/e2e_api.py).
+exec uv run python -m tests.e2e_api

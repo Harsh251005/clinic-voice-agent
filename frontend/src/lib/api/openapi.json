@@ -4208,6 +4208,80 @@
         "title": "Translated",
         "type": "object"
       },
+      "TryChat": {
+        "description": "An admin's typed chat with a clinic's receptionist (the brain only).",
+        "properties": {
+          "call_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Call Id"
+          },
+          "clinic_id": {
+            "title": "Clinic Id",
+            "type": "integer"
+          },
+          "end_reason": {
+            "title": "End Reason",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptItem"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "next": {
+            "title": "Next",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "replying",
+              "waiting",
+              "ended"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "clinic_id",
+          "call_id",
+          "status",
+          "end_reason",
+          "lines",
+          "next"
+        ],
+        "title": "TryChat",
+        "type": "object"
+      },
+      "TryChatMessage": {
+        "properties": {
+          "text": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TryChatMessage",
+        "type": "object"
+      },
       "UsedKind": {
         "description": "What calls were counted in: a price must name this vendor, model and unit\n(or leave the model blank) to cover them.",
         "properties": {
@@ -4788,6 +4862,37 @@
       }
     },
     "/api/admin/calls/{call_id}": {
+      "delete": {
+        "description": "Erase a finished test call (a typed chat, or anyone's test call) with\nevery booking, cancellation and move it made. Patients' calls can't be.",
+        "operationId": "erase_test_call_api_admin_calls__call_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "call_id",
+            "required": true,
+            "schema": {
+              "title": "Call Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Erase Test Call"
+      },
       "get": {
         "operationId": "call_trace_api_admin_calls__call_id__get",
         "parameters": [
@@ -5088,6 +5193,46 @@
           }
         },
         "summary": "Save Clinic"
+      }
+    },
+    "/api/admin/clinics/{clinic_id}/try/chat": {
+      "post": {
+        "description": "Start a typed chat with this clinic's receptionist. She greets first.",
+        "operationId": "start_chat_api_admin_clinics__clinic_id__try_chat_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clinic_id",
+            "required": true,
+            "schema": {
+              "title": "Clinic Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TryChat"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Chat"
       }
     },
     "/api/admin/cost-settings": {
@@ -6065,6 +6210,164 @@
           }
         },
         "summary": "Save"
+      }
+    },
+    "/api/admin/try/chats/{chat_id}": {
+      "delete": {
+        "description": "Hang up, as a caller would. Its record is written before this answers.",
+        "operationId": "end_chat_api_admin_try_chats__chat_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "chat_id",
+            "required": true,
+            "schema": {
+              "title": "Chat Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TryChat"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Chat"
+      },
+      "get": {
+        "description": "The chat now: whether she is answering, and every line from `after`\non (the page asks again while she answers, so tools show as they run).",
+        "operationId": "chat_state_api_admin_try_chats__chat_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "chat_id",
+            "required": true,
+            "schema": {
+              "title": "Chat Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TryChat"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Chat State"
+      }
+    },
+    "/api/admin/try/chats/{chat_id}/messages": {
+      "post": {
+        "description": "Type one caller turn. Answers at once; her reply arrives in the chat's state.",
+        "operationId": "say_api_admin_try_chats__chat_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "chat_id",
+            "required": true,
+            "schema": {
+              "title": "Chat Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TryChatMessage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TryChat"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Say"
       }
     },
     "/api/admin/voice": {

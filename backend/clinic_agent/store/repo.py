@@ -865,6 +865,13 @@ def replace_model_prices(s: Session, remove: Iterable[int], add: Iterable[dict])
 # ---------- health ----------
 
 CONSOLE_ROOM = "console"  # LiveKit's local console: a developer's test, not a patient's call
+CHAT_ROOM = "chat-"  # an admin's typed chat (clinic_agent/chats.py): its "room" name starts so; no LiveKit room exists
+
+
+def in_livekit(room: str) -> bool:
+    """Whether a call in this room went through LiveKit (and spent its
+    minutes): every call but the local console and an admin's typed chat."""
+    return room != CONSOLE_ROOM and not room.startswith(CHAT_ROOM)
 
 
 def beat(s: Session, worker: str, host: str, languages: Iterable[str], now: datetime) -> None:
@@ -980,9 +987,10 @@ def calls_started_since(s: Session, since: datetime) -> list[Call]:
 
 
 def patient_calls_since(s: Session, since: datetime, *, with_tests: bool = False) -> list[Call]:
-    """Calls from patients (not the developer console) started since then;
-    staff's test calls too only `with_tests` (they spend LiveKit minutes)."""
-    q = select(Call).where(Call.started_at >= since, Call.room != CONSOLE_ROOM)
+    """Calls from patients (not the developer console, not an admin's typed
+    chat: neither went through the worker) started since then; staff's test
+    calls too only `with_tests` (they spend LiveKit minutes)."""
+    q = select(Call).where(Call.started_at >= since, Call.room != CONSOLE_ROOM, Call.room.not_like(f"{CHAT_ROOM}%"))
     return list(s.scalars(q if with_tests else q.where(Call.test.is_(False))))
 
 

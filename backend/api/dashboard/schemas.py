@@ -376,6 +376,31 @@ class TranscriptReason(BaseModel):
     reason: str = Field(min_length=5, max_length=300)
 
 
+# ---------- Admin > Try ----------
+
+class TryChat(BaseModel):
+    """An admin's typed chat with a clinic's receptionist (the brain only)."""
+    id: str
+    clinic_id: int
+    call_id: int | None  # its test-call record; None if the record could not be opened
+    # replying: she is answering (the greeting too); waiting: your turn; ended: over
+    status: Literal["replying", "waiting", "ended"]
+    end_reason: str  # "" until it ends: agent_ended | caller_left | time_limit | shutdown | error
+    lines: list[TranscriptItem]  # from `after` on: what was said, each tool with its arguments and answer, errors
+    next: int  # pass as `after` to get only what is new
+
+
+class TryChatMessage(BaseModel):
+    text: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("text")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Type something first.")
+        return v
+
+
 # ---------- a clinic's own calls ----------
 
 class ClinicCallChange(BaseModel):

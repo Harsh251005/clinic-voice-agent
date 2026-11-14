@@ -47,6 +47,7 @@ src/app/                         routes
   clinics/[clinicId]/setup
   new-clinic/                    admins only
   admin/                         the operator's admin panel (admins only): health, calls, errors, clinics
+  admin/try/                     try any clinic's receptionist: a typed chat with her brain (components/admin/try/)
 src/components/app/              app pieces: shell, gates (no access, errors), account menu + sign-out dialog, brand
 src/components/auth/             the signed-out look: dark canvas, glass cards, the sign-in card, and the
                                  four tiles saying what ClinicDesk does (offering.tsx: built features only)
@@ -60,6 +61,7 @@ src/components/ui/               shadcn/ui components (ours to edit)
 src/lib/api/                     typed API client, generated schema
 src/lib/queries.ts               data hooks (TanStack Query)
 src/lib/admin.ts                 admin panel hooks and the words for outcomes, end reasons, timings
+src/lib/try.ts                   Admin > Try: the typed chat's state, kept in step with the API
 src/lib/dates.ts                 clinic-local dates; 12-hour times for everything staff read
 src/lib/clinic-day.ts            open now?, who's in today, setup checklist
 src/lib/clinic-now.ts            the clinic's ticking clock; useWide() picks the phone or desk layout

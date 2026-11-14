@@ -13,9 +13,14 @@ One concern per module. **†** = Harsh's ruling (`docs/rulings.md`).
   dispatch: `--clinic N` (or the only clinic), stripped from argv before
   LiveKit's CLI; the old `--language` is refused. `console --text` sets
   `TEXT_ONLY`: LLM-only session, manual turns, speech keys not checked.
-- Each job: `context.load_clinic` (off the event loop) → instructions →
-  session → `ClinicAgent` → `call_limit.end_after` (`max_call_minutes`),
-  cancelled on shutdown. Boot tries the line; no worker checked in for it =
+- Each job: `call_setup.prepare` (clinic off the event loop → settings →
+  session → instructions → record → phrases → tools → `ClinicAgent`) →
+  `call_limit.end_after` (`max_call_minutes`), cancelled on shutdown.
+  **`prepare` is the only place a call is put together**: the worker and
+  the admin's typed chat (`chats.py`, in the API process) both use it, so
+  a chat can't drift from a call. Change call behaviour there, never in
+  one caller. Chat rooms start `repo.CHAT_ROOM`: no LiveKit minutes
+  (`repo.in_livekit`), not a worker's call (`patient_calls_since`). Boot tries the line; no worker checked in for it =
   critical `language_off`.
 - `call_settings.merge` lays `system_settings` and the clinic's row over
   `.env` into a plain `Settings` (+ rules text, greeting switch). Read at

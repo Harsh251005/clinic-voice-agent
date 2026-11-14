@@ -5,7 +5,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, AudioLines, Building2, Headset, IndianRupee, LayoutDashboard, PhoneCall, ShieldAlert, TriangleAlert, FlaskConical } from "lucide-react";
+import { Activity, AudioLines, Building2, Headset, IndianRupee, LayoutDashboard, PhoneCall, ShieldAlert, TriangleAlert, FlaskConical, MessagesSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAdminProblems, useMe, useSeenProblem } from "@/lib/queries";
@@ -24,6 +24,7 @@ const PAGES = [
   { href: "/admin/clinics", label: "Clinics", icon: Building2 },
   { href: "/admin/receptionist", label: "Receptionist", short: "Agent", icon: Headset },
   { href: "/admin/voice", label: "Voice", icon: AudioLines },
+  { href: "/admin/try", label: "Try", icon: MessagesSquare },
 ] as const;
 
 function isCurrent(pathname: string, href: string) {
@@ -116,7 +117,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         {login !== "off" && <AccountMenu email={email} role="Admin" tone="ops" compact />}
       </header>
       <nav aria-label="Admin pages"
-        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-7 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-8 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         {PAGES.map(({ href, label, short, icon: Icon }: { href: string; label: string; short?: string; icon: typeof Activity }) => {
           const on = isCurrent(pathname, href);
           return (

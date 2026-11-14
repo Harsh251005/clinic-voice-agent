@@ -6,6 +6,7 @@ model - what gets spoken, when the call ends - never the model's judgement
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -22,9 +23,10 @@ class Reply:
 
 
 class FakeLLM(llm.LLM):
-    def __init__(self, replies: list[Reply]) -> None:
+    def __init__(self, replies: list[Reply], delay: float = 0) -> None:
         super().__init__()
         self.replies = list(replies)
+        self.delay = delay  # seconds each reply takes to start, as a real model's does
         self.requests: list[llm.ChatContext] = []
 
     def chat(
@@ -48,6 +50,8 @@ class _Stream(llm.LLMStream):
         self._reply = reply
 
     async def _run(self) -> None:
+        if self._llm.delay:
+            await asyncio.sleep(self._llm.delay)
         rid = shortuuid()
         if self._reply.text:
             self._event_ch.send_nowait(llm.ChatChunk(

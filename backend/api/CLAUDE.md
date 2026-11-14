@@ -31,5 +31,11 @@ pinned with SRI.
   out of counts and problems (not LiveKit minutes). `DELETE
   …/calls/{id}` erases a finished one via `repo.erase_test_call` (all or
   nothing; moves record `undo`). Patients' calls are never erasable.
+- **Admin > Try** (`try_it.py`, page `/admin/try`): an admin's typed chat
+  with any clinic's receptionist, held in this process (`app.state.chats`,
+  `clinic_agent/chats.py`): brain only, no worker. A real test call (books
+  for real, room `chat-…`); the page reads `record.transcript` as it grows.
+  `DELETE /api/admin/calls/{id}` erases any finished test call. An API
+  restart ends open chats. Tests enter `with client:` (one event loop).
 - Voice model + speaker are saved and checked together: a pair the vendor
   refuses is a 422.

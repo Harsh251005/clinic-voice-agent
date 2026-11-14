@@ -250,6 +250,44 @@ never be erased, and a test call can't be while it's still going.
 transaction: all or none. The Talk to receptionist tab shows "N test calls
 on record" with that button whenever there are any.
 
+### Admin > Try: an admin chats with any clinic's receptionist
+
+`/admin/try` (also *Try her* on each clinic's admin page). An admin picks a
+clinic and **types as the caller**; she answers in text. No account switch,
+no worker, no LiveKit minutes, no hearing or voice: only the brain is paid
+for (every turn spends its credits).
+
+- **It is the real receptionist.** A call is put together in one place,
+  `clinic_agent/call_setup.py`; the worker and the chat
+  (`clinic_agent/chats.py`) both use it, so the rules, clinic details,
+  model, settings, tools, booking code and record are the same. What a chat
+  can't show is sound: mis-hearing, voice, pace, interruptions.
+- **It is a real test call.** It books, moves and cancels for real in that
+  clinic's diary, is marked `test`, and is recorded by the same
+  `CallRecorder` (stack `text · <brain>/<model>`, room `chat-…`). It is kept
+  out of LiveKit minutes and out of "calls work again" checks: it never went
+  through the worker.
+- **The admin sees every step as it happens**: what was said, each tool with
+  what she sent and what came back, vendor errors. That is the chat's own
+  record as it grows. After it ends: what it changed, its cost, a link to
+  its trace, and Erase.
+- Chats live in the API server's memory: at most 3 at once; a chat ends on
+  `end_call`, the clinic's longest call, 10 quiet minutes, *End chat*,
+  leaving the page, or the server stopping. **An API restart ends open
+  chats**; their records stay and can be erased.
+
+| Route (admins only) | |
+|---|---|
+| `POST /api/admin/clinics/{id}/try/chat` | start; she greets first. 409 if the clinic is paused, the brain's key is missing, or 3 chats are going |
+| `POST /api/admin/try/chats/{chat}/messages` | one typed turn (202); her reply arrives in the chat's state |
+| `GET /api/admin/try/chats/{chat}?after=N` | status (`replying`, `waiting`, `ended`) and every line from N on |
+| `DELETE /api/admin/try/chats/{chat}` | hang up; its record is written before this answers |
+| `DELETE /api/admin/calls/{id}` | erase a finished test call with everything it changed; never a patient's call |
+
+The saved transcript of a try opens afterwards like any other: with a
+logged reason. The dashboard's end-to-end tests run the real API with a
+scripted brain (`tests/e2e_api.py`), so no vendor is called.
+
 ## Admin panel (the operator)
 
 `/admin` in the dashboard, for `ADMIN_EMAILS` only (`/api/admin/*`,
