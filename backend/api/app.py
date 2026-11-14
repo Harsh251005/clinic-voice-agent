@@ -23,6 +23,7 @@ from api.limits import RateLimiter
 from api.dashboard.voice import voice_of
 from api.passes import call_pass, offered
 from clinic_agent import incidents
+from clinic_agent.chats import Chats
 from clinic_agent.config import ConfigError, Settings, load_settings, require_key
 from clinic_agent.dispatch import Language
 from clinic_agent.store import repo
@@ -101,13 +102,17 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
         tasks = [
             asyncio.create_task(_purge_forever(sessions)),
             asyncio.create_task(_watch_forever(app)),
+            asyncio.create_task(app.state.chats.watch()),  # ends typed chats nobody is typing in
         ]
         yield
         for task in tasks:
             task.cancel()
+        await app.state.chats.close()  # an admin's open chats: write their records
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.cfg, app.state.sessions = cfg, sessions
+    # Admin > Try's typed chats live in this process (clinic_agent/chats.py).
+    app.state.chats = Chats(cfg)
     # "GET /api/x" of every route with an open server error: when one answers
     # again without one, its problem closes (incidents.route_works).
     app.state.failing_routes = set()

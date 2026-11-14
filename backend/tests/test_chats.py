@@ -149,3 +149,14 @@ async def test_a_chat_and_a_call_get_the_same_instructions_and_tools(clinic, bra
     assert names(as_call) == names(as_chat) and "end_call" in names(as_call)
     for ready in (as_call, as_chat):
         await ready.session.aclose()
+
+
+async def test_a_promise_without_a_tool_is_followed_through_before_your_turn(clinic, brain):
+    """She says she'll check and calls nothing: the code makes her call the
+    tool (tools/speech.keep_promises), and the chat waits for that too."""
+    brain(Reply("एक सेकंड, मैं चेक करके बताती हूँ।"), Reply(calls=[CHECK]), Reply("पाँच बजे खाली है।"))
+    chat = await Chats(load_settings()).start(clinic)
+    chat.send("कल पाँच बजे?")
+    await settled(chat)
+    assert [line["role"] for line in chat.lines[1:]] == ["caller", "agent", "tool", "agent"]
+    await chat.end()

@@ -7,7 +7,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, ArrowLeft, PhoneCall, Settings2, Trash2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, MessagesSquare, PhoneCall, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,7 @@ export default function AdminClinicPage() {
               <ActiveBadge active={c.active} />
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button variant="outline" asChild><Link href={`/admin/try?clinic=${c.id}`}><MessagesSquare /> Try her</Link></Button>
               <Button variant="outline" asChild><Link href={`/admin/calls?clinic=${c.id}`}><PhoneCall /> Its calls</Link></Button>
               <Button variant="outline" asChild><Link href={`/clinics/${c.id}/setup`}><Settings2 /> Doctors, hours &amp; details</Link></Button>
             </div>

@@ -54,7 +54,12 @@ export interface paths {
         get: operations["call_trace_api_admin_calls__call_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Erase Test Call
+         * @description Erase a finished test call (a typed chat, or anyone's test call) with
+         *     every booking, cancellation and move it made. Patients' calls can't be.
+         */
+        delete: operations["erase_test_call_api_admin_calls__call_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -150,6 +155,26 @@ export interface paths {
          */
         put: operations["save_clinic_api_admin_clinics__clinic_id__receptionist_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/clinics/{clinic_id}/try/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Chat
+         * @description Start a typed chat with this clinic's receptionist. She greets first.
+         */
+        post: operations["start_chat_api_admin_clinics__clinic_id__try_chat_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -472,6 +497,51 @@ export interface paths {
          */
         put: operations["save_api_admin_receptionist_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/try/chats/{chat_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Chat State
+         * @description The chat now: whether she is answering, and every line from `after`
+         *     on (the page asks again while she answers, so tools show as they run).
+         */
+        get: operations["chat_state_api_admin_try_chats__chat_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * End Chat
+         * @description Hang up, as a caller would. Its record is written before this answers.
+         */
+        delete: operations["end_chat_api_admin_try_chats__chat_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/try/chats/{chat_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say
+         * @description Type one caller turn. Answers at once; her reply arrives in the chat's state.
+         */
+        post: operations["say_api_admin_try_chats__chat_id__messages_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2910,6 +2980,34 @@ export interface components {
             text: string;
         };
         /**
+         * TryChat
+         * @description An admin's typed chat with a clinic's receptionist (the brain only).
+         */
+        TryChat: {
+            /** Call Id */
+            call_id: number | null;
+            /** Clinic Id */
+            clinic_id: number;
+            /** End Reason */
+            end_reason: string;
+            /** Id */
+            id: string;
+            /** Lines */
+            lines: components["schemas"]["TranscriptItem"][];
+            /** Next */
+            next: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "replying" | "waiting" | "ended";
+        };
+        /** TryChatMessage */
+        TryChatMessage: {
+            /** Text */
+            text: string;
+        };
+        /**
          * UsedKind
          * @description What calls were counted in: a price must name this vendor, model and unit
          *     (or leave the model blank) to cover them.
@@ -3165,6 +3263,35 @@ export interface operations {
             };
         };
     };
+    erase_test_call_api_admin_calls__call_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     open_transcript_api_admin_calls__call_id__transcript_post: {
         parameters: {
             query?: never;
@@ -3345,6 +3472,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClinicReceptionistOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_chat_api_admin_clinics__clinic_id__try_chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clinic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TryChat"];
                 };
             };
             /** @description Validation Error */
@@ -4133,6 +4291,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_state_api_admin_try_chats__chat_id__get: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                chat_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TryChat"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_chat_api_admin_try_chats__chat_id__delete: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                chat_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TryChat"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    say_api_admin_try_chats__chat_id__messages_post: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                chat_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TryChatMessage"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TryChat"];
                 };
             };
             /** @description Validation Error */

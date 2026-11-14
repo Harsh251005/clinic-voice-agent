@@ -118,6 +118,8 @@ class Chat:
         try:
             async with http_context.open():
                 session.on("close", lambda _ev: self._inbox.put_nowait(_CLOSED))
+                speaking: set = set()  # everything she says, to know when she has finished
+                session.on("speech_created", lambda ev: speaking.add(ev.speech_handle))
                 await session.start(self.ready.agent, capture_run=True)  # she speaks first: the greeting
                 limit = asyncio.create_task(end_after(
                     session, _NoRoom(record.room, session), self.ready.cfg.max_call_minutes * 60,
@@ -135,6 +137,7 @@ class Chat:
                         break
                     try:
                         await session.run(user_input=item)
+                        await _finished(speaking)
                     except Exception:  # noqa: BLE001 - the record has the error; the chat goes on or closes
                         logger.exception("chat %s: a turn failed", self.id)
                     self.replying = False
@@ -153,6 +156,23 @@ class Chat:
             await record.finish()
             self.ended, self.replying = True, False
             self.used = time.monotonic()
+
+
+async def _finished(speaking: set) -> None:
+    """Wait until she has nothing left to say. A turn's run ends with her
+    reply, but the code may then make her speak again (a promised check she
+    didn't make: tools/speech.keep_promises), and that follow-up starts only
+    once the reply is done: so look again after each wait, twice quiet."""
+    quiet = 0
+    while quiet < 2:
+        await asyncio.sleep(0)
+        going = [h for h in speaking if not h.done()]
+        if going:
+            quiet = 0
+            await asyncio.wait([asyncio.ensure_future(h) for h in going])
+        else:
+            quiet += 1
+    speaking.clear()
 
 
 class Chats:
@@ -185,6 +205,9 @@ class Chats:
             return self._chats[chat_id]
         except KeyError:
             raise NoSuchChat(chat_id) from None
+
+    def all(self) -> list[Chat]:
+        return list(self._chats.values())
 
     def forget_call(self, call_id: int) -> None:
         """Its record was erased: nothing left to read."""
