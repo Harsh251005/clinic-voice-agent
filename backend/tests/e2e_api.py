@@ -23,5 +23,7 @@ SCRIPT = [
     Reply(calls=[("end_call", {"goodbye": "धन्यवाद, नमस्ते।"})]),
 ]
 
-call_setup.build_session = lambda cfg, line, text_only=False: AgentSession(llm=FakeLLM(SCRIPT))
+# Each reply takes a moment, as a real model's does: the page has to keep
+# asking until she has answered (it once stopped after the first ask).
+call_setup.build_session = lambda cfg, line, text_only=False: AgentSession(llm=FakeLLM(SCRIPT, delay=0.7))
 runpy.run_module("api", run_name="__main__")

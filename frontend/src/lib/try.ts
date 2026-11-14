@@ -30,6 +30,7 @@ export function useTryChat(clinicId: number | null) {
   const [callId, setCallId] = useState<number | null>(null);
   const [endReason, setEndReason] = useState("");
   const [error, setError] = useState("");
+  const [asked, setAsked] = useState(0); // counts answers, so the next ask follows even one that changed nothing
   const chatId = useRef<string | null>(null);
   const next = useRef(0); // how many lines the page already has
 
@@ -65,9 +66,10 @@ export function useTryChat(clinicId: number | null) {
       } catch (err) {
         if (chatId.current === id) lost(err);
       }
+      setAsked((n) => n + 1);
     }, status === "replying" ? WHILE_REPLYING_MS : WHILE_WAITING_MS);
     return () => clearTimeout(timer);
-  }, [status, lines, take, lost]);
+  }, [status, asked, take, lost]);
 
   const hangUp = useCallback((id: string) =>
     unwrap(api.DELETE("/api/admin/try/chats/{chat_id}", { params: { path: { chat_id: id }, query: { after: next.current } } })), []);
